@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CARS 拍頻遊樂場 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+    --as: #b18cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  canvas { background: var(--panel); border-radius: 12px; display: block; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px; max-width: 320px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit;
+  }
+  .presets button.on { color: var(--bg); background: var(--ref); border-color: var(--ref); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>CARS 拍頻遊樂場 🦉</h1>
+<p class="sub">
+  兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後產生的<b>拍頻</b>
+  <code>Δ = ω_p − ω_s</code> 才是真正推分子的那隻手。當 Δ 對上化學鍵振動頻率 Ω，
+  整片分子像被準時推的鞦韆一起盪起來，訊號跑到 <code>ω_as = 2ω_p − ω_s</code>——
+  比 pump 更藍，天生避開螢光。
+</p>
+<div class="wrap">
+  <div class="stack">
+    <canvas id="beat" width="560" height="220"></canvas>
+    <canvas id="spec" width="560" height="220"></canvas>
+    <canvas id="scan" width="560" height="220"></canvas>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label>拍頻 Δ（拉曼位移） <output id="dOut">2000 cm⁻¹</output></label>
+      <input type="range" id="delta" min="0" max="3500" step="5" value="2000">
+    </div>
+    <div class="ctl">
+      <label>分子振動 Ω <output id="omOut">2845 cm⁻¹</output></label>
+      <div class="presets" id="presets"></div>
+    </div>
+    <div class="ctl">
+      <label>線寬 Γ <output id="gOut">10 cm⁻¹</output></label>
+      <input type="range" id="gamma" min="5" max="50" step="1" value="10">
+    </div>
+    <div class="ctl">
+      <label>非共振背景 χ<sub>NR</sub> <output id="nrOut">0.30</output></label>
+      <input type="range" id="nr" min="0" max="1" step="0.02" value="0.3">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="anim" checked>
+      <label for="anim">動畫：讓兩道波往前跑，看拍包絡滾動</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：把 Δ 拉到 0，兩束同色、差頻為零，包絡整條攤平——推不動鞦韆，沒有訊號。
+      把 Δ 對到 Ω（例如脂質 2845 cm⁻¹），整片分子同步振動，訊號 ∝ N²（同調疊加）而且往前方射出，
+      比自發拉曼亮好幾個數量級。產生的 anti-Stokes 落在比 pump 更藍的一側，天然避開紅側的螢光背景。
+      但把 χ<sub>NR</sub> 拉大就會看到代價：非共振背景與共振項干涉，譜形變成不對稱的色散線型、
+      高波數側出現凹陷，峰位也偏移——這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。
+      Γ ≈ 10 cm⁻¹ 正是 ps 雷射線寬與化學鍵線寬互相匹配的甜蜜點。
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'),
+            ref: css('--ref'), grid: css('--grid'), as: css('--as'), panel: css('--panel') };
+
+const bctx = $('beat').getContext('2d');
+const sctx = $('spec').getContext('2d');
+const nctx = $('scan').getContext('2d');
+
+const LP = 800;               // pump 波長 (nm), 固定
+const WP = 1e7 / LP;          // pump 波數 = 12500 cm⁻¹
+const DMAX = 3500;
+const LMIN = 550, LMAX = 1150;
+
+const PRESETS = [
+  { name: '脂質 CH₂ 2845', om: 2845 },
+  { name: '水 O–H 3400', om: 3400 },
+  { name: 'C=C 1650', om: 1650 },
+  { name: '苯環呼吸 1000', om: 1000 },
+];
+let omega = 2845;
+
+// —— 物理 ——
+const lamS  = D => 1 / (1 / LP - D * 1e-7);          // 1/λ[nm]·1e7 = cm⁻¹
+const lamAS = ls => 1 / (2 / LP - 1 / ls);           // ω_as = 2ω_p − ω_s
+const lorentz = (D, om, g) => g / Math.hypot(om - D, g);   // |A(Δ)|，峰值歸一
+
+function iCars(D, om, g, nr) {                       // |χ_NR + Γ/(Ω−Δ−iΓ)|²
+  const d = om - D, den = d * d + g * g;
+  const re = nr + g * d / den;
+  const im = g * g / den;
+  return re * re + im * im;
+}
+
+function scanCurve(om, g, nr, n = 700) {
+  const res = [], pure = [];
+  let max = 0;
+  for (let i = 0; i <= n; i++) {
+    const D = DMAX * i / n;
+    const v = iCars(D, om, g, nr);
+    res.push(v); pure.push(iCars(D, om, g, 0));
+    if (v > max) max = v;
+  }
+  return { res, pure, max, n };
+}
+
+// —— 1. 拍頻 ——
+function drawBeat(D, om, g, t) {
+  const cv = $('beat'), w = cv.width, h = cv.height;
+  bctx.clearRect(0, 0, w, h);
+  const mL = 12, pw = w - 24;
+  const np = 14;                          // pump 畫 14 個週期（示意）
+  const nb = 6 * D / DMAX;                // 拍的個數：正比於 Δ，放大以利觀察
+  const ns = np - nb;
+  const vp = np * 0.05, vs = ns * 0.05;   // 同相速 → 包絡也會滾動
+
+  bctx.font = '11px sans-serif';
+  bctx.textAlign = 'left';
+
+  // 上：pump + Stokes
+  const y1 = 42, a1 = 20;
+  bctx.strokeStyle = C.grid; bctx.lineWidth = 1;
+  bctx.beginPath(); bctx.moveTo(mL, y1); bctx.lineTo(mL + pw, y1); bctx.stroke();
+  const wave = (cycles, vel, yc, amp, color, dash) => {
+    bctx.strokeStyle = color; bctx.lineWidth = 1.6;
+    bctx.setLineDash(dash ? [4, 4] : []);
+    bctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const u = i / pw;
+      const y = yc - amp * Math.cos(2 * Math.PI * (cycles * u - vel * t));
+      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    }
+    bctx.stroke(); bctx.setLineDash([]);
+  };
+  wave(np, vp, y1, a1, C.accent, false);
+  wave(ns, vs, y1, a1, C.ref, true);
+  bctx.fillStyle = C.accent; bctx.fillText('pump 800 nm', mL + 2, 14);
+  bctx.fillStyle = C.ref;    bctx.fillText('Stokes ' + lamS(D).toFixed(0) + ' nm', mL + 96, 14);
+  bctx.fillStyle = C.muted;  bctx.textAlign = 'right';
+  bctx.fillText('波形為示意（拍頻已放大）', mL + pw, 14);
+  bctx.textAlign = 'left';
+
+  // 中：相加 + 包絡
+  const y2 = 118, a2 = 15;
+  bctx.strokeStyle = C.grid;
+  bctx.beginPath(); bctx.moveTo(mL, y2); bctx.lineTo(mL + pw, y2); bctx.stroke();
+  const env = u => 2 * Math.cos(Math.PI * (nb * u - (vp - vs) * t));
+  bctx.strokeStyle = C.muted; bctx.lineWidth = 1; bctx.setLineDash([3, 3]);
+  for (const sgn of [1, -1]) {
+    bctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const u = i / pw, y = y2 - sgn * a2 * Math.abs(env(u));
+      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    }
+    bctx.stroke();
+  }
+  bctx.setLineDash([]);
+  bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
+  bctx.beginPath();
+  for (let i = 0; i <= pw; i++) {
+    const u = i / pw;
+    const s = Math.cos(2 * Math.PI * (np * u - vp * t)) + Math.cos(2 * Math.PI * (ns * u - vs * t));
+    const y = y2 - a2 * s;
+    i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+  }
+  bctx.stroke();
+  bctx.fillStyle = C.ink; bctx.fillText('兩束相加：拍包絡', mL + 2, y2 - 34);
+  if (D < 30) {
+    bctx.fillStyle = C.ref;
+    bctx.textAlign = 'center';
+    bctx.fillText('同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 34);
+    bctx.textAlign = 'left';
+  }
+
+  // 下：被驅動的分子振動
+  const y3 = 190, A = lorentz(D, om, g);
+  bctx.strokeStyle = C.grid; bctx.lineWidth = 1;
+  bctx.beginPath(); bctx.moveTo(mL, y3); bctx.lineTo(mL + pw, y3); bctx.stroke();
+  bctx.strokeStyle = C.as; bctx.lineWidth = 2;
+  bctx.beginPath();
+  for (let i = 0; i <= pw; i++) {
+    const u = i / pw;
+    const y = y3 - 24 * A * Math.cos(2 * Math.PI * (nb * u - (vp - vs) * t));
+    i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+  }
+  bctx.stroke();
+  bctx.fillStyle = C.as;
+  bctx.fillText('分子振動（被拍頻驅動） |A| = ' + (A * 100).toFixed(0) + '%', mL + 2, y3 - 26);
+}
+
+// —— 2. 光譜 ——
+let asDisp = 0;
+function drawSpec(D, rel) {
+  const cv = $('spec'), w = cv.width, h = cv.height;
+  sctx.clearRect(0, 0, w, h);
+  const mL = 40, mR = 14, mT = 26, mB = 30;
+  const pw = w - mL - mR, ph = h - mT - mB, base = mT + ph;
+  const X = l => mL + pw * (l - LMIN) / (LMAX - LMIN);
+
+  // 螢光背景（pump 紅側）
+  const gx = sctx.createLinearGradient(X(LP), 0, X(LMAX), 0);
+  gx.addColorStop(0, 'rgba(255,184,108,0.18)');
+  gx.addColorStop(1, 'rgba(255,184,108,0.02)');
+  sctx.fillStyle = gx;
+  sctx.fillRect(X(LP), mT, X(LMAX) - X(LP), ph);
+
+  sctx.strokeStyle = C.grid; sctx.lineWidth = 1;
+  sctx.beginPath(); sctx.moveTo(mL, base); sctx.lineTo(mL + pw, base); sctx.stroke();
+  sctx.font = '11px sans-serif'; sctx.textAlign = 'center';
+  for (let l = 600; l <= 1100; l += 100) {
+    sctx.fillStyle = C.muted;
+    sctx.beginPath(); sctx.moveTo(X(l), base); sctx.lineTo(X(l), base + 4); sctx.stroke();
+    sctx.fillText(l, X(l), base + 17);
+  }
+  sctx.fillStyle = C.muted;
+  sctx.fillText('波長 (nm)', mL + pw / 2, h - 3);
+  sctx.fillStyle = 'rgba(255,184,108,0.75)';
+  sctx.fillText('螢光背景（紅側）', X(LP) + (X(LMAX) - X(LP)) / 2, mT + 16);
+
+  const line = (l, frac, color, label, lw) => {
+    if (l < LMIN || l > LMAX) return;
+    const x = X(l), y = base - ph * 0.86 * frac;
+    sctx.strokeStyle = color; sctx.lineWidth = lw;
+    sctx.beginPath(); sctx.moveTo(x, base); sctx.lineTo(x, y); sctx.stroke();
+    sctx.fillStyle = color;
+    sctx.fillText(label, x, y - 6);
+  };
+  const ls = lamS(D), las = lamAS(ls);
+  line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
+  line(LP, 0.72, C.accent, 'pump 800', 3);
+  line(las, asDisp, C.as, 'anti-Stokes ' + las.toFixed(0), 3);
+  sctx.textAlign = 'left';
+  sctx.fillStyle = C.muted;
+  sctx.fillText('偵測窗（更藍側，避開螢光）', mL + 2, 14);
+  sctx.save();
+  sctx.translate(13, mT + ph / 2 + 34); sctx.rotate(-Math.PI / 2);
+  sctx.fillText('強度（a.u.）', 0, 0);
+  sctx.restore();
+}
+
+// —— 3. 失諧掃描 ——
+function drawScan(D, om, g, nr, cur) {
+  const cv = $('scan'), w = cv.width, h = cv.height;
+  nctx.clearRect(0, 0, w, h);
+  const mL = 44, mR = 14, mT = 22, mB = 32;
+  const pw = w - mL - mR, ph = h - mT - mB, base = mT + ph;
+  const X = d => mL + pw * d / DMAX;
+  const Y = v => base - ph * 0.9 * v;
+
+  nctx.strokeStyle = C.grid; nctx.lineWidth = 1;
+  nctx.font = '11px sans-serif'; nctx.textAlign = 'center';
+  for (let d = 0; d <= DMAX; d += 500) {
+    nctx.beginPath(); nctx.moveTo(X(d), mT); nctx.lineTo(X(d), base); nctx.stroke();
+    nctx.fillStyle = C.muted; nctx.fillText(d, X(d), base + 16);
+  }
+  for (let k = 0; k <= 4; k++) {
+    const y = base - ph * 0.9 * k / 4;
+    nctx.beginPath(); nctx.moveTo(mL, y); nctx.lineTo(mL + pw, y); nctx.stroke();
+    nctx.textAlign = 'right'; nctx.fillStyle = C.muted;
+    nctx.fillText((k / 4).toFixed(2), mL - 6, y + 4);
+    nctx.textAlign = 'center';
+  }
+  nctx.fillStyle = C.muted;
+  nctx.fillText('拍頻 Δ (cm⁻¹)', mL + pw / 2, h - 4);
+  nctx.save();
+  nctx.translate(13, mT + ph / 2 + 40); nctx.rotate(-Math.PI / 2);
+  nctx.fillText('I_CARS（歸一）', 0, 0);
+  nctx.restore();
+
+  const { res, pure, max, n } = cur;
+  const trace = (arr, color, lw, dash) => {
+    nctx.strokeStyle = color; nctx.lineWidth = lw;
+    nctx.setLineDash(dash ? [5, 4] : []);
+    nctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const x = X(DMAX * i / n), y = Y(arr[i] / max);
+      i ? nctx.lineTo(x, y) : nctx.moveTo(x, y);
+    }
+    nctx.stroke(); nctx.setLineDash([]);
+  };
+  trace(pure, C.ref, 1.4, true);
+  trace(res, C.accent, 2.2, false);
+
+  // Ω 標記
+  nctx.strokeStyle = C.as; nctx.lineWidth = 1;
+  nctx.setLineDash([2, 3]);
+  nctx.beginPath(); nctx.moveTo(X(om), mT); nctx.lineTo(X(om), base); nctx.stroke();
+  nctx.setLineDash([]);
+  nctx.fillStyle = C.as; nctx.fillText('Ω=' + om, X(om), mT - 7);
+
+  // 目前 Δ
+  const v = iCars(D, om, g, nr) / max;
+  nctx.fillStyle = C.ink;
+  nctx.beginPath(); nctx.arc(X(D), Y(v), 4.5, 0, 2 * Math.PI); nctx.fill();
+  nctx.textAlign = 'left';
+  nctx.fillStyle = C.accent; nctx.fillText('含 χ_NR 干涉', mL + 4, mT + 12);
+  nctx.fillStyle = C.ref;    nctx.fillText('純共振（χ_NR = 0，虛線）', mL + 4, mT + 26);
+}
+
+// —— 狀態與統計 ——
+function updateStats(D, om, g, cur) {
+  const ls = lamS(D), las = lamAS(ls);
+  const rel = iCars(D, om, g, parseFloat($('nr').value)) / cur.max * 100;
+  $('stats').innerHTML =
+    `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
+    `anti-Stokes λ<sub>as</sub>：<b>${las.toFixed(1)}</b> nm（2ω<sub>p</sub>−ω<sub>s</sub>）<br>` +
+    `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
+    `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
+    `相對 CARS 訊號：<b>${rel.toFixed(1)}</b> %<br>` +
+    `<span style="font-size:0.8rem">訊號 ∝ N²（同調疊加），不是 ∝ N</span>`;
+  return rel / 100;
+}
+
+let time = 0, last = performance.now();
+
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  if ($('anim').checked) time += dt * 6;
+
+  const D = parseFloat($('delta').value);
+  const g = parseFloat($('gamma').value);
+  const nr = parseFloat($('nr').value);
+  $('dOut').textContent = D.toFixed(0) + ' cm⁻¹';
+  $('omOut').textContent = omega + ' cm⁻¹';
+  $('gOut').textContent = g + ' cm⁻¹';
+  $('nrOut').textContent = nr.toFixed(2);
+
+  const cur = scanCurve(omega, g, nr);
+  const target = updateStats(D, omega, g, cur);
+  asDisp += (target - asDisp) * Math.min(1, dt * 8);
+
+  drawBeat(D, omega, g, time);
+  drawSpec(D, asDisp);
+  drawScan(D, omega, g, nr, cur);
+  requestAnimationFrame(frame);
+}
+
+const pbox = $('presets');
+PRESETS.forEach(p => {
+  const b = document.createElement('button');
+  b.textContent = p.name;
+  b.onclick = () => {
+    omega = p.om;
+    [...pbox.children].forEach(c => c.classList.remove('on'));
+    b.classList.add('on');
+  };
+  if (p.om === omega) b.classList.add('on');
+  pbox.appendChild(b);
+});
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
