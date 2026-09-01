@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>反卷積互動實驗台 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  canvas { background: var(--panel); border-radius: 12px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stats .warn { color: var(--ref); }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>反卷積互動實驗台</h1>
+<p class="sub">
+  真值先被高斯 PSF 模糊、再加上光子雜訊，然後用 Richardson–Lucy 疊代往回推：
+  <code>e ← e · (PSF ⊛ [d / (PSF ⊛ e)])</code>。
+  重點不是「疊代越多越好」，而是 <b>半收斂（semi-convergence）</b>——
+  誤差先降後升，過了甜蜜點就開始把雜訊放大成振鈴。
+</p>
+<div class="wrap">
+  <canvas id="cTruth" width="256" height="280"></canvas>
+  <canvas id="cData" width="256" height="280"></canvas>
+  <canvas id="cRest" width="256" height="280"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label>PSF 高斯寬度 σ <output id="sigOut">1.50 px</output></label>
+      <input type="range" id="sigma" min="0.5" max="4" step="0.05" value="1.5">
+    </div>
+    <div class="ctl">
+      <label>光子預算（峰值計數）<output id="phOut">40</output></label>
+      <input type="range" id="photon" min="0" max="1" step="0.001" value="0.2">
+    </div>
+    <div class="ctl">
+      <label>RL 疊代次數 <output id="itOut">30</output></label>
+      <input type="range" id="iter" min="0" max="200" step="1" value="30">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="stretch">
+      <label for="stretch">√ 拉伸顯示（把暗處雜訊與振鈴放大來看）</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="play">
+      <label for="play">自動播放疊代（0 → 200 循環）</label>
+    </div>
+    <canvas id="cCurve" width="240" height="130"></canvas>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：RL 是最大概似解，它會忠實擬合「資料」——包含資料裡的雜訊。
+      過了甜蜜點之後，多出來的疊代都花在解釋雜訊上，於是尖銳邊緣（圓盤邊、細條紋）
+      冒出振鈴，背景長出斑點。把光子預算調低，甜蜜點會提早出現而且變淺。
+      真實套件靠正規化（TV 等）或早停來壓住它；共軛焦／雙光子 z-stack 的反卷積是同一個取捨。
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid'), panel: css('--panel') };
+
+const N = 128, NP = N * N;
+const off = document.createElement('canvas');
+off.width = N; off.height = N;
+const octx = off.getContext('2d');
+const oimg = octx.createImageData(N, N);
+
+/* ---------- 真值：點光源 + 解析度靶條紋 + 實心圓盤 ---------- */
+function makeTruth() {
+  const g = new Float32Array(NP);
+  const px = (x, y, v) => { if (x >= 0 && x < N && y >= 0 && y < N) g[y * N + x] = v; };
+  for (const [x, y] of [[16, 14], [26, 14], [40, 14], [56, 14], [60, 14]]) px(x, y, 1);
+  let x0 = 10;
+  for (const gap of [1, 2, 3, 4, 6]) {
+    for (let b = 0; b < 4; b++) {
+      const x = x0 + b * (1 + gap);
+      for (let y = 32; y < 62; y++) px(x, y, 0.9);
+    }
+    x0 += 4 * (1 + gap) + 7;
+  }
+  let y0 = 70;
+  for (const gap of [1, 2, 3]) {
+    for (let b = 0; b < 4; b++) {
+      const y = y0 + b * (1 + gap);
+      for (let x = 8; x < 44; x++) px(x, y, 0.9);
+    }
+    y0 += 4 * (1 + gap) + 6;
+  }
+  const cx = 88, cy = 92, r = 22;
+  for (let y = cy - r; y <= cy + r; y++)
+    for (let x = cx - r; x <= cx + r; x++) {
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy <= r * r) px(x, y, 0.75);
+    }
+  return g;
+}
+const truth = makeTruth();
+
+/* ---------- 可分離高斯卷積（邊界複製） ---------- */
+function gaussKernel(sigma) {
+  const r = Math.max(1, Math.ceil(3 * sigma));
+  const k = new Float32Array(2 * r + 1);
+  let s = 0;
+  for (let i = -r; i <= r; i++) { const v = Math.exp(-i * i / (2 * sigma * sigma)); k[i + r] = v; s += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= s;
+  return { k, r };
+}
+
+const tmpBuf = new Float32Array(NP);
+function convolve(src, dst, K) {
+  const k = K.k, r = K.r;
+  for (let y = 0; y < N; y++) {
+    const row = y * N;
+    for (let x = 0; x < N; x++) {
+      let s = 0;
+      for (let i = -r; i <= r; i++) {
+        let xx = x + i;
+        if (xx < 0) xx = 0; else if (xx >= N) xx = N - 1;
+        s += src[row + xx] * k[i + r];
+      }
+      tmpBuf[row + x] = s;
+    }
+  }
+  for (let y = 0; y < N; y++) {
+    const row = y * N;
+    for (let x = 0; x < N; x++) {
+      let s = 0;
+      for (let i = -r; i <= r; i++) {
+        let yy = y + i;
+        if (yy < 0) yy = 0; else if (yy >= N) yy = N - 1;
+        s += tmpBuf[yy * N + x] * k[i + r];
+      }
+      dst[row + x] = s;
+    }
+  }
+}
+
+/* ---------- 亂數（固定種子，改參數才重擲） ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(rng) {
+  const u = Math.max(1e-12, rng()), v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ---------- 狀態 ---------- */
+let K = null, blurred = new Float32Array(NP), data = new Float32Array(NP);
+let hist = [], rmseHist = [], baseRmse = 0, pending = null;
+const wA = new Float32Array(NP), wB = new Float32Array(NP);
+
+function photonBudget() { return Math.round(Math.pow(10, 1 + 3 * parseFloat($('photon').value))); }
+
+function rmseOf(a) {
+  let s = 0;
+  for (let i = 0; i < NP; i++) { const d = a[i] - truth[i]; s += d * d; }
+  return Math.sqrt(s / NP);
+}
+
+function rebuild() {
+  K = gaussKernel(parseFloat($('sigma').value));
+  convolve(truth, blurred, K);
+  const P = photonBudget();
+  let mx = 0;
+  for (let i = 0; i < NP; i++) if (blurred[i] > mx) mx = blurred[i];
+  const rng = mulberry32(20260902);
+  for (let i = 0; i < NP; i++) {
+    const lam = blurred[i] / mx * P;
+    const n = Math.max(0, lam + Math.sqrt(lam) * randn(rng));
+    data[i] = n / P * mx;
+  }
+  baseRmse = rmseOf(data);
+  let mean = 0;
+  for (let i = 0; i < NP; i++) mean += data[i];
+  mean /= NP;
+  const e0 = new Float32Array(NP).fill(mean);
+  hist = [e0];
+  rmseHist = [rmseOf(e0)];
+}
+
+/* ---------- Richardson–Lucy 單步 ---------- */
+function rlStep() {
+  const est = hist[hist.length - 1];
+  convolve(est, wA, K);                       // wA = PSF ⊛ e
+  for (let i = 0; i < NP; i++) wA[i] = data[i] / Math.max(wA[i], 1e-9);
+  convolve(wA, wB, K);                        // wB = PSF ⊛ (d / (PSF ⊛ e))  （PSF 對稱）
+  const next = new Float32Array(NP);
+  for (let i = 0; i < NP; i++) next[i] = Math.max(0, est[i] * wB[i]);
+  hist.push(next);
+  rmseHist.push(rmseOf(next));
+}
+
+function requestCompute() { if (pending === null) pending = requestAnimationFrame(computeChunk); }
+function computeChunk() {
+  pending = null;
+  const target = parseInt($('iter').value, 10);
+  const t0 = performance.now();
+  while (hist.length <= target && performance.now() - t0 < 12) rlStep();
+  render();
+  if (hist.length <= target) requestCompute();
+}
+
+/* ---------- 影像繪製 ---------- */
+function drawField(canvas, field, label, note) {
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = C.panel;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const st = $('stretch').checked;
+  const d = oimg.data;
+  for (let i = 0; i < NP; i++) {
+    let v = field[i];
+    v = v < 0 ? 0 : v > 1 ? 1 : v;
+    if (st) v = Math.sqrt(v);
+    const c = Math.round(v * 255);
+    d[i * 4] = c; d[i * 4 + 1] = c; d[i * 4 + 2] = c; d[i * 4 + 3] = 255;
+  }
+  octx.putImageData(oimg, 0, 0);
+  ctx.drawImage(off, 0, 22, 256, 256);
+  ctx.font = '12px sans-serif';
+  ctx.fillStyle = C.ink;
+  ctx.fillText(label, 10, 15);
+  if (note) {
+    ctx.fillStyle = C.muted;
+    ctx.textAlign = 'right';
+    ctx.fillText(note, 246, 15);
+    ctx.textAlign = 'left';
+  }
+}
+
+/* ---------- RMSE 曲線 ---------- */
+function drawCurve(cur, best) {
+  const cv = $('cCurve'), ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height, mL = 34, mB = 20, mT = 12, mR = 8;
+  const pw = w - mL - mR, ph = h - mT - mB;
+  ctx.clearRect(0, 0, w, h);
+  const n = rmseHist.length;
+  let lo = Infinity, hi = 0;
+  for (const v of rmseHist) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  hi = Math.max(hi, baseRmse) * 1.05;
+  lo = Math.max(0, lo * 0.9);
+  const X = k => mL + pw * k / 200;
+  const Y = v => mT + ph - ph * (v - lo) / Math.max(1e-9, hi - lo);
+
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = C.muted; ctx.font = '10px sans-serif';
+  for (let g = 0; g <= 2; g++) {
+    const y = mT + ph - ph * g / 2;
+    ctx.beginPath(); ctx.moveTo(mL, y); ctx.lineTo(w - mR, y); ctx.stroke();
+    ctx.fillText((lo + (hi - lo) * g / 2).toFixed(3), 2, y + 3);
+  }
+  for (const k of [0, 100, 200]) {
+    const x = X(k);
+    ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, mT + ph); ctx.stroke();
+    ctx.fillText(k, x - 6, h - 6);
+  }
+  ctx.fillText('RMSE vs 疊代', mL + 2, mT - 3);
+
+  ctx.strokeStyle = C.ref; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(mL, Y(baseRmse)); ctx.lineTo(w - mR, Y(baseRmse)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = C.accent; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let k = 0; k < n; k++) { const x = X(k), y = Y(rmseHist[k]); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+
+  ctx.fillStyle = C.ref;
+  ctx.beginPath(); ctx.arc(X(best), Y(rmseHist[best]), 3.5, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = C.ink;
+  ctx.beginPath(); ctx.arc(X(cur), Y(rmseHist[cur]), 3, 0, 2 * Math.PI); ctx.fill();
+}
+
+/* ---------- 總繪製 ---------- */
+function render() {
+  const sigma = parseFloat($('sigma').value);
+  const P = photonBudget();
+  const target = parseInt($('iter').value, 10);
+  $('sigOut').textContent = sigma.toFixed(2) + ' px';
+  $('phOut').textContent = P.toLocaleString('en-US');
+  $('itOut').textContent = target;
+
+  const cur = Math.min(target, hist.length - 1);
+  let best = 0;
+  for (let k = 1; k < rmseHist.length; k++) if (rmseHist[k] < rmseHist[best]) best = k;
+
+  drawField($('cTruth'), truth, '原始（真值）', N + '×' + N);
+  drawField($('cData'), data, '模糊＋雜訊', 'σ=' + sigma.toFixed(1) + ', P=' + P);
+  drawField($('cRest'), hist[cur], 'RL 還原', '第 ' + cur + ' 次疊代');
+  drawCurve(cur, best);
+
+  const busy = cur < target;
+  const past = cur > best && best < rmseHist.length - 1;
+  $('stats').innerHTML =
+    `目前 RMSE（還原 vs 真值）：<b>${rmseHist[cur].toFixed(4)}</b>${busy ? ' <span class="warn">計算中…</span>' : ''}<br>` +
+    `已算過的最佳疊代：<b>${best}</b> 次，RMSE <b>${rmseHist[best].toFixed(4)}</b><br>` +
+    `未還原（模糊＋雜訊）RMSE：<b>${baseRmse.toFixed(4)}</b><br>` +
+    (past
+      ? `<span class="warn">⚠ 已越過甜蜜點 ${cur - best} 次疊代：正在放大雜訊</span>`
+      : `曲線還在下降，或剛好停在最低點`);
+}
+
+/* ---------- 事件 ---------- */
+function reset() { rebuild(); requestCompute(); render(); }
+
+$('sigma').addEventListener('input', reset);
+$('photon').addEventListener('input', reset);
+$('iter').addEventListener('input', () => { requestCompute(); render(); });
+$('stretch').addEventListener('change', render);
+
+let playing = false, raf = null;
+function tick() {
+  if (!playing) return;
+  const it = $('iter');
+  it.value = (parseInt(it.value, 10) + 1) % 201;
+  requestCompute();
+  render();
+  raf = requestAnimationFrame(tick);
+}
+$('play').addEventListener('change', e => {
+  playing = e.target.checked;
+  if (playing) tick(); else cancelAnimationFrame(raf);
+});
+
+reset();
+</script>
+</body>
+</html>

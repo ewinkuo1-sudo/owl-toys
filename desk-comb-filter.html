@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面反射梳狀濾波模擬 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  canvas { background: var(--panel); border-radius: 12px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>桌面反射梳狀濾波模擬</h1>
+<p class="sub">
+  桌上型喇叭的高音單體發出的聲音，一路直達耳朵，一路打到桌面再彈上來。兩條路徑差
+  <code>Δ = L_r − L_d</code>，疊加後 <code>H(f) = 1 + R·(L_d/L_r)·e^(−j2πfΔ/c)</code>，
+  在 <code>f₁ = c/2Δ</code> 及其奇數倍完全反相 → 梳狀凹陷。這就是 REW 在 600 Hz 附近量到的那個坑。
+</p>
+<div class="wrap">
+  <canvas id="geo" width="520" height="300"></canvas>
+  <canvas id="resp" width="520" height="300"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label>高音單體高度 h <output id="hOut">25 cm</output></label>
+      <input type="range" id="h" min="5" max="50" step="1" value="25">
+    </div>
+    <div class="ctl">
+      <label>水平距離 d <output id="dOut">50 cm</output></label>
+      <input type="range" id="d" min="30" max="120" step="1" value="50">
+    </div>
+    <div class="ctl">
+      <label>耳朵高度 h<sub>e</sub> <output id="heOut">40 cm</output></label>
+      <input type="range" id="he" min="20" max="60" step="1" value="40">
+    </div>
+    <div class="ctl">
+      <label>桌面反射係數 R <output id="rOut">0.80</output></label>
+      <input type="range" id="r" min="0" max="1" step="0.01" value="0.8">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="showNotch" checked>
+      <label for="showNotch">標出 f₁、3f₁、5f₁ 凹陷位置</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="showSmooth">
+      <label for="showSmooth">疊上 1/3 倍頻程平滑（REW 的平滑，橘）</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      為什麼 EQ 補不回來：凹陷不是喇叭「少發了那個頻率」，而是兩條路徑在你耳朵的位置相位相消。
+      你在 575 Hz 加 6 dB，直達音跟反射音同時被加 6 dB，到耳朵還是照樣抵銷，
+      結果只是把房間裡其他位置、其他方向的能量一起灌大，SPL 上去、凹陷還在。
+      而且它跟位置綁死：頭往上抬 5 cm、椅子往後拉 10 cm，Δ 就變、凹陷頻率就跑掉，
+      EQ 曲線立刻對不上。真正有效的做法是動幾何跟吸收：把喇叭墊高／內傾讓高音直射耳朵、
+      在桌面第一反射點鋪桌墊或吸音材、或改用支架把喇叭移離桌面、調整聆聽位置。
+      拉滑桿看看：h 拉大、d 拉近，f₁ 就往下掉；R 拉到 0 等於「桌面完全吸掉」，梳狀就消失了。
+    </div>
+  </div>
+</div>
+<script>
+const geo = document.getElementById('geo');
+const resp = document.getElementById('resp');
+const gctx = geo.getContext('2d');
+const rctx = resp.getContext('2d');
+const $ = id => document.getElementById(id);
+
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+
+const SOUND = 343;
+const F_LO = 100, F_HI = 20000;
+
+function paths(h, d, he) {
+  const Ld = Math.hypot(d, he - h);
+  const Lr = Math.hypot(d, he + h);
+  return { Ld, Lr, delta: Lr - Ld };
+}
+
+// |H(f)| for the two-path sum, in linear magnitude
+function mag(f, Ld, Lr, R) {
+  const a = R * Ld / Lr;
+  const ph = -2 * Math.PI * f * (Lr - Ld) / SOUND;
+  const re = 1 + a * Math.cos(ph);
+  const im = a * Math.sin(ph);
+  return Math.hypot(re, im);
+}
+
+function drawGeom(h, d, he) {
+  const w = geo.width, H = geo.height;
+  gctx.clearRect(0, 0, w, H);
+  const mL = 44, mR = 44, mT = 24, mB = 28;
+  const x0 = -0.12, x1 = d + 0.22;
+  const yTop = Math.max(h, he) + 0.14, yBot = -(h + 0.10);
+  const s = Math.min((w - mL - mR) / (x1 - x0), (H - mT - mB) / (yTop - yBot));
+  const ox = mL - x0 * s, oy = mT + yTop * s;
+  const X = x => ox + x * s, Y = y => oy - y * s;
+
+  gctx.font = '11px sans-serif';
+  gctx.lineWidth = 1;
+
+  // desk surface
+  gctx.strokeStyle = C.ink;
+  gctx.lineWidth = 2;
+  gctx.beginPath(); gctx.moveTo(X(x0), Y(0)); gctx.lineTo(X(x1), Y(0)); gctx.stroke();
+  gctx.strokeStyle = C.grid;
+  gctx.lineWidth = 1;
+  for (let px = X(x0); px < X(x1); px += 9) {
+    gctx.beginPath(); gctx.moveTo(px, Y(0) + 1); gctx.lineTo(px - 7, Y(0) + 8); gctx.stroke();
+  }
+  gctx.fillStyle = C.muted;
+  gctx.fillText('桌面', X(x1) - 26, Y(0) + 20);
+
+  // mirror source below the desk
+  gctx.strokeStyle = C.grid;
+  gctx.setLineDash([3, 4]);
+  gctx.beginPath(); gctx.moveTo(X(0), Y(-h)); gctx.lineTo(X(d), Y(he)); gctx.stroke();
+  gctx.beginPath(); gctx.moveTo(X(0), Y(0)); gctx.lineTo(X(0), Y(-h)); gctx.stroke();
+  gctx.setLineDash([]);
+  gctx.fillStyle = C.grid;
+  gctx.beginPath(); gctx.arc(X(0), Y(-h), 4, 0, 2 * Math.PI); gctx.fill();
+  gctx.fillStyle = C.muted;
+  gctx.fillText('鏡像音源', X(0) + 8, Y(-h) + 4);
+
+  // speaker cabinet + tweeter
+  gctx.strokeStyle = C.muted;
+  gctx.strokeRect(X(-0.08), Y(h + 0.05), 0.09 * s, (h + 0.05) * s);
+  gctx.fillStyle = C.accent;
+  gctx.beginPath(); gctx.arc(X(-0.035), Y(h), 5, 0, 2 * Math.PI); gctx.fill();
+
+  // head + ear
+  gctx.strokeStyle = C.muted;
+  gctx.beginPath(); gctx.arc(X(d + 0.075), Y(he + 0.02), 0.075 * s, 0, 2 * Math.PI); gctx.stroke();
+  gctx.fillStyle = C.ink;
+  gctx.beginPath(); gctx.arc(X(d), Y(he), 4, 0, 2 * Math.PI); gctx.fill();
+
+  const { Ld, Lr } = paths(h, d, he);
+
+  // direct ray
+  gctx.strokeStyle = C.accent;
+  gctx.lineWidth = 2;
+  gctx.beginPath(); gctx.moveTo(X(0), Y(h)); gctx.lineTo(X(d), Y(he)); gctx.stroke();
+
+  // reflected ray, bouncing at xb
+  const xb = d * h / (h + he);
+  gctx.strokeStyle = C.ref;
+  gctx.beginPath();
+  gctx.moveTo(X(0), Y(h)); gctx.lineTo(X(xb), Y(0)); gctx.lineTo(X(d), Y(he));
+  gctx.stroke();
+  gctx.fillStyle = C.ref;
+  gctx.beginPath(); gctx.arc(X(xb), Y(0), 3.5, 0, 2 * Math.PI); gctx.fill();
+
+  // labels
+  const cm = v => (v * 100).toFixed(1) + ' cm';
+  gctx.fillStyle = C.accent;
+  gctx.fillText('直接音 L_d = ' + cm(Ld), X(d * 0.35), Y((h + he) / 2) - 8);
+  gctx.fillStyle = C.ref;
+  gctx.fillText('反射音 L_r = ' + cm(Lr), X(xb) - 10, Y(0) - 12);
+  gctx.fillStyle = C.muted;
+  gctx.fillText('h = ' + cm(h), X(-0.10), Y(h / 2));
+  gctx.fillText('h_e = ' + cm(he), X(d) + 8, Y(he / 2));
+  gctx.fillText('d = ' + cm(d), X(d / 2) - 20, Y(yBot) + 4);
+
+  // dimension line for d
+  gctx.strokeStyle = C.grid;
+  gctx.lineWidth = 1;
+  gctx.beginPath();
+  gctx.moveTo(X(0), Y(yBot) + 12); gctx.lineTo(X(d), Y(yBot) + 12);
+  gctx.moveTo(X(0), Y(yBot) + 8); gctx.lineTo(X(0), Y(yBot) + 16);
+  gctx.moveTo(X(d), Y(yBot) + 8); gctx.lineTo(X(d), Y(yBot) + 16);
+  gctx.stroke();
+}
+
+function drawResp(h, d, he, R, showNotch, showSmooth) {
+  const w = resp.width, H = resp.height;
+  const mL = 46, mR = 14, mT = 16, mB = 32;
+  const pw = w - mL - mR, ph = H - mT - mB;
+  const dbTop = 10, dbBot = -30;
+  rctx.clearRect(0, 0, w, H);
+
+  const lo = Math.log10(F_LO), hi = Math.log10(F_HI);
+  const fx = f => mL + pw * (Math.log10(f) - lo) / (hi - lo);
+  const fy = db => mT + ph * (dbTop - db) / (dbTop - dbBot);
+
+  rctx.font = '11px sans-serif';
+  rctx.lineWidth = 1;
+  rctx.strokeStyle = C.grid;
+  rctx.fillStyle = C.muted;
+  for (let db = dbBot; db <= dbTop; db += 10) {
+    const y = fy(db);
+    rctx.beginPath(); rctx.moveTo(mL, y); rctx.lineTo(w - mR, y); rctx.stroke();
+    rctx.fillText((db > 0 ? '+' : '') + db, 14, y + 4);
+  }
+  const ticks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  for (const t of ticks) {
+    const x = fx(t);
+    rctx.beginPath(); rctx.moveTo(x, mT); rctx.lineTo(x, mT + ph); rctx.stroke();
+    const lab = t >= 1000 ? (t / 1000) + 'k' : String(t);
+    rctx.fillText(lab, x - 8, H - 14);
+  }
+  rctx.fillText('頻率 (Hz，對數)', w / 2 - 36, H - 2);
+  rctx.save();
+  rctx.translate(12, H / 2 + 24); rctx.rotate(-Math.PI / 2);
+  rctx.fillText('相對響應 (dB)', 0, 0);
+  rctx.restore();
+
+  // 0 dB reference
+  rctx.strokeStyle = C.grid;
+  rctx.setLineDash([2, 3]);
+  rctx.beginPath(); rctx.moveTo(mL, fy(0)); rctx.lineTo(w - mR, fy(0)); rctx.stroke();
+  rctx.setLineDash([]);
+
+  const { Ld, Lr, delta } = paths(h, d, he);
+  const N = 2400;
+  const fs = [], mags = [];
+  for (let i = 0; i < N; i++) {
+    const f = Math.pow(10, lo + (hi - lo) * i / (N - 1));
+    fs.push(f);
+    mags.push(mag(f, Ld, Lr, R));
+  }
+
+  rctx.save();
+  rctx.beginPath(); rctx.rect(mL, mT, pw, ph); rctx.clip();
+
+  if (showNotch && delta > 1e-6) {
+    const f1 = SOUND / (2 * delta);
+    rctx.strokeStyle = C.muted;
+    rctx.fillStyle = C.muted;
+    rctx.setLineDash([5, 4]);
+    for (const k of [1, 3, 5]) {
+      const f = f1 * k;
+      if (f > F_HI) break;
+      const x = fx(f);
+      rctx.beginPath(); rctx.moveTo(x, mT); rctx.lineTo(x, mT + ph); rctx.stroke();
+      rctx.fillText((k === 1 ? 'f₁ ' : k + 'f₁ ') + Math.round(f), x + 4, mT + 12 + k * 2);
+    }
+    rctx.setLineDash([]);
+  }
+
+  if (showSmooth) {
+    const perIdx = (hi - lo) / (N - 1);          // decades per index
+    const halfW = Math.round((1 / 6) * Math.log10(2) / perIdx);  // ±1/6 octave
+    rctx.strokeStyle = C.ref;
+    rctx.lineWidth = 2;
+    rctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const a = Math.max(0, i - halfW), b = Math.min(N - 1, i + halfW);
+      let sum = 0;
+      for (let k = a; k <= b; k++) sum += mags[k] * mags[k];
+      const db = 10 * Math.log10(sum / (b - a + 1));
+      const x = fx(fs[i]), y = fy(db);
+      i ? rctx.lineTo(x, y) : rctx.moveTo(x, y);
+    }
+    rctx.stroke();
+  }
+
+  rctx.strokeStyle = C.accent;
+  rctx.lineWidth = 1.6;
+  rctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const db = 20 * Math.log10(Math.max(mags[i], 1e-6));
+    const x = fx(fs[i]), y = fy(Math.max(db, dbBot - 5));
+    i ? rctx.lineTo(x, y) : rctx.moveTo(x, y);
+  }
+  rctx.stroke();
+  rctx.restore();
+}
+
+function stats(h, d, he, R) {
+  const { Ld, Lr, delta } = paths(h, d, he);
+  const a = R * Ld / Lr;
+  const f1 = SOUND / (2 * delta);
+  const dip = 20 * Math.log10(Math.max(Math.abs(1 - a), 1e-6));
+  const peak = 20 * Math.log10(1 + a);
+  $('stats').innerHTML =
+    `路徑差 Δ：<b>${(delta * 100).toFixed(1)} cm</b>` +
+    `（L_d ${(Ld * 100).toFixed(1)} → L_r ${(Lr * 100).toFixed(1)} cm）<br>` +
+    `第一個凹陷 f₁ = c/2Δ：<b>${f1.toFixed(0)} Hz</b><br>` +
+    `凹陷間距 c/Δ：<b>${(SOUND / delta).toFixed(0)} Hz</b>（f₁、3f₁、5f₁ …）<br>` +
+    `最深凹陷：<b>${dip.toFixed(1)} dB</b>；波峰 <b>+${peak.toFixed(1)} dB</b>`;
+}
+
+function render() {
+  const h = parseFloat($('h').value) / 100;
+  const d = parseFloat($('d').value) / 100;
+  const he = parseFloat($('he').value) / 100;
+  const R = parseFloat($('r').value);
+  $('hOut').textContent = (h * 100).toFixed(0) + ' cm';
+  $('dOut').textContent = (d * 100).toFixed(0) + ' cm';
+  $('heOut').textContent = (he * 100).toFixed(0) + ' cm';
+  $('rOut').textContent = R.toFixed(2);
+  drawGeom(h, d, he);
+  drawResp(h, d, he, R, $('showNotch').checked, $('showSmooth').checked);
+  stats(h, d, he, R);
+}
+
+['h', 'd', 'he', 'r'].forEach(id => $(id).addEventListener('input', render));
+['showNotch', 'showSmooth'].forEach(id => $(id).addEventListener('change', render));
+
+render();
+</script>
+</body>
+</html>

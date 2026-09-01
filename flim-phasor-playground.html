@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLIM Phasor 遊樂場 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  canvas { background: var(--panel); border-radius: 12px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>FLIM Phasor 遊樂場</h1>
+<p class="sub">
+  頻域螢光壽命成像的相量表示法：單指數壽命 τ 在調變角頻率 <code>ω = 2πf</code> 下座落於
+  <code>g = 1/(1+(ωτ)²)</code>、<code>s = ωτ/(1+(ωτ)²)</code>，
+  所有單指數成分都躺在圓心 (0.5, 0)、半徑 0.5 的「萬用半圓」上。
+  雙成分混合則落在兩點連成的弦上：<code>P = f₁·P₁ + (1−f₁)·P₂</code>。
+</p>
+<div class="wrap">
+  <canvas id="phasor" width="460" height="300"></canvas>
+  <canvas id="decay" width="460" height="300"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label>調變頻率 f <output id="freqOut">80 MHz</output></label>
+      <input type="range" id="freq" min="20" max="160" step="1" value="80">
+    </div>
+    <div class="ctl">
+      <label>τ₁（自由態 NADH 般） <output id="t1Out">0.40 ns</output></label>
+      <input type="range" id="t1" min="0.1" max="10" step="0.01" value="0.4">
+    </div>
+    <div class="ctl">
+      <label>τ₂（結合態 NADH 般） <output id="t2Out">2.50 ns</output></label>
+      <input type="range" id="t2" min="0.1" max="10" step="0.01" value="2.5">
+    </div>
+    <div class="ctl">
+      <label>成分一強度分率 f₁ <output id="fracOut">0.50</output></label>
+      <input type="range" id="frac" min="0" max="1" step="0.01" value="0.5">
+    </div>
+    <div class="ctl">
+      <label>光子數 N（對數） <output id="photOut">1,000</output></label>
+      <input type="range" id="phot" min="0" max="1" step="0.005" value="0.3333">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="noise" checked>
+      <label for="noise">顯示散粒雜訊點雲（每秒重抽幾次）</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：g、s 其實就是把螢光訊號在頻率 f 上做零差解調（homodyne）後的
+      I／Q 兩路分量——和 IQ zero-homodyne 解調鏈路是同一套數學。
+      單指數必在半圓上；混合物則落進半圓內、卡在兩成分的弦上，位置由 f₁ 決定。
+      光子越多點雲越緊（此處用近似 σ ≈ 0.5/√N 的縮放），這就是 phasor FLIM
+      要斤斤計較光子預算的原因。也注意混合物的 τ_φ ≠ τ_m，這正是多指數的經典指紋。
+    </div>
+  </div>
+</div>
+<script>
+const ph = document.getElementById('phasor');
+const dc = document.getElementById('decay');
+const pctx = ph.getContext('2d');
+const dctx = dc.getContext('2d');
+const $ = id => document.getElementById(id);
+
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+
+// ω in rad/ns for f in MHz: 2π·f·1e6 · 1e-9
+const omegaOf = fMHz => 2 * Math.PI * fMHz * 1e-3;
+
+function phasorOf(tau, w) {
+  const wt = w * tau;
+  const d = 1 + wt * wt;
+  return { g: 1 / d, s: wt / d };
+}
+
+function photonsOf(v) { return Math.round(Math.pow(10, 2 + 3 * v)); }
+
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+const PH = { mL: 44, mR: 18, mT: 20, mB: 34 };
+const scaleP = () => (ph.width - PH.mL - PH.mR) / 1.12;
+const PX = g => PH.mL + g * scaleP();
+const PY = s => ph.height - PH.mB - s * scaleP();
+
+function drawPhasor(st, cloud) {
+  const w = ph.width, h = ph.height;
+  pctx.clearRect(0, 0, w, h);
+  pctx.font = '11px sans-serif';
+  pctx.lineWidth = 1;
+
+  // 座標格線
+  pctx.strokeStyle = C.grid;
+  pctx.fillStyle = C.muted;
+  for (let i = 0; i <= 4; i++) {
+    const g = i / 4;
+    pctx.beginPath(); pctx.moveTo(PX(g), PY(0)); pctx.lineTo(PX(g), PY(0.62)); pctx.stroke();
+    pctx.fillText(g.toFixed(2), PX(g) - 12, h - PH.mB + 16);
+  }
+  for (const s of [0.25, 0.5]) {
+    pctx.beginPath(); pctx.moveTo(PX(0), PY(s)); pctx.lineTo(PX(1.06), PY(s)); pctx.stroke();
+    pctx.fillText(s.toFixed(2), 10, PY(s) + 4);
+  }
+  pctx.strokeStyle = C.muted;
+  pctx.beginPath();
+  pctx.moveTo(PX(0), PY(0.62)); pctx.lineTo(PX(0), PY(0)); pctx.lineTo(PX(1.06), PY(0));
+  pctx.stroke();
+  pctx.fillStyle = C.ink;
+  pctx.fillText('g', PX(1.06) - 4, h - PH.mB + 16);
+  pctx.fillText('s', 10, PY(0.6));
+
+  // 萬用半圓
+  pctx.strokeStyle = C.grid;
+  pctx.lineWidth = 2;
+  pctx.beginPath();
+  pctx.arc(PX(0.5), PY(0), 0.5 * scaleP(), Math.PI, 2 * Math.PI);
+  pctx.stroke();
+
+  // 半圓上的壽命刻度
+  pctx.lineWidth = 1;
+  pctx.strokeStyle = C.muted;
+  pctx.fillStyle = C.muted;
+  for (const tau of [0.5, 1, 2, 4, 8]) {
+    const p = phasorOf(tau, st.w);
+    const ux = (p.g - 0.5) / 0.5, uy = p.s / 0.5;
+    const x = PX(p.g), y = PY(p.s);
+    pctx.beginPath();
+    pctx.moveTo(x, y);
+    pctx.lineTo(x + ux * 6, y - uy * 6);
+    pctx.stroke();
+    pctx.fillText(tau + '', x + ux * 10 - (ux < 0 ? 14 : -2), y - uy * 10 + 4);
+  }
+  pctx.fillText('半圓刻度 = 單指數 τ（ns）', PX(0.46), PY(0.58));
+
+  // 雜訊點雲
+  if (cloud) {
+    pctx.fillStyle = 'rgba(110, 198, 255, 0.28)';
+    for (const [g, s] of cloud) {
+      pctx.beginPath();
+      pctx.arc(PX(g), PY(s), 1.6, 0, 2 * Math.PI);
+      pctx.fill();
+    }
+  }
+
+  // 兩成分與弦
+  pctx.strokeStyle = C.ref;
+  pctx.lineWidth = 1.5;
+  pctx.setLineDash([5, 4]);
+  pctx.beginPath();
+  pctx.moveTo(PX(st.p1.g), PY(st.p1.s)); pctx.lineTo(PX(st.p2.g), PY(st.p2.s));
+  pctx.stroke();
+  pctx.setLineDash([]);
+  pctx.fillStyle = C.ref;
+  for (const [p, lab] of [[st.p1, 'τ₁'], [st.p2, 'τ₂']]) {
+    pctx.beginPath();
+    pctx.arc(PX(p.g), PY(p.s), 4.5, 0, 2 * Math.PI);
+    pctx.fill();
+    pctx.fillText(lab, PX(p.g) - 6, PY(p.s) - 10);
+  }
+
+  // 相位／調變輔助線 + 混合點
+  pctx.strokeStyle = C.muted;
+  pctx.setLineDash([3, 4]);
+  pctx.beginPath();
+  pctx.moveTo(PX(0), PY(0)); pctx.lineTo(PX(st.mix.g), PY(st.mix.s));
+  pctx.stroke();
+  pctx.setLineDash([]);
+  pctx.fillStyle = C.accent;
+  pctx.beginPath();
+  pctx.arc(PX(st.mix.g), PY(st.mix.s), 6, 0, 2 * Math.PI);
+  pctx.fill();
+  pctx.fillStyle = C.ink;
+  pctx.fillText('混合', PX(st.mix.g) + 9, PY(st.mix.s) + 4);
+}
+
+function drawDecay(st) {
+  const w = dc.width, h = dc.height, mL = 46, mR = 16, mT = 20, mB = 34;
+  const pw = w - mL - mR, pht = h - mT - mB, T = 15;
+  dctx.clearRect(0, 0, w, h);
+  dctx.font = '11px sans-serif';
+  dctx.lineWidth = 1;
+
+  const X = t => mL + pw * t / T;
+  const Y = y => mT + pht - pht * y;
+
+  dctx.strokeStyle = C.grid;
+  dctx.fillStyle = C.muted;
+  for (let i = 0; i <= 4; i++) {
+    const y = Y(i / 4);
+    dctx.beginPath(); dctx.moveTo(mL, y); dctx.lineTo(w - mR, y); dctx.stroke();
+    dctx.fillText((i / 4).toFixed(2), 10, y + 4);
+  }
+  for (let t = 0; t <= T; t += 3) {
+    dctx.beginPath(); dctx.moveTo(X(t), mT); dctx.lineTo(X(t), mT + pht); dctx.stroke();
+    dctx.fillText(t + '', X(t) - 4, h - mB + 16);
+  }
+  dctx.fillStyle = C.ink;
+  dctx.fillText('時間 t（ns）', w / 2 - 30, h - 10);
+  dctx.save();
+  dctx.translate(14, h / 2 + 34); dctx.rotate(-Math.PI / 2);
+  dctx.fillText('歸一化強度 I(t)', 0, 0);
+  dctx.restore();
+
+  const trace = (fn, color, lw, dashed) => {
+    dctx.strokeStyle = color; dctx.lineWidth = lw;
+    if (dashed) dctx.setLineDash([4, 4]);
+    dctx.beginPath();
+    for (let i = 0; i <= 300; i++) {
+      const t = T * i / 300;
+      const x = X(t), y = Y(fn(t));
+      i ? dctx.lineTo(x, y) : dctx.moveTo(x, y);
+    }
+    dctx.stroke();
+    dctx.setLineDash([]);
+  };
+  trace(t => Math.exp(-t / st.t1), C.ref, 1.3, true);
+  trace(t => Math.exp(-t / st.t2), C.ref, 1.3, true);
+  trace(t => st.f1 * Math.exp(-t / st.t1) + (1 - st.f1) * Math.exp(-t / st.t2), C.accent, 2.5, false);
+
+  dctx.fillStyle = C.ref;
+  dctx.fillText('純成分 e^(−t/τ₁)、e^(−t/τ₂)', mL + 8, mT + 14);
+  dctx.fillStyle = C.accent;
+  dctx.fillText('混合衰減 f₁·e^(−t/τ₁) + (1−f₁)·e^(−t/τ₂)', mL + 8, mT + 30);
+}
+
+function readState() {
+  const f = parseFloat($('freq').value);
+  const w = omegaOf(f);
+  const t1 = parseFloat($('t1').value);
+  const t2 = parseFloat($('t2').value);
+  const f1 = parseFloat($('frac').value);
+  const N = photonsOf(parseFloat($('phot').value));
+  const p1 = phasorOf(t1, w), p2 = phasorOf(t2, w);
+  const mix = { g: f1 * p1.g + (1 - f1) * p2.g, s: f1 * p1.s + (1 - f1) * p2.s };
+  return { f, w, t1, t2, f1, N, p1, p2, mix };
+}
+
+function makeCloud(st) {
+  const sigma = 0.5 / Math.sqrt(st.N);
+  const pts = [];
+  for (let i = 0; i < 300; i++) pts.push([st.mix.g + sigma * gauss(), st.mix.s + sigma * gauss()]);
+  return pts;
+}
+
+function stats(st) {
+  const { g, s } = st.mix;
+  const phi = Math.atan2(s, g);
+  const M = Math.sqrt(g * g + s * s);
+  const tPhi = Math.tan(phi) / st.w;
+  const tMod = M > 0 && M < 1 ? Math.sqrt(1 / (M * M) - 1) / st.w : 0;
+  const gap = Math.abs(tPhi - tMod);
+  const verdict = gap < 0.02
+    ? 'τ_φ ≈ τ_m ⇒ 看起來就是單指數'
+    : 'τ_φ ≠ τ_m ⇒ 多指數的經典指紋';
+  $('stats').innerHTML =
+    `相量座標：<b>g = ${g.toFixed(4)}</b>，<b>s = ${s.toFixed(4)}</b><br>` +
+    `相位 φ：<b>${(phi * 180 / Math.PI).toFixed(2)}°</b>　調變度 M：<b>${M.toFixed(4)}</b><br>` +
+    `相位壽命 τ_φ = tan φ / ω：<b>${tPhi.toFixed(3)} ns</b><br>` +
+    `調變壽命 τ_m = √(1/M²−1)/ω：<b>${tMod.toFixed(3)} ns</b><br>` +
+    `<b>${verdict}</b>（差 ${gap.toFixed(3)} ns）<br>` +
+    `點雲擴散 σ ≈ 0.5/√N：<b>${(0.5 / Math.sqrt(st.N)).toFixed(4)}</b>`;
+}
+
+let state = null, cloud = null, raf = null, lastDraw = 0;
+
+function render() {
+  state = readState();
+  $('freqOut').textContent = state.f + ' MHz';
+  $('t1Out').textContent = state.t1.toFixed(2) + ' ns';
+  $('t2Out').textContent = state.t2.toFixed(2) + ' ns';
+  $('fracOut').textContent = state.f1.toFixed(2);
+  $('photOut').textContent = state.N.toLocaleString('en-US');
+  cloud = $('noise').checked ? makeCloud(state) : null;
+  drawPhasor(state, cloud);
+  drawDecay(state);
+  stats(state);
+}
+
+function tick(now) {
+  if (!$('noise').checked) { raf = null; return; }
+  if (now - lastDraw > 250) {
+    lastDraw = now;
+    cloud = makeCloud(state);
+    drawPhasor(state, cloud);
+  }
+  raf = requestAnimationFrame(tick);
+}
+
+for (const id of ['freq', 't1', 't2', 'frac', 'phot']) $(id).addEventListener('input', render);
+$('noise').addEventListener('change', () => {
+  render();
+  if ($('noise').checked && raf === null) raf = requestAnimationFrame(tick);
+});
+
+render();
+raf = requestAnimationFrame(tick);
+</script>
+</body>
+</html>

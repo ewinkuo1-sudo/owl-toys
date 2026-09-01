@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>房間模態 2D 駐波熱圖 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
+  canvas { background: var(--panel); border-radius: 12px; touch-action: none; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .ptitle { font-size: 0.85rem; color: var(--ink); }
+  .modes { display: flex; flex-direction: column; gap: 3px; max-height: 340px; overflow-y: auto; }
+  .mode {
+    display: flex; align-items: baseline; gap: 8px; cursor: pointer;
+    font-size: 0.8rem; color: var(--muted); padding: 5px 8px;
+    border-radius: 6px; border: 1px solid transparent;
+  }
+  .mode:hover { background: #262a34; }
+  .mode.sel { border-color: var(--accent); color: var(--ink); }
+  .mode.hit { color: var(--ref); }
+  .mode .f { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .mode .tag { font-size: 0.68rem; color: var(--ref); }
+</style>
+</head>
+<body>
+<h1>房間模態 2D 駐波熱圖</h1>
+<p class="sub">
+  剛性牆矩形房間的平面駐波：<code>p(x,y) = cos(nπx/Lx)·cos(mπy/Ly)</code>，
+  <code>f = (c/2)·√((n/Lx)² + (m/Ly)²)</code>，c = 343 m/s。
+  你在 REW 量到的 69 Hz 峰 → <code>343/(2·69) ≈ 2.49 m</code>，正是某個 ~2.5 m 邊長的軸向模態。
+  拖動房間裡的聽者圖示，看同一顆低音在不同座位差多少 dB。
+</p>
+<div class="wrap">
+  <canvas id="room" width="520" height="400"></canvas>
+  <div class="controls" style="min-width:230px">
+    <div class="ptitle">模態列表（低頻前 10 個）</div>
+    <div class="modes" id="modes"></div>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label>房間長 Lx <output id="lxOut">2.50 m</output></label>
+      <input type="range" id="lx" min="2" max="6" step="0.05" value="2.5">
+    </div>
+    <div class="ctl">
+      <label>房間寬 Ly <output id="lyOut">3.20 m</output></label>
+      <input type="range" id="ly" min="2" max="6" step="0.05" value="3.2">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="anim" checked>
+      <label for="anim">播放駐波動畫（大幅放慢的來回擺盪）</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="rms">
+      <label for="rms">顯示 RMS |p|（你真正聽到的大小聲地圖）</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      壓力最大值永遠貼在牆面與角落：<b>角落放超低音會激發所有模態</b>（耦合最強）；
+      反過來，<b>坐在節線上低音會直接消失</b>。
+      EQ 可以削掉一個峰，卻填不回一個零點——那是干涉抵消，跟梳狀濾波同一套邏輯，
+      訊號在該點本來就被自己的反射抵掉了，推再多功率也只是把零點推大聲一點點。
+      真正有效的槓桿是<b>移動聽位與喇叭位置</b>（再加低頻陷阱）。
+      注意這個 2D 玩具忽略了高度方向（地板—天花板）的模態，真實房間是三維的。
+    </div>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('room');
+const ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+
+const SPEED = 343;          // 音速 m/s
+const TARGET = 69;          // REW 量到的峰
+const GW = 130, GH = 100;   // 粗網格解析度
+const F_SLOW = 0.5;         // 動畫顯示頻率（Hz）
+
+const off = document.createElement('canvas');
+off.width = GW; off.height = GH;
+const octx = off.getContext('2d');
+const img = octx.createImageData(GW, GH);
+
+let sel = { n: 1, m: 0 };
+let listener = { fx: 0.25, fy: 0.5 };   // 房間內的相對座標 0–1
+let dragging = false, raf = null, t0 = performance.now();
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function modeFreq(n, m, Lx, Ly) {
+  return SPEED / 2 * Math.sqrt((n / Lx) ** 2 + (m / Ly) ** 2);
+}
+function shape(n, m, fx, fy) {
+  return Math.cos(n * Math.PI * fx) * Math.cos(m * Math.PI * fy);
+}
+function buildModes(Lx, Ly) {
+  const out = [];
+  for (let n = 0; n <= 4; n++) {
+    for (let m = 0; m <= 4; m++) {
+      if (!n && !m) continue;
+      const f = modeFreq(n, m, Lx, Ly);
+      out.push({ n, m, f, type: (n === 0 || m === 0) ? '軸向' : '切向', hit: Math.abs(f - TARGET) <= 3 });
+    }
+  }
+  out.sort((a, b) => a.f - b.f);
+  return out.slice(0, 10);
+}
+
+// 發散色階：藍（負壓）→ 暗（節線）→ 暖（正壓）
+function divColor(v) {
+  const t = Math.pow(clamp(Math.abs(v), 0, 1), 0.72);
+  return v < 0
+    ? [lerp(20, 90, t), lerp(22, 172, t), lerp(30, 255, t)]
+    : [lerp(20, 255, t), lerp(22, 178, t), lerp(30, 92, t)];
+}
+// 連續色階：暗（安靜）→ 藍 → 橘 → 亮（大聲）
+const SEQ = [
+  [0.00, 18, 20, 26], [0.30, 34, 64, 110], [0.55, 110, 198, 255],
+  [0.80, 255, 184, 108], [1.00, 255, 238, 214]
+];
+function seqColor(a) {
+  a = Math.pow(clamp(a, 0, 1), 0.7);
+  for (let i = 1; i < SEQ.length; i++) {
+    if (a <= SEQ[i][0]) {
+      const p = SEQ[i - 1], q = SEQ[i];
+      const t = (a - p[0]) / (q[0] - p[0]);
+      return [lerp(p[1], q[1], t), lerp(p[2], q[2], t), lerp(p[3], q[3], t)];
+    }
+  }
+  const l = SEQ[SEQ.length - 1];
+  return [l[1], l[2], l[3]];
+}
+
+// 依 Lx/Ly 比例算出畫布上的平面圖矩形
+function geom(Lx, Ly) {
+  const pad = 34;
+  const aw = cv.width - 2 * pad, ah = cv.height - 2 * pad;
+  const ar = Lx / Ly;
+  let w = aw, h = aw / ar;
+  if (h > ah) { h = ah; w = ah * ar; }
+  return { x: (cv.width - w) / 2, y: (cv.height - h) / 2, w, h };
+}
+
+function drawHeat(n, m, phase, useRms, g) {
+  const d = img.data;
+  for (let j = 0; j < GH; j++) {
+    const fy = (j + 0.5) / GH;
+    for (let i = 0; i < GW; i++) {
+      const s = shape(n, m, (i + 0.5) / GW, fy);
+      const rgb = useRms ? seqColor(Math.abs(s)) : divColor(s * phase);
+      const k = (j * GW + i) * 4;
+      d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; d[k + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(off, g.x, g.y, g.w, g.h);
+}
+
+function drawOverlay(Lx, Ly, g, db) {
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(g.x + 0.5, g.y + 0.5, g.w, g.h);
+
+  ctx.fillStyle = C.muted;
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Lx = ' + Lx.toFixed(2) + ' m', g.x + g.w / 2, g.y + g.h + 20);
+  ctx.save();
+  ctx.translate(g.x - 12, g.y + g.h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Ly = ' + Ly.toFixed(2) + ' m', 0, 0);
+  ctx.restore();
+
+  const px = g.x + listener.fx * g.w, py = g.y + listener.fy * g.h;
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.beginPath(); ctx.arc(px, py, 3, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(px, py, 14, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(230,230,236,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+
+  const label = (db <= -39.9 ? '≤ −40' : db.toFixed(1)) + ' dB';
+  ctx.font = '12px sans-serif';
+  const tw = ctx.measureText(label).width + 10;
+  const bx = clamp(px - tw / 2, 2, cv.width - tw - 2), by = clamp(py - 34, 2, cv.height - 22);
+  ctx.fillStyle = 'rgba(20,22,28,0.82)';
+  ctx.fillRect(bx, by, tw, 18);
+  ctx.fillStyle = db <= -20 ? C.accent : C.ref;
+  ctx.fillText(label, bx + tw / 2, by + 13);
+  ctx.textAlign = 'left';
+}
+
+function levelAt(n, m) {
+  const s = Math.abs(shape(n, m, listener.fx, listener.fy));
+  return Math.max(20 * Math.log10(Math.max(s, 1e-9)), -40);
+}
+
+let modeKey = '';
+function renderModes(modes) {
+  // 動畫每幀都會呼叫 render()，列表沒變就別重建 DOM（否則點擊會被吃掉）
+  const key = modes.map(md => `${md.n}${md.m}${md.f.toFixed(1)}`).join('|') + `#${sel.n}${sel.m}`;
+  if (key === modeKey) return;
+  modeKey = key;
+  const box = $('modes');
+  box.innerHTML = '';
+  modes.forEach(md => {
+    const el = document.createElement('div');
+    el.className = 'mode' + (md.n === sel.n && md.m === sel.m ? ' sel' : '') + (md.hit ? ' hit' : '');
+    el.innerHTML = `<span>(${md.n},${md.m}) ${md.type}</span>` +
+      (md.hit ? '<span class="tag">≈ 你量到的 69 Hz</span>' : '') +
+      `<span class="f">${md.f.toFixed(1)} Hz</span>`;
+    el.addEventListener('click', () => { sel = { n: md.n, m: md.m }; render(); });
+    box.appendChild(el);
+  });
+}
+
+function render() {
+  const Lx = parseFloat($('lx').value), Ly = parseFloat($('ly').value);
+  const useRms = $('rms').checked;
+  $('lxOut').textContent = Lx.toFixed(2) + ' m';
+  $('lyOut').textContent = Ly.toFixed(2) + ' m';
+
+  const modes = buildModes(Lx, Ly);
+  if (!modes.some(md => md.n === sel.n && md.m === sel.m)) sel = { n: modes[0].n, m: modes[0].m };
+  renderModes(modes);
+
+  const f = modeFreq(sel.n, sel.m, Lx, Ly);
+  const phase = ($('anim').checked && !useRms)
+    ? Math.cos(2 * Math.PI * F_SLOW * (performance.now() - t0) / 1000) : 1;
+  const g = geom(Lx, Ly);
+  const db = levelAt(sel.n, sel.m);
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawHeat(sel.n, sel.m, phase, useRms, g);
+  drawOverlay(Lx, Ly, g, db);
+
+  const near = Math.abs(f - TARGET) <= 3;
+  $('stats').innerHTML =
+    `選定模態：<b>(${sel.n}, ${sel.m})</b> ${(sel.n === 0 || sel.m === 0) ? '軸向' : '切向'}` +
+    (near ? ` <span style="color:${C.ref}">← 你的 69 Hz</span>` : '') + '<br>' +
+    `模態頻率 f：<b>${f.toFixed(1)} Hz</b><br>` +
+    `波長 λ = c/f：<b>${(SPEED / f).toFixed(2)} m</b>（半波長 <b>${(SPEED / f / 2).toFixed(2)} m</b>）<br>` +
+    `聽位 (x, y)：<b>${(listener.fx * Lx).toFixed(2)}, ${(listener.fy * Ly).toFixed(2)}</b> m<br>` +
+    `該點相對音壓：<b>${db <= -39.9 ? '≤ −40' : db.toFixed(1)} dB</b>（0 dB = 牆角最大值）`;
+}
+
+function loop() {
+  if (!$('anim').checked || $('rms').checked) { raf = null; return; }
+  render();
+  raf = requestAnimationFrame(loop);
+}
+function sync() {
+  if ($('anim').checked && !$('rms').checked) {
+    if (raf === null) loop();
+  } else {
+    if (raf !== null) cancelAnimationFrame(raf);
+    raf = null;
+    render();
+  }
+}
+
+function pick(clientX, clientY) {
+  const r = cv.getBoundingClientRect();
+  const px = (clientX - r.left) * cv.width / r.width;
+  const py = (clientY - r.top) * cv.height / r.height;
+  const g = geom(parseFloat($('lx').value), parseFloat($('ly').value));
+  listener.fx = clamp((px - g.x) / g.w, 0, 1);
+  listener.fy = clamp((py - g.y) / g.h, 0, 1);
+  if (raf === null) render();
+}
+
+cv.addEventListener('mousedown', e => { dragging = true; pick(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if (dragging) pick(e.clientX, e.clientY); });
+window.addEventListener('mouseup', () => { dragging = false; });
+cv.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pick(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+cv.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  e.preventDefault();
+  pick(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+window.addEventListener('touchend', () => { dragging = false; });
+
+$('lx').addEventListener('input', () => { if (raf === null) render(); });
+$('ly').addEventListener('input', () => { if (raf === null) render(); });
+$('anim').addEventListener('change', sync);
+$('rms').addEventListener('change', sync);
+
+sync();
+</script>
+</body>
+</html>

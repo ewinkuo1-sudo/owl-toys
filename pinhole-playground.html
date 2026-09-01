@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>共軛焦 Pinhole 模擬 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  canvas { background: var(--panel); border-radius: 12px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 300px; max-width: 320px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button {
+    flex: 1; min-width: 46px; padding: 6px 4px; cursor: pointer;
+    background: var(--bg); color: var(--muted); font-family: inherit; font-size: 0.8rem;
+    border: 1px solid var(--grid); border-radius: 8px;
+  }
+  .seg button:hover { color: var(--ink); border-color: var(--muted); }
+  .seg button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  .cap { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .warn { color: var(--ref); }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>共軛焦 Pinhole 模擬</h1>
+<p class="sub">
+  共軛焦顯微鏡最核心的取捨：pinhole 關小 → 切片變薄，但光子被丟掉；開大 → 訊號回來，切片變厚。
+  光學切片厚度 <code>dz = √[(0.88λ/(n−√(n²−NA²)))² + (√2·n·PH/NA)²]</code>，
+  焦平面訊號用 Airy 圈內能量 <code>E = 1 − J₀²(v) − J₁²(v)</code>，<code>v = 3.8317·D</code>（D 以 AU 計）。
+</p>
+<div class="wrap">
+  <canvas id="axial" width="420" height="420"></canvas>
+  <canvas id="trade" width="420" height="420"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label>Pinhole 直徑 <output id="dOut">1.00 AU</output></label>
+      <input type="range" id="d" min="0.25" max="5" step="0.05" value="1">
+    </div>
+    <div>
+      <div class="cap">FV300 CONFOCAL APERTURE 旋鈕（示意對應，非原廠規格）</div>
+      <div class="seg" id="presets"></div>
+    </div>
+    <div class="ctl">
+      <label>物鏡 NA <output id="naOut">0.75</output></label>
+      <input type="range" id="na" min="0.3" max="1.4" step="0.01" value="0.75">
+    </div>
+    <div class="ctl">
+      <label>放射波長 λ<sub>em</sub> <output id="lamOut">520 nm</output></label>
+      <input type="range" id="lam" min="400" max="700" step="5" value="520">
+    </div>
+    <div>
+      <div class="cap">浸潤介質折射率 n</div>
+      <div class="seg" id="media"></div>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="showSBR">
+      <label for="showSBR">顯示相對 SBR 虛線（訊號 E(D) ÷ 厚樣本背景 ∝ D²）</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：約 1 AU 是經典甜蜜點——Airy 盤裡約 84% 的焦平面光子都收得到，切片厚度也已經接近繞射極限。
+      再關小只是用光子換薄度：0.25 AU 以下逼近理想共軛焦（橫向解析度理論上可再好 √2 倍），
+      但光子少到雜訊淹沒一切，實務上幾乎不能用。開到 2–3 AU 以上，訊號幾乎沒再多拿
+      （曲線已經壓平），切片卻線性變厚，等於把共軛焦退化成寬場。
+      FV300 的旋鈕是 5 段離散的，沒有連續微調——所以你能做的是挑「最不壞」的那一格：
+      薄樣本、螢光弱就往大開，厚樣本要做 z-stack 就咬牙往小關。
+    </div>
+  </div>
+</div>
+<script>
+const axial = document.getElementById('axial');
+const trade = document.getElementById('trade');
+const actx = axial.getContext('2d');
+const tctx = trade.getContext('2d');
+const $ = id => document.getElementById(id);
+
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid'), panel: css('--panel') };
+
+// Abramowitz & Stegun 9.4.1 / 9.4.3
+function J0(x) {
+  x = Math.abs(x);
+  if (x <= 3) {
+    const y = (x / 3) * (x / 3);
+    return 1 + y * (-2.2499997 + y * (1.2656208 + y * (-0.3163866 + y * (0.0444479 + y * (-0.0039444 + y * 0.0002100)))));
+  }
+  const t = 3 / x;
+  const f = 0.79788456 + t * (-0.00000077 + t * (-0.00552740 + t * (-0.00009512 + t * (0.00137237 + t * (-0.00072805 + t * 0.00014476)))));
+  const th = x - 0.78539816 + t * (-0.04166397 + t * (-0.00003954 + t * (0.00262573 + t * (-0.00054125 + t * (-0.00029333 + t * 0.00013558)))));
+  return f * Math.cos(th) / Math.sqrt(x);
+}
+// Abramowitz & Stegun 9.4.4 / 9.4.6
+function J1(x) {
+  const a = Math.abs(x);
+  let r;
+  if (a <= 3) {
+    const y = (a / 3) * (a / 3);
+    r = a * (0.5 + y * (-0.56249985 + y * (0.21093573 + y * (-0.03954289 + y * (0.00443319 + y * (-0.00031761 + y * 0.00001109))))));
+  } else {
+    const t = 3 / a;
+    const f = 0.79788456 + t * (0.00000156 + t * (0.01659667 + t * (0.00017105 + t * (-0.00249511 + t * (0.00113653 + t * -0.00020033)))));
+    const th = a - 2.35619449 + t * (0.12499612 + t * (0.00005650 + t * (-0.00637879 + t * (0.00074348 + t * (0.00079824 + t * -0.00029166)))));
+    r = f * Math.cos(th) / Math.sqrt(a);
+  }
+  return x < 0 ? -r : r;
+}
+// Airy 圈內能量：半徑 D 個「第一暗環半徑」以內的能量比例
+function encircled(D) {
+  const v = 3.8317 * D;
+  return 1 - J0(v) * J0(v) - J1(v) * J1(v);
+}
+
+const PRESETS = [[1, 0.5], [2, 1], [3, 2], [4, 3], [5, 5]];
+const MEDIA = [[1.0, '1.00 空氣'], [1.33, '1.33 水'], [1.515, '1.515 油']];
+let nIdx = 0;
+
+function optics(D) {
+  const NA = parseFloat($('na').value);
+  const lamUm = parseFloat($('lam').value) / 1000;
+  const n = MEDIA[nIdx][0];
+  const NAe = Math.min(NA, 0.99 * n);        // NA 不可能大於介質折射率
+  const AU = 1.22 * lamUm / NAe;             // 1 AU 直徑，回投影到物空間（µm）
+  const PH = D * AU;                         // 回投影 pinhole 直徑（µm）
+  const dzDif = 0.88 * lamUm / (n - Math.sqrt(n * n - NAe * NAe));
+  const dzPin = Math.SQRT2 * n * PH / NAe;
+  return { D, NA, NAe, n, lamUm, AU, PH, clamped: NAe < NA - 1e-9,
+           dz: Math.hypot(dzDif, dzPin), E: encircled(D) };
+}
+
+function niceStep(range) {
+  const raw = range / 4;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const m = raw / p;
+  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+}
+
+function drawAxial(o) {
+  const w = axial.width, h = axial.height;
+  const yT = 40, yB = 392, yC = (yT + yB) / 2, half = (yB - yT) / 2;
+  const sx0 = 34, sx1 = 246, axis = (sx0 + sx1) / 2;   // 光路示意
+  const px0 = 282, px1 = 404;                          // I(z) 曲線
+  actx.clearRect(0, 0, w, h);
+  actx.font = '11px sans-serif';
+
+  const zHalf = Math.max(o.dz * 1.15, 0.6);            // 視野半高（µm）
+  const s = half / zHalf;                              // px per µm
+  const Y = z => yC - z * s;
+
+  actx.fillStyle = C.muted;
+  actx.fillText('軸向示意（z，µm）', sx0, 22);
+  actx.fillText('I(z)', px0, 22);
+
+  // 收光錐（以物空間半角 asin(NA/n) 等比例畫）
+  const tanT = Math.tan(Math.asin(o.NAe / o.n));
+  actx.save();
+  actx.beginPath(); actx.rect(sx0, yT, sx1 - sx0, yB - yT); actx.clip();
+  actx.fillStyle = 'rgba(110,198,255,0.10)';
+  actx.beginPath();
+  actx.moveTo(axis, yC);
+  actx.lineTo(axis - zHalf * tanT * s, yT); actx.lineTo(axis + zHalf * tanT * s, yT);
+  actx.closePath(); actx.fill();
+  actx.beginPath();
+  actx.moveTo(axis, yC);
+  actx.lineTo(axis - zHalf * tanT * s, yB); actx.lineTo(axis + zHalf * tanT * s, yB);
+  actx.closePath(); actx.fill();
+  // 光學切片帶
+  actx.fillStyle = 'rgba(255,184,108,0.22)';
+  actx.fillRect(sx0, Y(o.dz / 2), sx1 - sx0, o.dz * s);
+  actx.restore();
+
+  // z 刻度
+  actx.strokeStyle = C.grid; actx.lineWidth = 1;
+  actx.beginPath(); actx.moveTo(axis, yT); actx.lineTo(axis, yB); actx.stroke();
+  const step = niceStep(2 * zHalf);
+  actx.fillStyle = C.muted;
+  for (let z = -Math.floor(zHalf / step) * step; z <= zHalf + 1e-9; z += step) {
+    const y = Y(z);
+    actx.beginPath(); actx.moveTo(axis - 4, y); actx.lineTo(axis + 4, y); actx.stroke();
+    actx.fillText((Math.abs(z) < 1e-9 ? 0 : z).toFixed(step < 1 ? 1 : 0), axis + 7, y + 4);
+  }
+
+  // 焦平面
+  actx.strokeStyle = C.accent; actx.lineWidth = 1.5;
+  actx.beginPath(); actx.moveTo(sx0, yC); actx.lineTo(px1, yC); actx.stroke();
+  actx.fillStyle = C.accent;
+  actx.fillText('焦平面 z = 0', sx0 + 2, yC - 6);
+
+  // dz 邊界虛線 + 標註
+  actx.strokeStyle = C.ref; actx.lineWidth = 1; actx.setLineDash([4, 4]);
+  for (const sgn of [-1, 1]) {
+    const y = Y(sgn * o.dz / 2);
+    actx.beginPath(); actx.moveTo(sx0, y); actx.lineTo(px1, y); actx.stroke();
+  }
+  actx.setLineDash([]);
+  actx.strokeStyle = C.ref;
+  actx.beginPath();
+  actx.moveTo(sx0 + 12, Y(o.dz / 2)); actx.lineTo(sx0 + 12, Y(-o.dz / 2)); actx.stroke();
+  actx.fillStyle = C.ref;
+  actx.fillText('dz = ' + o.dz.toFixed(2) + ' µm', sx0 + 18, Y(0) + (o.dz * s > 26 ? -o.dz * s / 2 + 14 : -o.dz * s / 2 - 6));
+  actx.fillText('（FWHM）', sx0 + 18, Y(0) + (o.dz * s > 26 ? -o.dz * s / 2 + 27 : -o.dz * s / 2 + 7));
+
+  // I(z)：高斯，FWHM = dz
+  actx.strokeStyle = C.grid;
+  actx.beginPath(); actx.moveTo(px0, yT); actx.lineTo(px0, yB); actx.stroke();
+  actx.strokeStyle = C.accent; actx.lineWidth = 2;
+  actx.beginPath();
+  for (let i = 0; i <= 240; i++) {
+    const z = -zHalf + 2 * zHalf * i / 240;
+    const I = Math.exp(-4 * Math.LN2 * z * z / (o.dz * o.dz));
+    const x = px0 + (px1 - px0) * I, y = Y(z);
+    i ? actx.lineTo(x, y) : actx.moveTo(x, y);
+  }
+  actx.stroke();
+  actx.fillStyle = C.muted;
+  actx.fillText('0.5', px0 + (px1 - px0) * 0.5 - 8, yB + 14);
+  actx.fillText('1', px1 - 4, yB + 14);
+}
+
+function drawTrade(o, showSBR) {
+  const w = trade.width, h = trade.height, mL = 46, mR = 52, mT = 44, mB = 42;
+  const pw = w - mL - mR, ph = h - mT - mB;
+  const D0 = 0.25, D1 = 5, N = 200;
+  tctx.clearRect(0, 0, w, h);
+  tctx.font = '11px sans-serif';
+
+  const dzOf = D => optics(D).dz;
+  const dzMax = dzOf(D1) * 1.05;
+  const X = D => mL + pw * (D - D0) / (D1 - D0);
+  const YL = v => mT + ph - ph * v;                 // 左軸：0–1
+  const YR = v => mT + ph - ph * v / dzMax;         // 右軸：µm
+
+  tctx.strokeStyle = C.grid; tctx.lineWidth = 1; tctx.fillStyle = C.muted;
+  for (let g = 0; g <= 5; g++) {
+    const y = mT + ph - ph * g / 5;
+    tctx.beginPath(); tctx.moveTo(mL, y); tctx.lineTo(w - mR, y); tctx.stroke();
+    tctx.fillStyle = C.accent; tctx.fillText((g / 5).toFixed(1), 12, y + 4);
+    tctx.fillStyle = C.ref; tctx.fillText((dzMax * g / 5).toFixed(dzMax < 10 ? 1 : 0), w - mR + 8, y + 4);
+  }
+  tctx.fillStyle = C.muted;
+  for (const D of [0.5, 1, 2, 3, 4, 5]) {
+    const x = X(D);
+    tctx.strokeStyle = C.grid;
+    tctx.beginPath(); tctx.moveTo(x, mT); tctx.lineTo(x, mT + ph); tctx.stroke();
+    tctx.fillText(D + '', x - 5, h - 24);
+  }
+  tctx.fillText('Pinhole 直徑 D（AU）', w / 2 - 55, h - 8);
+  tctx.fillStyle = C.accent; tctx.fillText('焦平面訊號 E', mL, 20);
+  tctx.fillStyle = C.ref; tctx.fillText('切片厚度 dz（µm）', w - mR - 62, 20);
+  if (showSBR) { tctx.fillStyle = C.ink; tctx.fillText('- - 相對 SBR（歸一化）', mL + 108, 20); }
+
+  const trace = (fn, color, lw, dashed) => {
+    tctx.strokeStyle = color; tctx.lineWidth = lw;
+    if (dashed) tctx.setLineDash([5, 4]);
+    tctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const D = D0 + (D1 - D0) * i / N;
+      const [x, y] = fn(D);
+      i ? tctx.lineTo(x, y) : tctx.moveTo(x, y);
+    }
+    tctx.stroke();
+    tctx.setLineDash([]);
+  };
+
+  trace(D => [X(D), YR(dzOf(D))], C.ref, 2, false);
+  if (showSBR) {
+    const sbrMax = encircled(D0) / (D0 * D0);
+    trace(D => [X(D), YL(encircled(D) / (D * D) / sbrMax)], C.ink, 1.5, true);
+  }
+  trace(D => [X(D), YL(encircled(D))], C.accent, 2.5, false);
+
+  for (const [yy, col] of [[YL(o.E), C.accent], [YR(o.dz), C.ref]]) {
+    tctx.fillStyle = col;
+    tctx.beginPath(); tctx.arc(X(o.D), yy, 5, 0, 2 * Math.PI); tctx.fill();
+  }
+  tctx.strokeStyle = C.ink; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(X(o.D), mT); tctx.lineTo(X(o.D), mT + ph); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = C.ink;
+  tctx.fillText('D = ' + o.D.toFixed(2) + ' AU', Math.min(X(o.D) + 6, w - mR - 60), mT + 12);
+}
+
+function render() {
+  const D = parseFloat($('d').value);
+  const o = optics(D);
+  $('dOut').textContent = D.toFixed(2) + ' AU';
+  $('naOut').textContent = parseFloat($('na').value).toFixed(2);
+  $('lamOut').textContent = $('lam').value + ' nm';
+  [...$('presets').children].forEach((b, i) => b.classList.toggle('on', Math.abs(PRESETS[i][1] - D) < 1e-9));
+  [...$('media').children].forEach((b, i) => b.classList.toggle('on', i === nIdx));
+
+  drawAxial(o);
+  drawTrade(o, $('showSBR').checked);
+
+  const sbr = o.E / (o.D * o.D);
+  const ref = encircled(1) / 1;
+  $('stats').innerHTML =
+    `光學切片厚度 dz：<b>${o.dz.toFixed(2)} µm</b>（FWHM）<br>` +
+    `焦平面收光比例 E：<b>${(o.E * 100).toFixed(1)} %</b><br>` +
+    `1 AU 回投影直徑：<b>${o.AU.toFixed(2)} µm</b>　pinhole：<b>${o.PH.toFixed(2)} µm</b><br>` +
+    `相對 SBR（以 1 AU 為 1.00）：<b>${(sbr / ref).toFixed(2)}</b>` +
+    (o.clamped ? `<br><span class="warn">⚠ NA 不得大於 n，計算已夾到 ${o.NAe.toFixed(2)}</span>` : '');
+}
+
+PRESETS.forEach(([k, au]) => {
+  const b = document.createElement('button');
+  b.textContent = k + ' · ' + au + ' AU';
+  b.onclick = () => { $('d').value = au; render(); };
+  $('presets').appendChild(b);
+});
+MEDIA.forEach(([, label], i) => {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = () => { nIdx = i; render(); };
+  $('media').appendChild(b);
+});
+
+['d', 'na', 'lam'].forEach(id => $(id).addEventListener('input', render));
+$('showSBR').addEventListener('change', render);
+
+render();
+</script>
+</body>
+</html>
