@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>脈衝串 ↔ 頻率梳遊樂場 🦉</title>
+<style>
+  :root {
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --accent: #6ec6ff; --comb: #6ec6ff; --sum: #7ee787; --life: #ffb86c;
+    --mark1: #7ee787; --mark2: #ff7eb6; --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  p.sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 760px; text-align: center; line-height: 1.7; }
+  p.sub code { color: var(--accent); }
+  .wrap { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; gap: 14px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .panel h2 { font-size: 0.92rem; margin: 0 0 8px 4px; font-weight: 600; color: var(--ink); }
+  canvas { display: block; }
+  .controls { background: var(--panel); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 15px; width: 300px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 5px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .presets button {
+    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
+    font-family: inherit;
+  }
+  .presets button:hover { border-color: var(--life); }
+  .stats { font-size: 0.84rem; color: var(--muted); line-height: 1.9; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stats .g { color: var(--mark1); } .stats .p { color: var(--mark2); } .stats .o { color: var(--life); }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--grid); padding-top: 10px; }
+</style>
+</head>
+<body>
+<h1>脈衝串 ↔ 頻率梳遊樂場</h1>
+<p class="sub">
+  週期 <code>T</code> 的脈衝串 ⇔ 間距 <code>1/T</code> 的頻率梳。左上：時域脈衝串與「疊諧波長出尖脈衝」；
+  左下：頻域梳齒、螢光壽命低通 <code>m = 1/√(1+(2πfτ)²)</code>，與 1f／2f 取頻位置。
+  拉拉看：脈衝越尖梳齒延伸越遠；τ 越長，高次梳齒被壓得越扁。
+</p>
+<div class="wrap">
+  <div class="col">
+    <div class="panel">
+      <h2>時域：脈衝串（藍）＋ 前 N 個諧波的疊加（綠）</h2>
+      <canvas id="time" width="560" height="230"></canvas>
+    </div>
+    <div class="panel">
+      <h2>頻域：梳齒（藍）× 螢光低通（橘）＝ 實際聽到的（實心）</h2>
+      <canvas id="freq" width="560" height="250"></canvas>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label>重複率 f<sub>rep</sub> <output id="frepOut">40 MHz</output></label>
+      <input type="range" id="frep" min="10" max="160" step="1" value="40">
+    </div>
+    <div class="ctl">
+      <label>脈衝寬度（σ/T） <output id="widOut">2%</output></label>
+      <input type="range" id="wid" min="0.5" max="18" step="0.1" value="2">
+    </div>
+    <div class="ctl">
+      <label>疊加諧波數 N <output id="nOut">8</output></label>
+      <input type="range" id="nh" min="1" max="24" step="1" value="8">
+    </div>
+    <div class="ctl">
+      <label>螢光壽命 τ <output id="tauOut">2.5 ns</output></label>
+      <input type="range" id="tau" min="0" max="6" step="0.05" value="2.5">
+    </div>
+    <div class="presets">
+      <button data-tau="0.4">NADH 自由態 0.4 ns</button>
+      <button data-tau="2.5">NADH 結合態 2.5 ns</button>
+      <button data-tau="0">無壽命（τ=0）</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：① N 拉到 1 是純弦波，8 開始像尖脈衝——「2f 是梳子天生的第二根齒」。
+      ② 把脈衝加寬，看高次梳齒先塌掉：脈衝越短頻寬越寬，飛秒脈衝的梳齒到 2f 根本還是平的。
+      ③ 切換兩個 NADH 預設，看 2f 的相位差怎麼從 26° 拉開到 40°——訊號虧 1.4 倍，換對比多一倍。
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const tc = $('time').getContext('2d');
+const fc = $('freq').getContext('2d');
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), comb: css('--comb'), sum: css('--sum'),
+            life: css('--life'), m1: css('--mark1'), m2: css('--mark2'), grid: css('--grid') };
+
+// Gaussian pulse train, sigma as fraction of period: comb tooth n has c_n = exp(-2(pi n sigma/T)^2)
+const tooth = (n, sig) => Math.exp(-2 * Math.PI * Math.PI * n * n * sig * sig);
+const lowpass = (fMHz, tauNs) => 1 / Math.sqrt(1 + Math.pow(2 * Math.PI * fMHz * 1e6 * tauNs * 1e-9, 2));
+const phaseDeg = (fMHz, tauNs) => Math.atan(2 * Math.PI * fMHz * 1e6 * tauNs * 1e-9) * 180 / Math.PI;
+
+function drawTime(sig, N) {
+  const w = 560, h = 230, mL = 10, mR = 10, mT = 12, mB = 20;
+  const pw = w - mL - mR, ph = h - mT - mB;
+  tc.clearRect(0, 0, w, h);
+  const periods = 3;
+
+  tc.strokeStyle = C.grid; tc.lineWidth = 1;
+  tc.beginPath(); tc.moveTo(mL, mT + ph - 4); tc.lineTo(w - mR, mT + ph - 4); tc.stroke();
+  tc.fillStyle = C.muted; tc.font = '11px sans-serif';
+  for (let k = 0; k <= periods; k++) {
+    const x = mL + pw * k / periods;
+    tc.beginPath(); tc.moveTo(x, mT + ph - 4); tc.lineTo(x, mT + ph + 2); tc.stroke();
+    tc.fillText(k + 'T', x - 6, h - 4);
+  }
+
+  const M = 900;
+  // true pulse train (wrapped gaussians)
+  let train = [], maxTrain = 0;
+  for (let i = 0; i <= M; i++) {
+    const t = i / M * periods;
+    let v = 0;
+    for (let k = -1; k <= periods + 1; k++) v += Math.exp(-Math.pow(t - k, 2) / (2 * sig * sig));
+    train.push(v); if (v > maxTrain) maxTrain = v;
+  }
+  // partial harmonic sum: 1 + 2 sum c_n cos(2 pi n t)
+  let sum = [], maxSum = 0, minSum = 1e9;
+  for (let i = 0; i <= M; i++) {
+    const t = i / M * periods;
+    let v = 1;
+    for (let n = 1; n <= N; n++) v += 2 * tooth(n, sig) * Math.cos(2 * Math.PI * n * t);
+    sum.push(v); if (v > maxSum) maxSum = v; if (v < minSum) minSum = v;
+  }
+
+  const trace = (arr, lo, hi, color, lw) => {
+    tc.strokeStyle = color; tc.lineWidth = lw; tc.beginPath();
+    arr.forEach((v, i) => {
+      const x = mL + pw * i / M;
+      const y = mT + (ph - 8) * (1 - (v - lo) / (hi - lo)) + 4;
+      i ? tc.lineTo(x, y) : tc.moveTo(x, y);
+    });
+    tc.stroke();
+  };
+  trace(train, 0, maxTrain, C.comb, 2.5);
+  trace(sum, Math.min(minSum, 0), maxSum, C.sum, 1.5);
+}
+
+function drawFreq(frep, sig, tau, N) {
+  const w = 560, h = 250, mL = 34, mR = 10, mT = 14, mB = 30;
+  const pw = w - mL - mR, ph = h - mT - mB;
+  fc.clearRect(0, 0, w, h);
+  const fMax = Math.max(340, frep * 4.2);
+  const X = f => mL + pw * f / fMax;
+  const Y = v => mT + ph * (1 - v);
+
+  fc.strokeStyle = C.grid; fc.lineWidth = 1;
+  fc.beginPath(); fc.moveTo(mL, Y(0)); fc.lineTo(w - mR, Y(0)); fc.stroke();
+  fc.fillStyle = C.muted; fc.font = '11px sans-serif';
+  for (let f = 0; f <= fMax; f += 80) {
+    fc.beginPath(); fc.moveTo(X(f), Y(0)); fc.lineTo(X(f), Y(0) + 4); fc.stroke();
+    fc.fillText(f, X(f) - 8, h - 14);
+  }
+  fc.fillText('MHz', w - 34, h - 2);
+
+  // lifetime low-pass curve
+  fc.strokeStyle = C.life; fc.lineWidth = 1.8; fc.setLineDash([5, 4]); fc.beginPath();
+  for (let i = 0; i <= 300; i++) {
+    const f = i / 300 * fMax;
+    const y = Y(lowpass(f, tau));
+    i ? fc.lineTo(X(f), y) : fc.moveTo(X(f), y);
+  }
+  fc.stroke(); fc.setLineDash([]);
+
+  // comb teeth: outline = laser comb, filled = after lifetime low-pass
+  const nMax = Math.floor(fMax / frep);
+  for (let n = 1; n <= nMax; n++) {
+    const f = n * frep, x = X(f);
+    const cn = tooth(n, sig);
+    const heard = cn * lowpass(f, tau);
+    const isMark = (n === 1 || n === 2);
+    const col = n === 1 ? C.m1 : n === 2 ? C.m2 : C.comb;
+    fc.strokeStyle = col; fc.lineWidth = isMark ? 2.5 : 1.5;
+    fc.globalAlpha = 0.35;
+    fc.beginPath(); fc.moveTo(x, Y(0)); fc.lineTo(x, Y(cn)); fc.stroke();
+    fc.globalAlpha = 1;
+    fc.beginPath(); fc.moveTo(x, Y(0)); fc.lineTo(x, Y(heard)); fc.stroke();
+    fc.beginPath(); fc.arc(x, Y(heard), isMark ? 3.5 : 2.2, 0, 2 * Math.PI);
+    fc.fillStyle = col; fc.fill();
+    if (isMark) {
+      fc.fillStyle = col;
+      fc.fillText(n === 1 ? '1f' : '2f', x - 6, Y(cn) - 8);
+    }
+  }
+  // N-harmonics bracket
+  if (N * frep < fMax) {
+    fc.strokeStyle = C.sum; fc.globalAlpha = 0.5; fc.setLineDash([2, 4]);
+    fc.beginPath(); fc.moveTo(X(N * frep + frep / 2), mT); fc.lineTo(X(N * frep + frep / 2), Y(0)); fc.stroke();
+    fc.setLineDash([]); fc.globalAlpha = 1;
+    fc.fillStyle = C.sum; fc.fillText('N=' + N, X(N * frep + frep / 2) + 4, mT + 10);
+  }
+}
+
+function stats(frep, sig, tau) {
+  const c1 = tooth(1, sig), c2 = tooth(2, sig);
+  const m1 = lowpass(frep, tau), m2 = lowpass(2 * frep, tau);
+  const h1 = c1 * m1, h2 = c2 * m2;
+  const p1 = phaseDeg(frep, tau), p2 = phaseDeg(2 * frep, tau);
+  // NADH reference gap at current frep
+  const gap1 = phaseDeg(frep, 2.5) - phaseDeg(frep, 0.4);
+  const gap2 = phaseDeg(2 * frep, 2.5) - phaseDeg(2 * frep, 0.4);
+  $('stats').innerHTML =
+    `梳齒（雷射端）｜<span class="g">1f</span>：<b>${(c1 * 100).toFixed(1)}%</b>　<span class="p">2f</span>：<b>${(c2 * 100).toFixed(1)}%</b><br>` +
+    `<span class="o">壽命低通 m</span>｜<span class="g">1f</span>：<b>${(m1 * 100).toFixed(0)}%</b>　<span class="p">2f</span>：<b>${(m2 * 100).toFixed(0)}%</b>` +
+    `（虧 <b>${m2 > 1e-6 ? (m1 / m2).toFixed(2) : '∞'}×</b>）<br>` +
+    `實際聽到｜<span class="g">1f</span>：<b>${(h1 * 100).toFixed(1)}%</b>　<span class="p">2f</span>：<b>${(h2 * 100).toFixed(1)}%</b><br>` +
+    `相位 φ = arctan(2πfτ)｜<span class="g">1f</span>：<b>${p1.toFixed(1)}°</b>　<span class="p">2f</span>：<b>${p2.toFixed(1)}°</b><br>` +
+    `NADH 兩態相位差｜<span class="g">1f</span>：<b>${gap1.toFixed(0)}°</b> → <span class="p">2f</span>：<b>${gap2.toFixed(0)}°</b>`;
+}
+
+function render() {
+  const frep = parseFloat($('frep').value);
+  const sig = parseFloat($('wid').value) / 100;
+  const N = parseInt($('nh').value);
+  const tau = parseFloat($('tau').value);
+  $('frepOut').textContent = frep + ' MHz';
+  $('widOut').textContent = (sig * 100).toFixed(1) + '%';
+  $('nOut').textContent = N;
+  $('tauOut').textContent = tau.toFixed(2) + ' ns';
+  drawTime(sig, N);
+  drawFreq(frep, sig, tau, N);
+  stats(frep, sig, tau);
+}
+
+['frep', 'wid', 'nh', 'tau'].forEach(id => $(id).addEventListener('input', render));
+document.querySelectorAll('.presets button').forEach(b =>
+  b.addEventListener('click', () => { $('tau').value = b.dataset.tau; render(); }));
+
+render();
+</script>
+</body>
+</html>
