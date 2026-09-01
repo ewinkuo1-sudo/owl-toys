@@ -44,7 +44,7 @@
 <body>
 <h1>反卷積互動實驗台</h1>
 <p class="sub">
-  真值先被高斯 PSF 模糊、再加上光子雜訊，然後用 Richardson–Lucy 疊代往回推：
+  真值先被高斯 PSF 模糊、再加上光子雜訊（Poisson，此處以 σ = √λ 的高斯近似），然後用 Richardson–Lucy 疊代往回推：
   <code>e ← e · (PSF ⊛ [d / (PSF ⊛ e)])</code>。
   重點不是「疊代越多越好」，而是 <b>半收斂（semi-convergence）</b>——
   誤差先降後升，過了甜蜜點就開始把雜訊放大成振鈴。

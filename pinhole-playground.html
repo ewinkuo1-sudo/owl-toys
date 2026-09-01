@@ -54,8 +54,9 @@
 <h1>共軛焦 Pinhole 模擬</h1>
 <p class="sub">
   共軛焦顯微鏡最核心的取捨：pinhole 關小 → 切片變薄，但光子被丟掉；開大 → 訊號回來，切片變厚。
-  光學切片厚度 <code>dz = √[(0.88λ/(n−√(n²−NA²)))² + (√2·n·PH/NA)²]</code>，
-  焦平面訊號用 Airy 圈內能量 <code>E = 1 − J₀²(v) − J₁²(v)</code>，<code>v = 3.8317·D</code>（D 以 AU 計）。
+  光學切片厚度 <code>dz = √[(0.88λ/(n−√(n²−NA²)))² + (√2·n·PH/NA)²]</code>
+  （PH＝回投影到物空間的 pinhole 直徑，λ 用放射波長），
+  焦平面訊號用 Airy 圈內能量 <code>E = 1 − J₀²(v) − J₁²(v)</code>，<code>v = 3.8317·D</code>（D＝pinhole 直徑，以 AU 計；1 AU＝1.22λ/NA）。
 </p>
 <div class="wrap">
   <canvas id="axial" width="420" height="420"></canvas>
