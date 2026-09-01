@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P-SHG 偏振極座標遊樂場 🦉</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1d2028;
+    --ink: #e6e6ec;
+    --muted: #9aa0ae;
+    --accent: #6ec6ff;
+    --ref: #ffb86c;
+    --grid: #2e3340;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub code { color: var(--accent); background: none; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  canvas { background: var(--panel); border-radius: 12px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); }
+  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+</style>
+</head>
+<body>
+<h1>P-SHG 偏振極座標遊樂場</h1>
+<p class="sub">
+  膠原蛋白（C<sub>6∞</sub> 圓柱對稱）的偏振解析 SHG 強度模型：
+  <code>I(θ) ∝ sin²(2Δ) + (sin²Δ + ρ·cos²Δ)²</code>，其中 <code>Δ = θ − φ</code>，
+  <code>ρ = χ₃₃/χ₁₅</code>。拖拉滑桿，看 ρ 怎麼決定花瓣形狀、φ 怎麼轉整朵花。
+</p>
+<div class="wrap">
+  <canvas id="polar" width="420" height="420"></canvas>
+  <canvas id="cart" width="420" height="420"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label>ρ = χ₃₃/χ₁₅ <output id="rhoOut">1.40</output></label>
+      <input type="range" id="rho" min="0.2" max="4" step="0.01" value="1.4">
+    </div>
+    <div class="ctl">
+      <label>纖維方位角 φ <output id="phiOut">0°</output></label>
+      <input type="range" id="phi" min="0" max="180" step="1" value="0">
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="showRef" checked>
+      <label for="showRef">顯示參考曲線：肌腱膠原典型值 ρ = 1.4（橘）</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="spin">
+      <label for="spin">讓纖維自己轉（模擬視野裡不同走向的纖維）</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      玩法提示：ρ→1 時整朵花縮成接近圓（極化各向同性，量不出方向）；
+      ρ 越大，沿纖維方向的花瓣越突出。實驗上就是反過來：轉入射偏振拍一圈，
+      把 I(θ) 擬合回去解出 ρ 和 φ——ρ 對應組織的膠原狀態（正常 vs 病變），
+      φ 給你纖維走向圖。
+    </div>
+  </div>
+</div>
+<script>
+const polar = document.getElementById('polar');
+const cart = document.getElementById('cart');
+const pctx = polar.getContext('2d');
+const cctx = cart.getContext('2d');
+const $ = id => document.getElementById(id);
+
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+
+function intensity(theta, phi, rho) {
+  const d = theta - phi;
+  const s = Math.sin(d), c = Math.cos(d);
+  const a = Math.sin(2 * d);
+  const b = s * s + rho * c * c;
+  return a * a + b * b;
+}
+
+function curve(phi, rho, n = 720) {
+  const pts = [];
+  let max = 0;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n * 2 * Math.PI;
+    const I = intensity(t, phi, rho);
+    if (I > max) max = I;
+    pts.push([t, I]);
+  }
+  return { pts, max };
+}
+
+function drawPolar(phi, rho, showRef) {
+  const w = polar.width, h = polar.height, cx = w / 2, cy = h / 2, R = w / 2 - 36;
+  pctx.clearRect(0, 0, w, h);
+
+  pctx.strokeStyle = C.grid;
+  pctx.fillStyle = C.muted;
+  pctx.font = '11px sans-serif';
+  pctx.lineWidth = 1;
+  for (const f of [0.25, 0.5, 0.75, 1]) {
+    pctx.beginPath();
+    pctx.arc(cx, cy, R * f, 0, 2 * Math.PI);
+    pctx.stroke();
+  }
+  for (let a = 0; a < 180; a += 30) {
+    const t = a * Math.PI / 180;
+    pctx.beginPath();
+    pctx.moveTo(cx - R * Math.cos(t), cy + R * Math.sin(t));
+    pctx.lineTo(cx + R * Math.cos(t), cy - R * Math.sin(t));
+    pctx.stroke();
+    pctx.fillText(a + '°', cx + (R + 8) * Math.cos(t) - 8, cy - (R + 8) * Math.sin(t) + 4);
+  }
+
+  const main = curve(phi, rho);
+  const norm = main.max;
+
+  if (showRef) {
+    const ref = curve(phi, 1.4);
+    tracePolar(ref.pts, ref.max, cx, cy, R, C.ref, 1.5, true);
+  }
+  tracePolar(main.pts, norm, cx, cy, R, C.accent, 2.5, false);
+
+  pctx.strokeStyle = C.ink;
+  pctx.setLineDash([6, 6]);
+  pctx.lineWidth = 1;
+  pctx.beginPath();
+  pctx.moveTo(cx - R * Math.cos(phi), cy + R * Math.sin(phi));
+  pctx.lineTo(cx + R * Math.cos(phi), cy - R * Math.sin(phi));
+  pctx.stroke();
+  pctx.setLineDash([]);
+  pctx.fillStyle = C.ink;
+  pctx.fillText('纖維軸', cx + (R - 40) * Math.cos(phi), cy - (R - 40) * Math.sin(phi) - 8);
+}
+
+function tracePolar(pts, norm, cx, cy, R, color, lw, dashed) {
+  pctx.strokeStyle = color;
+  pctx.lineWidth = lw;
+  if (dashed) pctx.setLineDash([4, 4]);
+  pctx.beginPath();
+  pts.forEach(([t, I], i) => {
+    const r = R * I / norm;
+    const x = cx + r * Math.cos(t), y = cy - r * Math.sin(t);
+    i ? pctx.lineTo(x, y) : pctx.moveTo(x, y);
+  });
+  pctx.stroke();
+  pctx.setLineDash([]);
+}
+
+function drawCart(phi, rho, showRef) {
+  const w = cart.width, h = cart.height, mL = 46, mB = 34, mT = 18, mR = 12;
+  const pw = w - mL - mR, ph = h - mT - mB;
+  cctx.clearRect(0, 0, w, h);
+
+  const main = curve(phi, rho, 360);
+  const ref = curve(phi, 1.4, 360);
+  const yMax = Math.max(main.max, showRef ? ref.max : 0) * 1.05;
+
+  cctx.strokeStyle = C.grid;
+  cctx.fillStyle = C.muted;
+  cctx.font = '11px sans-serif';
+  cctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = mT + ph - ph * g / 4;
+    cctx.beginPath(); cctx.moveTo(mL, y); cctx.lineTo(w - mR, y); cctx.stroke();
+    cctx.fillText((yMax * g / 4).toFixed(1), 8, y + 4);
+  }
+  for (let a = 0; a <= 360; a += 90) {
+    const x = mL + pw * a / 360;
+    cctx.beginPath(); cctx.moveTo(x, mT); cctx.lineTo(x, mT + ph); cctx.stroke();
+    cctx.fillText(a + '°', x - 10, h - 12);
+  }
+  cctx.fillText('入射偏振角 θ', w / 2 - 30, h - 0.5);
+  cctx.save();
+  cctx.translate(12, h / 2 + 30); cctx.rotate(-Math.PI / 2);
+  cctx.fillText('SHG 強度（a.u.）', 0, 0);
+  cctx.restore();
+
+  const trace = (pts, color, lw, dashed) => {
+    cctx.strokeStyle = color; cctx.lineWidth = lw;
+    if (dashed) cctx.setLineDash([4, 4]);
+    cctx.beginPath();
+    pts.forEach(([t, I], i) => {
+      const x = mL + pw * t / (2 * Math.PI);
+      const y = mT + ph - ph * I / yMax;
+      i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
+    });
+    cctx.stroke();
+    cctx.setLineDash([]);
+  };
+  if (showRef) trace(ref.pts, C.ref, 1.5, true);
+  trace(main.pts, C.accent, 2.5, false);
+}
+
+function stats(phi, rho) {
+  const { pts } = curve(phi, rho, 1440);
+  let max = -1, min = 1e9;
+  for (const [, I] of pts) { if (I > max) max = I; if (I < min) min = I; }
+  const contrast = min > 1e-9 ? (max / min).toFixed(2) : '∞';
+  $('stats').innerHTML =
+    `I<sub>max</sub>/I<sub>min</sub> 對比：<b>${contrast}</b><br>` +
+    `平行纖維 I(φ)：<b>${intensity(phi, phi, rho).toFixed(2)}</b>（= ρ²）<br>` +
+    `垂直纖維 I(φ+90°)：<b>${intensity(phi + Math.PI / 2, phi, rho).toFixed(2)}</b>（= 1）`;
+}
+
+let spinning = false, phiDeg = 0, raf = null;
+
+function render() {
+  const rho = parseFloat($('rho').value);
+  const showRef = $('showRef').checked;
+  const phi = phiDeg * Math.PI / 180;
+  $('rhoOut').textContent = rho.toFixed(2);
+  $('phiOut').textContent = Math.round(phiDeg) + '°';
+  drawPolar(phi, rho, showRef);
+  drawCart(phi, rho, showRef);
+  stats(phi, rho);
+}
+
+function tick() {
+  if (!spinning) return;
+  phiDeg = (phiDeg + 0.4) % 180;
+  $('phi').value = phiDeg;
+  render();
+  raf = requestAnimationFrame(tick);
+}
+
+$('rho').addEventListener('input', render);
+$('phi').addEventListener('input', e => { phiDeg = parseFloat(e.target.value); render(); });
+$('showRef').addEventListener('change', render);
+$('spin').addEventListener('change', e => {
+  spinning = e.target.checked;
+  if (spinning) tick(); else cancelAnimationFrame(raf);
+});
+
+render();
+</script>
+</body>
+</html>
