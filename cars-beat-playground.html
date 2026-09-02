@@ -14,6 +14,7 @@
     --ref: #ffb86c;
     --grid: #2e3340;
     --as: #b18cff;
+    --srs: #6ee7a0;
   }
   * { box-sizing: border-box; }
   body {
@@ -59,7 +60,7 @@
   兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後產生的<b>拍頻</b>
   <code>Δ = ω_p − ω_s</code> 才是真正推分子的那隻手。當 Δ 對上化學鍵振動頻率 Ω，
   整片分子像被準時推的鞦韆一起盪起來，訊號跑到 <code>ω_as = 2ω_p − ω_s</code>——
-  比 pump 更藍，天生避開螢光。
+  比 pump 更藍，天生避開螢光。用「技術模式」鈕切換自發拉曼 / CARS / SRS，比較三種拉曼技術的差別。
 </p>
 <div class="wrap">
   <div class="stack">
@@ -68,6 +69,10 @@
     <canvas id="scan" width="560" height="220"></canvas>
   </div>
   <div class="controls">
+    <div class="ctl">
+      <label>技術模式</label>
+      <div class="presets" id="modes"></div>
+    </div>
     <div class="ctl">
       <label>pump 波長 λ<sub>p</sub> <output id="pOut">800 nm</output></label>
       <input type="range" id="pump" min="700" max="1100" step="5" value="800">
@@ -102,6 +107,13 @@
       高波數側出現凹陷，峰位也偏移——這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。
       這裡的 Γ 是分子振動本身的線寬（凝態典型 ~10 cm⁻¹）；ps 雷射的頻寬剛好也在這個量級，
       光譜解析度與激發效率都不浪費——這是 CARS 常用 ps 而非 fs 雷射的原因。
+      <br><br>
+      <b>三種技術比一比</b>（用上面的模式鈕切換）：<b>自發拉曼</b>一束雷射就夠、儀器最簡單、一次拿整條光譜，
+      但分子各抖各的（∝ N）訊號極弱，又落在紅側跟螢光疊在一起。<b>CARS</b> 用拍頻同調驅動（∝ N²）亮好幾個數量級，
+      訊號是全新顏色（藍側）、用濾鏡就分得開，代價是 χ<sub>NR</sub> 背景扭曲譜形、定量困難。
+      <b>SRS</b> 同樣是同調驅動，但偵測的是 pump 變弱（SRL）／Stokes 變強（SRG）——只量 Im χ，
+      所以沒有非共振背景、線型是乾淨的 Lorentzian、訊號 ∝ N 可直接定量；
+      代價是 ΔI/I 只有 ~10⁻⁴，得靠高頻調變＋鎖相放大才挖得出來。
     </div>
   </div>
 </div>
@@ -109,7 +121,9 @@
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'),
-            ref: css('--ref'), grid: css('--grid'), as: css('--as'), panel: css('--panel') };
+            ref: css('--ref'), grid: css('--grid'), as: css('--as'),
+            srs: css('--srs'), panel: css('--panel') };
+let mode = 'cars';            // 'spont' | 'cars' | 'srs'
 
 const bctx = $('beat').getContext('2d');
 const sctx = $('spec').getContext('2d');
@@ -137,6 +151,8 @@ function iCars(D, om, g, nr) {                       // |χ_NR + Γ/(Ω−Δ−i
   const im = g * g / den;
   return re * re + im * im;
 }
+// Im χ_R：SRS（與自發拉曼）的線型，峰值歸一的純 Lorentzian
+const imChi = (D, om, g) => { const d = om - D; return g * g / (d * d + g * g); };
 
 function scanCurve(om, g, nr, n = 700) {
   const res = [], pure = [];
@@ -179,9 +195,13 @@ function drawBeat(D, om, g, t) {
     bctx.stroke(); bctx.setLineDash([]);
   };
   wave(np, vp, y1, a1, C.accent, false);
-  wave(ns, vs, y1, a1, C.ref, true);
+  if (mode !== 'spont') wave(ns, vs, y1, a1, C.ref, true);
   bctx.fillStyle = C.accent; bctx.fillText('pump ' + LP + ' nm', mL + 2, 14);
-  bctx.fillStyle = C.ref;    bctx.fillText('Stokes ' + lamS(D).toFixed(0) + ' nm', mL + 96, 14);
+  if (mode === 'spont') {
+    bctx.fillStyle = C.muted; bctx.fillText('（只需一束雷射）', mL + 96, 14);
+  } else {
+    bctx.fillStyle = C.ref;  bctx.fillText('Stokes ' + lamS(D).toFixed(0) + ' nm', mL + 96, 14);
+  }
   bctx.fillStyle = C.muted;  bctx.textAlign = 'right';
   bctx.fillText('波形為示意（拍頻已放大）', mL + pw, 14);
   bctx.textAlign = 'left';
@@ -190,48 +210,76 @@ function drawBeat(D, om, g, t) {
   const y2 = 118, a2 = 15;
   bctx.strokeStyle = C.grid;
   bctx.beginPath(); bctx.moveTo(mL, y2); bctx.lineTo(mL + pw, y2); bctx.stroke();
-  const env = u => 2 * Math.cos(Math.PI * (nb * u - (vp - vs) * t));
-  bctx.strokeStyle = C.muted; bctx.lineWidth = 1; bctx.setLineDash([3, 3]);
-  for (const sgn of [1, -1]) {
+  if (mode === 'spont') {
+    bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
     bctx.beginPath();
     for (let i = 0; i <= pw; i++) {
-      const u = i / pw, y = y2 - sgn * a2 * Math.abs(env(u));
+      const u = i / pw;
+      const y = y2 - a2 * 1.3 * Math.cos(2 * Math.PI * (np * u - vp * t));
       i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
     }
     bctx.stroke();
-  }
-  bctx.setLineDash([]);
-  bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
-  bctx.beginPath();
-  for (let i = 0; i <= pw; i++) {
-    const u = i / pw;
-    const s = Math.cos(2 * Math.PI * (np * u - vp * t)) + Math.cos(2 * Math.PI * (ns * u - vs * t));
-    const y = y2 - a2 * s;
-    i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-  }
-  bctx.stroke();
-  bctx.fillStyle = C.ink; bctx.fillText('兩束相加：拍包絡', mL + 2, y2 - 34);
-  if (D < 30) {
-    bctx.fillStyle = C.ref;
-    bctx.textAlign = 'center';
-    bctx.fillText('同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 34);
-    bctx.textAlign = 'left';
+    bctx.fillStyle = C.muted;
+    bctx.fillText('單束光：振幅平平，沒有拍包絡 → 沒有那隻推鞦韆的手', mL + 2, y2 - 34);
+  } else {
+    const env = u => 2 * Math.cos(Math.PI * (nb * u - (vp - vs) * t));
+    bctx.strokeStyle = C.muted; bctx.lineWidth = 1; bctx.setLineDash([3, 3]);
+    for (const sgn of [1, -1]) {
+      bctx.beginPath();
+      for (let i = 0; i <= pw; i++) {
+        const u = i / pw, y = y2 - sgn * a2 * Math.abs(env(u));
+        i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+      }
+      bctx.stroke();
+    }
+    bctx.setLineDash([]);
+    bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
+    bctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const u = i / pw;
+      const s = Math.cos(2 * Math.PI * (np * u - vp * t)) + Math.cos(2 * Math.PI * (ns * u - vs * t));
+      const y = y2 - a2 * s;
+      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    }
+    bctx.stroke();
+    bctx.fillStyle = C.ink; bctx.fillText('兩束相加：拍包絡', mL + 2, y2 - 34);
+    if (D < 30) {
+      bctx.fillStyle = C.ref;
+      bctx.textAlign = 'center';
+      bctx.fillText('同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 34);
+      bctx.textAlign = 'left';
+    }
   }
 
-  // 下：被驅動的分子振動
-  const y3 = 190, A = lorentz(D, om, g);
+  // 下：分子振動
+  const y3 = 190;
   bctx.strokeStyle = C.grid; bctx.lineWidth = 1;
   bctx.beginPath(); bctx.moveTo(mL, y3); bctx.lineTo(mL + pw, y3); bctx.stroke();
-  bctx.strokeStyle = C.as; bctx.lineWidth = 2;
-  bctx.beginPath();
-  for (let i = 0; i <= pw; i++) {
-    const u = i / pw;
-    const y = y3 - 24 * A * Math.cos(2 * Math.PI * (nb * u - (vp - vs) * t));
-    i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+  if (mode === 'spont') {
+    // 各分子相位隨機、各抖各的：疊起來只剩微弱的不相干起伏
+    bctx.strokeStyle = C.as; bctx.lineWidth = 1.2;
+    bctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const u = i / pw;
+      const y = y3 - 3.5 * Math.sin(2 * Math.PI * 6 * u + 5 * Math.sin(u * 53 + 0.7 * t) + t * 4);
+      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    }
+    bctx.stroke();
+    bctx.fillStyle = C.as;
+    bctx.fillText('分子各抖各的（相位隨機）→ 訊號 ∝ N，四面八方亂射', mL + 2, y3 - 26);
+  } else {
+    const A = lorentz(D, om, g);
+    bctx.strokeStyle = C.as; bctx.lineWidth = 2;
+    bctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const u = i / pw;
+      const y = y3 - 24 * A * Math.cos(2 * Math.PI * (nb * u - (vp - vs) * t));
+      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    }
+    bctx.stroke();
+    bctx.fillStyle = C.as;
+    bctx.fillText('分子振動（被拍頻同調驅動） |A| = ' + (A * 100).toFixed(0) + '%', mL + 2, y3 - 26);
   }
-  bctx.stroke();
-  bctx.fillStyle = C.as;
-  bctx.fillText('分子振動（被拍頻驅動） |A| = ' + (A * 100).toFixed(0) + '%', mL + 2, y3 - 26);
 }
 
 // —— 2. 光譜 ——
@@ -277,12 +325,51 @@ function drawSpec(D, rel) {
     sctx.fillText(label, x, y - 6);
   };
   const ls = lamS(D), las = lamAS(ls);
-  line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
-  line(LP, 0.72, C.accent, 'pump ' + LP, 3);
-  line(las, asDisp, C.as, 'anti-Stokes ' + las.toFixed(0), 3);
-  sctx.textAlign = 'left';
-  sctx.fillStyle = C.muted;
-  sctx.fillText('偵測窗（更藍側，避開螢光）', mL + 2, 14);
+  if (mode === 'cars') {
+    line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
+    line(LP, 0.72, C.accent, 'pump ' + LP, 3);
+    line(las, asDisp, C.as, 'anti-Stokes ' + las.toFixed(0), 3);
+    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
+    sctx.fillText('偵測窗（更藍側，避開螢光）', mL + 2, 14);
+  } else if (mode === 'srs') {
+    const dI = 0.20 * asDisp;                 // 圖上誇大的 ΔI（真實 ~1e-4）
+    const F = ph * 0.86;
+    line(LP, 0.72 - dI, C.accent, 'pump ' + LP, 3);
+    line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
+    // SRG：Stokes 頂端長出的增益段；SRL：pump 頂端消失的段
+    sctx.strokeStyle = C.srs; sctx.lineWidth = 3;
+    sctx.beginPath();
+    sctx.moveTo(X(ls), base - F * 0.72); sctx.lineTo(X(ls), base - F * (0.72 + dI));
+    sctx.stroke();
+    sctx.strokeStyle = C.accent; sctx.lineWidth = 1; sctx.setLineDash([3, 3]);
+    sctx.beginPath();
+    sctx.moveTo(X(LP), base - F * (0.72 - dI)); sctx.lineTo(X(LP), base - F * 0.72);
+    sctx.stroke(); sctx.setLineDash([]);
+    sctx.textAlign = 'center';
+    if (dI > 0.02) {
+      sctx.fillStyle = C.srs;    sctx.fillText('SRG +ΔI', X(ls), base - F * (0.72 + dI) - 18);
+      sctx.fillStyle = C.accent; sctx.fillText('SRL −ΔI', X(LP), base - F * 0.72 - 18);
+    }
+    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
+    sctx.fillText('訊號＝雷射本身的微小增減（已誇大；真實 ΔI/I ~ 10⁻⁴，靠調變＋鎖相）', mL + 2, 14);
+  } else {
+    line(LP, 0.72, C.accent, 'pump ' + LP, 3);
+    // 自發拉曼：峰位由 Ω 決定，微弱、埋在紅側螢光裡
+    const lr = 1 / (1 / LP - omega * 1e-7);
+    sctx.strokeStyle = C.as; sctx.lineWidth = 1.6;
+    sctx.beginPath();
+    for (let i = 0; i <= pw; i++) {
+      const l = LMIN + (LMAX - LMIN) * i / pw;
+      const v = 0.13 * Math.exp(-(((l - lr) / 14) ** 2));
+      const y = base - ph * 0.86 * v;
+      i ? sctx.lineTo(mL + i, y) : sctx.moveTo(mL + i, y);
+    }
+    sctx.stroke();
+    sctx.textAlign = 'center'; sctx.fillStyle = C.as;
+    sctx.fillText('自發拉曼 ' + lr.toFixed(0) + ' nm（弱 ~10⁵ 倍）', X(lr), base - ph * 0.86 * 0.13 - 8);
+    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
+    sctx.fillText('峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起', mL + 2, 14);
+  }
   sctx.save();
   sctx.translate(13, mT + ph / 2 + 34); sctx.rotate(-Math.PI / 2);
   sctx.fillText('強度（a.u.）', 0, 0);
@@ -312,25 +399,32 @@ function drawScan(D, om, g, nr, cur) {
     nctx.textAlign = 'center';
   }
   nctx.fillStyle = C.muted;
-  nctx.fillText('拍頻 Δ (cm⁻¹)', mL + pw / 2, h - 4);
+  nctx.fillText(mode === 'spont' ? '拉曼位移 (cm⁻¹)' : '拍頻 Δ (cm⁻¹)', mL + pw / 2, h - 4);
   nctx.save();
   nctx.translate(13, mT + ph / 2 + 40); nctx.rotate(-Math.PI / 2);
-  nctx.fillText('I_CARS（歸一）', 0, 0);
+  nctx.fillText(mode === 'cars' ? 'I_CARS（歸一）' : mode === 'srs' ? 'ΔI_SRS（歸一）' : 'I_Raman（歸一）', 0, 0);
   nctx.restore();
 
   const { res, pure, max, n } = cur;
-  const trace = (arr, color, lw, dash) => {
+  const trace = (arr, mx, color, lw, dash) => {
     nctx.strokeStyle = color; nctx.lineWidth = lw;
     nctx.setLineDash(dash ? [5, 4] : []);
     nctx.beginPath();
     for (let i = 0; i <= n; i++) {
-      const x = X(DMAX * i / n), y = Y(arr[i] / max);
+      const x = X(DMAX * i / n), y = Y(arr[i] / mx);
       i ? nctx.lineTo(x, y) : nctx.moveTo(x, y);
     }
     nctx.stroke(); nctx.setLineDash([]);
   };
-  trace(pure, C.ref, 1.4, true);
-  trace(res, C.accent, 2.2, false);
+  if (mode === 'cars') {
+    trace(pure, max, C.ref, 1.4, true);
+    trace(res, max, C.accent, 2.2, false);
+  } else {
+    const lor = [];
+    for (let i = 0; i <= n; i++) lor.push(imChi(DMAX * i / n, om, g));
+    if (mode === 'srs') trace(res, max, C.grid, 1.4, true);   // CARS 對照（暗虛線）
+    trace(lor, 1, mode === 'srs' ? C.srs : C.as, 2.2, false);
+  }
 
   // Ω 標記
   nctx.strokeStyle = C.as; nctx.lineWidth = 1;
@@ -339,27 +433,56 @@ function drawScan(D, om, g, nr, cur) {
   nctx.setLineDash([]);
   nctx.fillStyle = C.as; nctx.fillText('Ω=' + om, X(om), mT - 7);
 
-  // 目前 Δ
-  const v = iCars(D, om, g, nr) / max;
-  nctx.fillStyle = C.ink;
-  nctx.beginPath(); nctx.arc(X(D), Y(v), 4.5, 0, 2 * Math.PI); nctx.fill();
+  // 目前 Δ（自發模式沒有第二束雷射，Δ 無意義）
+  if (mode !== 'spont') {
+    const v = mode === 'cars' ? iCars(D, om, g, nr) / max : imChi(D, om, g);
+    nctx.fillStyle = C.ink;
+    nctx.beginPath(); nctx.arc(X(D), Y(v), 4.5, 0, 2 * Math.PI); nctx.fill();
+  }
   nctx.textAlign = 'left';
-  nctx.fillStyle = C.accent; nctx.fillText('含 χ_NR 干涉', mL + 4, mT + 12);
-  nctx.fillStyle = C.ref;    nctx.fillText('純共振（χ_NR = 0，虛線）', mL + 4, mT + 26);
+  if (mode === 'cars') {
+    nctx.fillStyle = C.accent; nctx.fillText('含 χ_NR 干涉', mL + 4, mT + 12);
+    nctx.fillStyle = C.ref;    nctx.fillText('純共振（χ_NR = 0，虛線）', mL + 4, mT + 26);
+  } else if (mode === 'srs') {
+    nctx.fillStyle = C.srs;   nctx.fillText('SRS ∝ Im χ：純 Lorentzian，χ_NR 進不來', mL + 4, mT + 12);
+    nctx.fillStyle = C.muted; nctx.fillText('CARS（虛線對照）：被 χ_NR 拉歪', mL + 4, mT + 26);
+  } else {
+    nctx.fillStyle = C.as;    nctx.fillText('自發拉曼：同樣的 Lorentzian，只是弱 ~10⁵ 倍', mL + 4, mT + 12);
+  }
 }
 
 // —— 狀態與統計 ——
 function updateStats(D, om, g, cur) {
   const ls = lamS(D), las = lamAS(ls);
-  const rel = iCars(D, om, g, parseFloat($('nr').value)) / cur.max * 100;
+  if (mode === 'cars') {
+    const rel = iCars(D, om, g, parseFloat($('nr').value)) / cur.max * 100;
+    $('stats').innerHTML =
+      `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
+      `anti-Stokes λ<sub>as</sub>：<b>${las.toFixed(1)}</b> nm（2ω<sub>p</sub>−ω<sub>s</sub>）<br>` +
+      `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
+      `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
+      `相對 CARS 訊號：<b>${rel.toFixed(1)}</b> %<br>` +
+      `<span style="font-size:0.8rem">訊號 ∝ N²（同調疊加）；偵測新顏色，用濾鏡就分得開</span>`;
+    return rel / 100;
+  }
+  if (mode === 'srs') {
+    const rel = imChi(D, om, g) * 100;
+    $('stats').innerHTML =
+      `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
+      `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
+      `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
+      `SRL / SRG 相對強度 ∝ Im χ：<b>${rel.toFixed(1)}</b> %<br>` +
+      `<span style="font-size:0.8rem">訊號 ∝ N（線性、可直接定量）；無 χ_NR 背景；` +
+      `但 ΔI/I ~ 10⁻⁴，要高頻調變＋鎖相放大</span>`;
+    return rel / 100;
+  }
+  const lr = 1 / (1 / LP - om * 1e-7);
   $('stats').innerHTML =
-    `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
-    `anti-Stokes λ<sub>as</sub>：<b>${las.toFixed(1)}</b> nm（2ω<sub>p</sub>−ω<sub>s</sub>）<br>` +
-    `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
-    `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
-    `相對 CARS 訊號：<b>${rel.toFixed(1)}</b> %<br>` +
-    `<span style="font-size:0.8rem">訊號 ∝ N²（同調疊加），不是 ∝ N</span>`;
-  return rel / 100;
+    `拉曼峰位：<b>${lr.toFixed(1)}</b> nm（由 Ω=${om} cm⁻¹ 決定）<br>` +
+    `線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
+    `<span style="font-size:0.8rem">訊號 ∝ N（不相干疊加），比同調方法弱 ~10⁵ 倍；` +
+    `但只要一束雷射＋光譜儀，還能一次拿到整條光譜</span>`;
+  return 0.13;
 }
 
 let time = 0, last = performance.now();
@@ -377,6 +500,9 @@ function frame(now) {
   $('omOut').textContent = omega + ' cm⁻¹';
   $('gOut').textContent = g + ' cm⁻¹';
   $('nrOut').textContent = nr.toFixed(2);
+  // 各模式用不到的旋鈕調暗：自發沒有 Δ（沒有第二束雷射），SRS/自發不吃 χ_NR
+  $('delta').parentElement.style.opacity = mode === 'spont' ? 0.35 : 1;
+  $('nr').parentElement.style.opacity = mode === 'cars' ? 1 : 0.35;
 
   const cur = scanCurve(omega, g, nr);
   const target = updateStats(D, omega, g, cur);
@@ -387,6 +513,24 @@ function frame(now) {
   drawScan(D, omega, g, nr, cur);
   requestAnimationFrame(frame);
 }
+
+const MODES = [
+  { key: 'spont', name: '自發拉曼' },
+  { key: 'cars', name: 'CARS' },
+  { key: 'srs', name: 'SRS' },
+];
+const mbox = $('modes');
+MODES.forEach(m => {
+  const b = document.createElement('button');
+  b.textContent = m.name;
+  b.onclick = () => {
+    mode = m.key;
+    [...mbox.children].forEach(c => c.classList.remove('on'));
+    b.classList.add('on');
+  };
+  if (m.key === mode) b.classList.add('on');
+  mbox.appendChild(b);
+});
 
 const pbox = $('presets');
 PRESETS.forEach(p => {
