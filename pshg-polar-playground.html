@@ -102,7 +102,7 @@
     </div>
     <div class="ctl">
       <label>纖維方位角 φ（面內） <output id="phiOut">0°</output></label>
-      <input type="range" id="phi" min="0" max="180" step="1" value="0">
+      <input type="range" id="phi" min="0" max="360" step="1" value="0">
     </div>
     <div class="ctl">
       <label>出平面傾角 δ <output id="deltaOut">0°</output></label>
@@ -631,7 +631,7 @@ $('spin').addEventListener('change', e => {
 });
 function tick() {
   if (!spinning) return;
-  phiDeg = (phiDeg + 0.4) % 180;
+  phiDeg = (phiDeg + 0.4) % 360;
   $('phi').value = phiDeg;
   render();
   raf = requestAnimationFrame(tick);
