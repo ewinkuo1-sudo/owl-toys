@@ -69,6 +69,10 @@
   </div>
   <div class="controls">
     <div class="ctl">
+      <label>pump 波長 λ<sub>p</sub> <output id="pOut">800 nm</output></label>
+      <input type="range" id="pump" min="700" max="1100" step="5" value="800">
+    </div>
+    <div class="ctl">
       <label>拍頻 Δ（拉曼位移） <output id="dOut">2000 cm⁻¹</output></label>
       <input type="range" id="delta" min="0" max="3500" step="5" value="2000">
     </div>
@@ -111,10 +115,8 @@ const bctx = $('beat').getContext('2d');
 const sctx = $('spec').getContext('2d');
 const nctx = $('scan').getContext('2d');
 
-const LP = 800;               // pump 波長 (nm), 固定
-const WP = 1e7 / LP;          // pump 波數 = 12500 cm⁻¹
+let LP = 800;                 // pump 波長 (nm), 可調
 const DMAX = 3500;
-const LMIN = 550, LMAX = 1150;
 
 const PRESETS = [
   { name: '脂質 CH₂ 2845', om: 2845 },
@@ -178,7 +180,7 @@ function drawBeat(D, om, g, t) {
   };
   wave(np, vp, y1, a1, C.accent, false);
   wave(ns, vs, y1, a1, C.ref, true);
-  bctx.fillStyle = C.accent; bctx.fillText('pump 800 nm', mL + 2, 14);
+  bctx.fillStyle = C.accent; bctx.fillText('pump ' + LP + ' nm', mL + 2, 14);
   bctx.fillStyle = C.ref;    bctx.fillText('Stokes ' + lamS(D).toFixed(0) + ' nm', mL + 96, 14);
   bctx.fillStyle = C.muted;  bctx.textAlign = 'right';
   bctx.fillText('波形為示意（拍頻已放大）', mL + pw, 14);
@@ -239,6 +241,10 @@ function drawSpec(D, rel) {
   sctx.clearRect(0, 0, w, h);
   const mL = 40, mR = 14, mT = 26, mB = 30;
   const pw = w - mL - mR, ph = h - mT - mB, base = mT + ph;
+  // 波長軸跟著 pump 走：涵蓋 Δ=DMAX 時的 anti-Stokes ~ Stokes
+  const wp = 1e7 / LP;
+  const LMIN = Math.floor(1e7 / (wp + DMAX) / 50) * 50 - 50;
+  const LMAX = Math.ceil(1e7 / (wp - DMAX) / 50) * 50 + 50;
   const X = l => mL + pw * (l - LMIN) / (LMAX - LMIN);
 
   // 螢光背景（pump 紅側）
@@ -251,7 +257,8 @@ function drawSpec(D, rel) {
   sctx.strokeStyle = C.grid; sctx.lineWidth = 1;
   sctx.beginPath(); sctx.moveTo(mL, base); sctx.lineTo(mL + pw, base); sctx.stroke();
   sctx.font = '11px sans-serif'; sctx.textAlign = 'center';
-  for (let l = 600; l <= 1100; l += 100) {
+  const tick = (LMAX - LMIN) > 900 ? 200 : 100;
+  for (let l = Math.ceil(LMIN / tick) * tick; l <= LMAX; l += tick) {
     sctx.fillStyle = C.muted;
     sctx.beginPath(); sctx.moveTo(X(l), base); sctx.lineTo(X(l), base + 4); sctx.stroke();
     sctx.fillText(l, X(l), base + 17);
@@ -271,7 +278,7 @@ function drawSpec(D, rel) {
   };
   const ls = lamS(D), las = lamAS(ls);
   line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
-  line(LP, 0.72, C.accent, 'pump 800', 3);
+  line(LP, 0.72, C.accent, 'pump ' + LP, 3);
   line(las, asDisp, C.as, 'anti-Stokes ' + las.toFixed(0), 3);
   sctx.textAlign = 'left';
   sctx.fillStyle = C.muted;
@@ -361,9 +368,11 @@ function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
   if ($('anim').checked) time += dt * 6;
 
+  LP = parseFloat($('pump').value);
   const D = parseFloat($('delta').value);
   const g = parseFloat($('gamma').value);
   const nr = parseFloat($('nr').value);
+  $('pOut').textContent = LP + ' nm';
   $('dOut').textContent = D.toFixed(0) + ' cm⁻¹';
   $('omOut').textContent = omega + ' cm⁻¹';
   $('gOut').textContent = g + ' cm⁻¹';
