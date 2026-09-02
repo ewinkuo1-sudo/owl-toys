@@ -51,7 +51,13 @@
   .expmsg { font-size: 0.82rem; color: var(--data); line-height: 1.6; min-height: 0; }
   .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 10px; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .stats .bias { color: var(--warn); }
+  .stats .bias, .formulabox .bias { color: var(--warn); }
+  .formulabox {
+    background: var(--panel); border-radius: 12px; padding: 12px 16px;
+    width: 400px; font-size: 0.8rem; line-height: 2; color: var(--muted);
+  }
+  .formulabox .f { color: var(--ink); }
+  .formulabox b { color: var(--accent); font-variant-numeric: tabular-nums; }
   .legend { font-size: 0.78rem; color: var(--muted); }
   .legend span { margin-right: 10px; }
   .hint { font-size: 0.76rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 10px; }
@@ -73,11 +79,14 @@
   <div class="sidecol">
     <canvas id="polar" width="400" height="400"></canvas>
     <div class="helixbox">
-      <canvas id="helix" width="150" height="200"></canvas>
-      <div class="cap">單股螺旋，傾角 θe = <span id="helixDeg" style="color:var(--accent)">50°</span></div>
+      <canvas id="fiber" width="240" height="240"></canvas>
+      <div class="cap" id="fiberCap"></div>
     </div>
   </div>
-  <canvas id="cart" width="400" height="400"></canvas>
+  <div class="sidecol">
+    <canvas id="cart" width="400" height="400"></canvas>
+    <div class="formulabox" id="formula"></div>
+  </div>
   <div class="controls">
     <div class="presets">
       <button id="presetCol">🩹 膠原 I 型<br><span style="color:var(--muted);font-size:0.72rem">ρ=1.40, θe≈50°</span></button>
@@ -147,10 +156,10 @@
 <script>
 const polar = document.getElementById('polar');
 const cart = document.getElementById('cart');
-const helix = document.getElementById('helix');
+const fiber = document.getElementById('fiber');
 const pctx = polar.getContext('2d');
 const cctx = cart.getContext('2d');
-const hctx = helix.getContext('2d');
+const fctx = fiber.getContext('2d');
 const $ = id => document.getElementById(id);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -379,42 +388,117 @@ function drawCart(st) {
   }
 }
 
-// --- 螺旋小圖 ---------------------------------------------------------------
-function drawHelix(teDeg) {
-  const w = helix.width, h = helix.height, cx = w / 2;
-  hctx.clearRect(0, 0, w, h);
-  const R = 32, yTop = 16, yBot = h - 16;
-  const v = R / Math.tan(teDeg * D2R);          // 每弧度的軸向前進量
+// --- 3D 纖維示意圖 ----------------------------------------------------------
+// z = 光軸、xy = 影像平面。纖維（圓柱＋螺旋條紋）方位 φ、翹角 δ，
+// 螺旋傾角 = θe，旋向隨 χ₁₄ 正負翻轉；橘虛線是纖維在影像平面上的投影。
+function drawFiber(st, teDeg) {
+  const w = fiber.width, h = fiber.height, cx = w / 2, cy = h / 2 + 14, S = 54;
+  fctx.clearRect(0, 0, w, h);
+  const psi = 25 * D2R, eps = 28 * D2R;
+  const cp = Math.cos(psi), sp = Math.sin(psi), ce = Math.cos(eps), se = Math.sin(eps);
+  const P = (x, y, z) => {
+    const x1 = x * cp - y * sp, y1 = x * sp + y * cp;
+    return [cx + S * x1, cy - S * (y1 * se + z * ce), -y1 * ce + z * se];
+  };
 
-  hctx.strokeStyle = C.grid;
-  hctx.setLineDash([4, 4]);
-  hctx.lineWidth = 1;
-  hctx.beginPath(); hctx.moveTo(cx, yTop); hctx.lineTo(cx, yBot); hctx.stroke();
-  hctx.setLineDash([]);
-  hctx.strokeStyle = 'rgba(46,51,64,0.9)';
-  hctx.beginPath(); hctx.moveTo(cx - R, yTop); hctx.lineTo(cx - R, yBot); hctx.stroke();
-  hctx.beginPath(); hctx.moveTo(cx + R, yTop); hctx.lineTo(cx + R, yBot); hctx.stroke();
+  fctx.lineWidth = 1;
+  fctx.strokeStyle = 'rgba(46,51,64,0.9)';
+  for (let g = -2; g <= 2; g++) {
+    const q = g * 0.5;
+    let a0 = P(q, -1, 0), b0 = P(q, 1, 0);
+    fctx.beginPath(); fctx.moveTo(a0[0], a0[1]); fctx.lineTo(b0[0], b0[1]); fctx.stroke();
+    a0 = P(-1, q, 0); b0 = P(1, q, 0);
+    fctx.beginPath(); fctx.moveTo(a0[0], a0[1]); fctx.lineTo(b0[0], b0[1]); fctx.stroke();
+  }
+  const z0 = P(0, 0, 0), z1 = P(0, 0, 1.05);
+  fctx.strokeStyle = 'rgba(154,160,174,0.5)';
+  fctx.setLineDash([3, 4]);
+  fctx.beginPath(); fctx.moveTo(z0[0], z0[1]); fctx.lineTo(z1[0], z1[1]); fctx.stroke();
+  fctx.setLineDash([]);
+  fctx.fillStyle = C.muted;
+  fctx.font = '10px sans-serif';
+  fctx.fillText('z 光軸', z1[0] + 4, z1[1] + 3);
+  fctx.fillText('影像平面 x–y', 8, h - 8);
 
-  const tMax = (yBot - yTop) / v;
-  const n = Math.min(1200, Math.max(200, Math.round(tMax * 40)));
+  const cd = Math.cos(st.delta), sd = Math.sin(st.delta);
+  const a = [cd * Math.cos(st.phi), cd * Math.sin(st.phi), sd];
+  const n1 = [-Math.sin(st.phi), Math.cos(st.phi), 0];
+  const n2 = [a[1] * n1[2] - a[2] * n1[1], a[2] * n1[0] - a[0] * n1[2], a[0] * n1[1] - a[1] * n1[0]];
+  const L = 0.85, r = 0.17;
+  const czv = L * sd;                       // 抬高讓下端剛好落在影像平面上
+
+  const s0 = P(-L * a[0], -L * a[1], 0), s1 = P(L * a[0], L * a[1], 0);
+  fctx.strokeStyle = 'rgba(255,184,108,0.55)';
+  fctx.setLineDash([5, 4]);
+  fctx.lineWidth = 1.4;
+  fctx.beginPath(); fctx.moveTo(s0[0], s0[1]); fctx.lineTo(s1[0], s1[1]); fctx.stroke();
+  fctx.setLineDash([]);
+
+  const e0 = P(-L * a[0], -L * a[1], czv - L * a[2]);
+  const e1 = P(L * a[0], L * a[1], czv + L * a[2]);
+  fctx.strokeStyle = 'rgba(110,198,255,0.18)';
+  fctx.lineWidth = 2 * r * S;
+  fctx.lineCap = 'round';
+  fctx.beginPath(); fctx.moveTo(e0[0], e0[1]); fctx.lineTo(e1[0], e1[1]); fctx.stroke();
+  fctx.lineCap = 'butt';
+
+  const hand = st.c14 < 0 ? -1 : 1;
+  const chiral = Math.abs(st.c14) > 1e-6;
+  const pitchV = r / Math.tan(teDeg * D2R);
+  const T = 2 * L / pitchV;
+  const n = Math.min(1400, Math.max(240, Math.round(T / 0.06)));
   const pass = front => {
-    hctx.lineWidth = front ? 2.5 : 1.2;
-    hctx.strokeStyle = front ? C.accent : 'rgba(110,198,255,0.28)';
+    fctx.strokeStyle = front
+      ? (chiral ? C.accent : 'rgba(154,160,174,0.9)')
+      : (chiral ? 'rgba(110,198,255,0.25)' : 'rgba(154,160,174,0.25)');
+    fctx.lineWidth = front ? 2.2 : 1.1;
     let drawing = false;
-    hctx.beginPath();
+    fctx.beginPath();
     for (let i = 0; i <= n; i++) {
-      const t = tMax * i / n;
-      const z = Math.cos(t);
-      const x = cx + R * Math.sin(t), y = yBot - v * t;
-      if ((z >= 0) === front) {
-        if (!drawing) { hctx.moveTo(x, y); drawing = true; }
-        else hctx.lineTo(x, y);
+      const t = T * i / n;
+      const s = -L + pitchV * t;
+      const ca = Math.cos(hand * t), sa = Math.sin(hand * t);
+      const px = s * a[0] + r * (ca * n1[0] + sa * n2[0]);
+      const py = s * a[1] + r * (ca * n1[1] + sa * n2[1]);
+      const pz = czv + s * a[2] + r * (ca * n1[2] + sa * n2[2]);
+      const axP = P(s * a[0], s * a[1], czv + s * a[2]);
+      const q = P(px, py, pz);
+      if ((q[2] >= axP[2]) === front) {
+        if (!drawing) { fctx.moveTo(q[0], q[1]); drawing = true; }
+        else fctx.lineTo(q[0], q[1]);
       } else drawing = false;
     }
-    hctx.stroke();
+    fctx.stroke();
   };
   pass(false);
   pass(true);
+}
+
+function fiberCap(st, te) {
+  const handTxt = Math.abs(st.c14) > 1e-6
+    ? (st.c14 > 0 ? '右旋（χ₁₄&gt;0）' : '左旋（χ₁₄&lt;0）')
+    : 'χ₁₄=0（旋向不影響訊號）';
+  return `纖維幾何：φ=${Math.round(phiDeg)}°、δ=${Math.round(st.delta / D2R)}°｜`
+       + `螺旋 θe=${te.toFixed(1)}°、${handTxt}<br>`
+       + `<span style="color:#6a7080">橘虛線＝纖維在影像平面上的投影（φ 方向）</span>`;
+}
+
+// --- 公式板 -----------------------------------------------------------------
+function formulaHTML(st, fit) {
+  const p = Math.round(phiDeg), r = st.rho.toFixed(2);
+  let s = `<span class="f">I(θ) ∝ (sin²Δ + ρ·cos²Δ)² + sin²2Δ</span>，<span class="f">Δ = θ − φ</span><br>`;
+  s += `代入現值 ρ=<b>${r}</b>、φ=<b>${p}°</b>：`
+     + `<span class="f">I(θ) = (sin²(θ−${p}°) + ${r}·cos²(θ−${p}°))² + sin²(2θ−${2 * p}°)</span>`;
+  if (st.split) {
+    s += `<br><span style="color:var(--ix)">I_X = (sin²Δ + ρ·cos²Δ)²</span>　`
+       + `<span style="color:var(--iy)">I_Y = sin²2Δ</span>（以纖維軸為 X）`;
+  }
+  if (fit) {
+    s += `<br>⚠ δ≠0 或 χ₁₄≠0 時實際曲線出自 3D 模型，上式硬擬合 → 表觀 ρ̂ = <b class="bias">${fit.rhoA.toFixed(2)}</b>`;
+  } else if (exp) {
+    s += `<br>🎯 遊戲＝擬合這條式：調 ρ、φ 讓曲線穿過黃點`;
+  }
+  return s;
 }
 
 // --- 實驗模式（噪聲擬合遊戲） ----------------------------------------------
@@ -478,16 +562,18 @@ function render() {
   $('deltaOut').textContent = Math.round(st.delta / D2R) + '°';
   $('c14Out').textContent = st.c14.toFixed(2);
   $('legend').style.display = st.split ? 'block' : 'none';
-  $('helixDeg').textContent = te.toFixed(1) + '°';
 
   drawPolar(st);
   drawCart(st);
-  drawHelix(te);
+  drawFiber(st, te);
 
   const perturbed = st.delta > 1e-6 || Math.abs(st.c14) > 1e-6;
+  const fit = perturbed ? fitNaive(st.phi, st.delta, st.rho, st.c14) : null;
+  $('formula').innerHTML = formulaHTML(st, fit);
+  $('fiberCap').innerHTML = fiberCap(st, te);
+
   let s = `螺旋傾角 θe：<b>${te.toFixed(1)}°</b>（膠原~49°，肌凝蛋白~62°）<br>`;
   if (perturbed) {
-    const fit = fitNaive(st.phi, st.delta, st.rho, st.c14);
     const teA = thetaE(fit.rhoA);
     const bias = (fit.rhoA / st.rho - 1) * 100;
     const flat = curveFull(st.phi, 0, st.rho, st.c14, 360);
