@@ -58,6 +58,19 @@
   }
   .formulabox .f { color: var(--ink); }
   .formulabox b { color: var(--accent); font-variant-numeric: tabular-nums; }
+  details.csv { font-size: 0.82rem; color: var(--muted); }
+  details.csv summary { cursor: pointer; }
+  details.csv textarea {
+    width: 100%; margin: 8px 0 2px; background: #12141a; color: var(--ink);
+    border: 1px solid var(--grid); border-radius: 8px; padding: 8px;
+    font-size: 0.78rem; font-family: monospace; resize: vertical;
+  }
+  details.csv .expbar { margin-top: 6px; }
+  canvas { max-width: 100%; height: auto; }
+  .controls { width: min(320px, 100%); }
+  .formulabox { width: min(400px, 100%); }
+  .sidecol { max-width: 100%; }
+  @media (max-width: 520px) { body { padding: 12px; } }
   .legend { font-size: 0.78rem; color: var(--muted); }
   .legend span { margin-right: 10px; }
   .hint { font-size: 0.76rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 10px; }
@@ -112,6 +125,10 @@
       <label>手性 χ₁₄/χ₁₅ <output id="c14Out">0.00</output></label>
       <input type="range" id="c14" min="-0.6" max="0.6" step="0.01" value="0">
     </div>
+    <div class="ctl">
+      <label>組織雙折射延遲 Γ（深度×Δn） <output id="gamOut">0°</output></label>
+      <input type="range" id="gam" min="0" max="90" step="1" value="0">
+    </div>
     <div class="toggle">
       <input type="checkbox" id="split">
       <label for="split">X/Y 分光偵測（拆成兩個偏振分量）</label>
@@ -139,6 +156,15 @@
       <button id="expClear" style="display:none">清除</button>
     </div>
     <div class="expmsg" id="expMsg"></div>
+    <details class="csv">
+      <summary>📄 匯入實驗數據（角度°,強度）</summary>
+      <textarea id="csvIn" rows="5" placeholder="0, 1.96&#10;10, 1.71&#10;20, 1.24&#10;…（逗號、空白或 tab 分隔皆可）"></textarea>
+      <div class="expbar">
+        <button id="csvFit">擬合數據</button>
+        <button id="csvClear">清除</button>
+      </div>
+      <div class="expmsg" id="csvMsg"></div>
+    </details>
     <div class="stats" id="stats"></div>
     <div class="hint">
       <b>玩法提示：</b>ρ = 1 時兩個 χ 分量等強，各向異性全來自 sin²(2Δ) 交叉項——
@@ -148,7 +174,10 @@
       用「天真」平面內模型去擬合會得到偏掉的表觀 ρ̂——上面 stats 會即時顯示偏差。
       手性項 χ₁₄ 在 δ=0 時輻射方向沿光軸、幾乎隱形，纖維一翹起來就現形，讓花瓣歪斜。
       這正是 Lee et al. (APL 123, 133703, 2023) 對文獻 ρ 值分歧的解釋，
-      也是他們用 X/Y 分光偵測改善精度的動機。
+      也是他們用 X/Y 分光偵測改善精度的動機。<br>
+      <b>第三個坑——組織雙折射：</b>入射偏振還沒到焦點就先被組織的 Δn 扭過。
+      δ=0 時解析解很乾淨：I∥ 的交叉項 ×cos2Γ，Γ=45° 時交叉項歸零、花瓣重塑。
+      這個 Δn 跟 PS-OCT 量的雙折射是同一個東西——兩台儀器看同一個物理量的兩面。
       θe 對應請見 Tiaho, Recher &amp; Rouède (Opt. Express 15, 12286, 2007)。
     </div>
   </div>
@@ -173,28 +202,120 @@ const D2R = Math.PI / 180;
 // C6 圓柱對稱＋單軸近似，χ15=χ31=1（歸一化單位），χ33=ρ，χ14=c14（手性）。
 // 纖維軸 a 在面內方位 φ、出平面傾角 δ；入射線偏振在 xy 面、角度 θ；只偵測橫向分量。
 // P = [(1−p²)+ρp²]·a + 2p·(E−p·a) + 2c14·p·(E×a)，p = E·a
-function fields(theta, phi, delta, rho, c14) {
+// gamma = 組織雙折射相位延遲 Γ：入射偏振垂直纖維的分量相位落後 Γ → 複數場。
+function fields(theta, phi, delta, rho, c14, gamma) {
   const cd = Math.cos(delta), sd = Math.sin(delta);
   const ax = cd * Math.cos(phi), ay = cd * Math.sin(phi), az = sd;
   const ex = Math.cos(theta), ey = Math.sin(theta);
-  const p = ex * ax + ey * ay;
-  const lin = (1 - p * p) + rho * p * p;
-  const crx = ey * az, cry = -ex * az;           // (E×a) 的橫向分量
-  const Px = lin * ax + 2 * p * (ex - p * ax) + 2 * c14 * p * crx;
-  const Py = lin * ay + 2 * p * (ey - p * ay) + 2 * c14 * p * cry;
-  return [Px * Px, Py * Py];
+  if (!gamma) {                                  // 快速實數路徑（無雙折射）
+    const p = ex * ax + ey * ay;
+    const lin = (1 - p * p) + rho * p * p;
+    const crx = ey * az, cry = -ex * az;         // (E×a) 的橫向分量
+    const Px = lin * ax + 2 * p * (ex - p * ax) + 2 * c14 * p * crx;
+    const Py = lin * ay + 2 * p * (ey - p * ay) + 2 * c14 * p * cry;
+    return [Px * Px, Py * Py];
+  }
+  // 複數路徑：E' = (E·u)u + e^{iΓ}(E·v)v，u=面內纖維方向、v=面內垂直方向
+  const ux = Math.cos(phi), uy = Math.sin(phi), vx = -uy, vy = ux;
+  const Eu = ex * ux + ey * uy, Ev = ex * vx + ey * vy;
+  const cg = Math.cos(gamma), sg = Math.sin(gamma);
+  const Exr = Eu * ux + cg * Ev * vx, Exi = sg * Ev * vx;
+  const Eyr = Eu * uy + cg * Ev * vy, Eyi = sg * Ev * vy;
+  const pr = Exr * ax + Eyr * ay, pi = Exi * ax + Eyi * ay;
+  const p2r = pr * pr - pi * pi, p2i = 2 * pr * pi;      // SHG 為非共軛乘積
+  const Epxr = Exr - pr * ax, Epxi = Exi - pi * ax;
+  const Epyr = Eyr - pr * ay, Epyi = Eyi - pi * ay;
+  const Epzr = -pr * az, Epzi = -pi * az;
+  const Ep2r = Epxr * Epxr - Epxi * Epxi + Epyr * Epyr - Epyi * Epyi + Epzr * Epzr - Epzi * Epzi;
+  const Ep2i = 2 * (Epxr * Epxi + Epyr * Epyi + Epzr * Epzi);
+  const linr = Ep2r + rho * p2r, lini = Ep2i + rho * p2i;
+  const pmul = (br, bi) => [pr * br - pi * bi, pr * bi + pi * br];
+  const [t2xr, t2xi] = pmul(Epxr, Epxi);
+  const [t2yr, t2yi] = pmul(Epyr, Epyi);
+  const [t3xr, t3xi] = pmul(Eyr * az, Eyi * az);
+  const [t3yr, t3yi] = pmul(-Exr * az, -Exi * az);
+  const PxR = linr * ax + 2 * t2xr + 2 * c14 * t3xr;
+  const PxI = lini * ax + 2 * t2xi + 2 * c14 * t3xi;
+  const PyR = linr * ay + 2 * t2yr + 2 * c14 * t3yr;
+  const PyI = lini * ay + 2 * t2yi + 2 * c14 * t3yi;
+  return [PxR * PxR + PxI * PxI, PyR * PyR + PyI * PyI];
 }
 
-function curveFull(phi, delta, rho, c14, n = 720) {
+function curveFull(phi, delta, rho, c14, gamma = 0, n = 720) {
   const pts = []; let max = 0;
   for (let i = 0; i <= n; i++) {
     const t = i / n * 2 * Math.PI;
-    const [Ix, Iy] = fields(t, phi, delta, rho, c14);
+    const [Ix, Iy] = fields(t, phi, delta, rho, c14, gamma);
     const It = Ix + Iy;
     if (It > max) max = It;
     pts.push([t, Ix, Iy, It]);
   }
   return { pts, max };
+}
+
+// Fourier 分解：I(θ) 的 0/2θ/4θ 分量（文獻常用管線，對噪聲比逐點擬合穩）
+function fourier(pts) {
+  let c0 = 0, c2r = 0, c2i = 0, c4r = 0, c4i = 0;
+  for (const [t, I] of pts) {
+    c0 += I;
+    c2r += I * Math.cos(2 * t); c2i += I * Math.sin(2 * t);
+    c4r += I * Math.cos(4 * t); c4i += I * Math.sin(4 * t);
+  }
+  const N = pts.length;
+  c0 /= N;
+  return {
+    c0,
+    r2: 2 * Math.hypot(c2r, c2i) / N / (c0 || 1),
+    r4: 2 * Math.hypot(c4r, c4i) / N / (c0 || 1),
+    phi2: Math.atan2(c2i, c2r) / 2,
+  };
+}
+
+// 對任意 (角度, 強度) 數據做天真模型全域擬合：粗掃 φ×ρ ＋ 交替細化
+function fitData(pts) {
+  const evalFit = (ra, ph) => {
+    let sf2 = 0, sfi = 0;
+    for (const [t, I] of pts) { const m = naiveI(t, ph, ra); sf2 += m * m; sfi += m * I; }
+    const A = sf2 > 0 ? sfi / sf2 : 0;
+    let sse = 0;
+    for (const [t, I] of pts) { const r = I - A * naiveI(t, ph, ra); sse += r * r; }
+    return { sse, A };
+  };
+  let best = null;
+  for (let j = 0; j < 90; j++) {
+    const ph = j * 2 * D2R;                      // 曲線有 180° 週期，掃 0–180° 即可
+    for (let i = 0; i <= 60; i++) {
+      const ra = 0.1 * Math.pow(5 / 0.1, i / 60);
+      const r = evalFit(ra, ph);
+      if (!best || r.sse < best.sse) best = { sse: r.sse, A: r.A, rho: ra, phi: ph };
+    }
+  }
+  for (let k = 0; k < 3; k++) {
+    for (let i = -20; i <= 20; i++) {
+      const ra = Math.max(0.05, best.rho * (1 + i / 200));
+      const r = evalFit(ra, best.phi);
+      if (r.sse < best.sse) Object.assign(best, { sse: r.sse, A: r.A, rho: ra });
+    }
+    for (let i = -20; i <= 20; i++) {
+      const ph = best.phi + i * 0.1 * D2R;
+      const r = evalFit(best.rho, ph);
+      if (r.sse < best.sse) Object.assign(best, { sse: r.sse, A: r.A, phi: ph });
+    }
+  }
+  let sumI2 = 0;
+  for (const [, I] of pts) sumI2 += I * I;
+  best.rms = sumI2 > 0 ? Math.sqrt(best.sse / sumI2) : 0;
+  best.fourier = fourier(pts);
+  return best;
+}
+
+function parseCSV(text) {
+  const pts = [];
+  for (const line of text.split(/[\n\r]+/)) {
+    const nums = line.split(/[,;\t ]+/).map(parseFloat).filter(x => isFinite(x));
+    if (nums.length >= 2) pts.push([nums[0] * D2R, nums[1]]);
+  }
+  return pts;
 }
 
 // 天真平面內模型（v1 的公式）
@@ -205,12 +326,12 @@ function naiveI(theta, phi, rho) {
 }
 
 // 用天真模型對「真實」曲線做最小平方擬合，解出表觀 ρ̂
-function fitNaive(phi, delta, rho, c14) {
+function fitNaive(phi, delta, rho, c14, gamma) {
   const N = 180, data = new Float64Array(N), th = new Float64Array(N);
   let sumI2 = 0;
   for (let k = 0; k < N; k++) {
     th[k] = k / N * 2 * Math.PI;
-    const [Ix, Iy] = fields(th[k], phi, delta, rho, c14);
+    const [Ix, Iy] = fields(th[k], phi, delta, rho, c14, gamma);
     data[k] = Ix + Iy;
     sumI2 += data[k] * data[k];
   }
@@ -308,6 +429,15 @@ function drawPolar(st) {
       pctx.fill();
     }
   }
+  if (st.csv) {
+    pctx.fillStyle = '#ffffff';
+    for (const [t, v] of st.csv.pts) {
+      const r = R * Math.min(1.1, v / main.max);
+      pctx.beginPath();
+      pctx.arc(cx + r * Math.cos(t), cy - r * Math.sin(t), 2.5, 0, 2 * Math.PI);
+      pctx.fill();
+    }
+  }
 
   pctx.strokeStyle = C.ink;
   pctx.setLineDash([6, 6]);
@@ -327,13 +457,14 @@ function drawCart(st) {
   const pw = w - mL - mR, ph = h - mT - mB;
   cctx.clearRect(0, 0, w, h);
 
-  const refC = st.refCol ? curveFull(st.phi, 0, RHO_COL, 0, 360) : null;
-  const refM = st.refMyo ? curveFull(st.phi, 0, RHO_MYO, 0, 360) : null;
-  const main = curveFull(st.phi, st.delta, st.rho, st.c14, 360);
+  const refC = st.refCol ? curveFull(st.phi, 0, RHO_COL, 0, 0, 360) : null;
+  const refM = st.refMyo ? curveFull(st.phi, 0, RHO_MYO, 0, 0, 360) : null;
+  const main = curveFull(st.phi, st.delta, st.rho, st.c14, st.gamma, 360);
   let yMax = main.max;
   if (refC) yMax = Math.max(yMax, refC.max);
   if (refM) yMax = Math.max(yMax, refM.max);
   if (st.exp) yMax = Math.max(yMax, st.exp.max * 1.1);
+  if (st.csv) for (const [, v] of st.csv.pts) yMax = Math.max(yMax, v);
   yMax *= 1.05;
 
   cctx.strokeStyle = C.grid;
@@ -383,6 +514,14 @@ function drawCart(st) {
     for (const [t, v] of st.exp.pts) {
       const x = mL + pw * t / (2 * Math.PI);
       const y = mT + ph - ph * (v * st.exp.max) / yMax;
+      cctx.beginPath(); cctx.arc(x, y, 2.5, 0, 2 * Math.PI); cctx.fill();
+    }
+  }
+  if (st.csv) {
+    cctx.fillStyle = '#ffffff';
+    for (const [t, v] of st.csv.pts) {
+      const x = mL + pw * t / (2 * Math.PI);
+      const y = mT + ph - ph * v / yMax;
       cctx.beginPath(); cctx.arc(x, y, 2.5, 0, 2 * Math.PI); cctx.fill();
     }
   }
@@ -493,8 +632,11 @@ function formulaHTML(st, fit) {
     s += `<br><span style="color:var(--ix)">I_X = (sin²Δ + ρ·cos²Δ)²</span>　`
        + `<span style="color:var(--iy)">I_Y = sin²2Δ</span>（以纖維軸為 X）`;
   }
+  if (st.gamma > 1e-6) {
+    s += `<br><span class="f">雙折射（δ=0 時）：交叉項 2ρ·sin²Δcos²Δ × cos2Γ</span>，Γ=<b>${Math.round(st.gamma / D2R)}°</b>`;
+  }
   if (fit) {
-    s += `<br>⚠ δ≠0 或 χ₁₄≠0 時實際曲線出自 3D 模型，上式硬擬合 → 表觀 ρ̂ = <b class="bias">${fit.rhoA.toFixed(2)}</b>`;
+    s += `<br>⚠ δ、χ₁₄、Γ 有一項不為零時實際曲線偏離上式，硬擬合 → 表觀 ρ̂ = <b class="bias">${fit.rhoA.toFixed(2)}</b>`;
   } else if (exp) {
     s += `<br>🎯 遊戲＝擬合這條式：調 ρ、φ 讓曲線穿過黃點`;
   }
@@ -502,7 +644,7 @@ function formulaHTML(st, fit) {
 }
 
 // --- 實驗模式（噪聲擬合遊戲） ----------------------------------------------
-let exp = null;
+let exp = null, csv = null;
 const randn = () => {
   let u = 0, v = 0;
   while (u === 0) u = Math.random();
@@ -513,11 +655,11 @@ const randn = () => {
 function makeExperiment() {
   const rho = 0.4 + Math.random() * 2.1;
   const phi = Math.random() * Math.PI;
-  const full = curveFull(phi, 0, rho, 0, 720);
+  const full = curveFull(phi, 0, rho, 0, 0, 720);
   const pts = [];
   for (let a = 0; a < 360; a += 5) {
     const t = a * D2R;
-    const [Ix, Iy] = fields(t, phi, 0, rho, 0);
+    const [Ix, Iy] = fields(t, phi, 0, rho, 0, 0);
     const In = (Ix + Iy) / full.max;
     const noisy = Math.max(0, In + (0.03 + 0.05 * Math.sqrt(In)) * randn());
     pts.push([t, noisy]);
@@ -526,10 +668,10 @@ function makeExperiment() {
 }
 
 function expRms(st) {
-  const cur = curveFull(st.phi, st.delta, st.rho, st.c14, 720);
+  const cur = curveFull(st.phi, st.delta, st.rho, st.c14, st.gamma, 720);
   let sse = 0;
   for (const [t, v] of exp.pts) {
-    const [Ix, Iy] = fields(t, st.phi, st.delta, st.rho, st.c14);
+    const [Ix, Iy] = fields(t, st.phi, st.delta, st.rho, st.c14, st.gamma);
     sse += Math.pow((Ix + Iy) / cur.max - v, 2);
   }
   return Math.sqrt(sse / exp.pts.length);
@@ -544,16 +686,18 @@ function state() {
     phi: phiDeg * D2R,
     delta: parseFloat($('delta').value) * D2R,
     c14: parseFloat($('c14').value),
+    gamma: parseFloat($('gam').value) * D2R,
     split: $('split').checked,
     refCol: $('refCol').checked,
     refMyo: $('refMyo').checked,
     exp,
+    csv,
   };
 }
 
 function render() {
   const st = state();
-  st.main = curveFull(st.phi, st.delta, st.rho, st.c14);
+  st.main = curveFull(st.phi, st.delta, st.rho, st.c14, st.gamma);
   const te = thetaE(st.rho);
 
   $('rhoOut').textContent = st.rho.toFixed(2);
@@ -561,14 +705,15 @@ function render() {
   $('phiOut').textContent = Math.round(phiDeg) + '°';
   $('deltaOut').textContent = Math.round(st.delta / D2R) + '°';
   $('c14Out').textContent = st.c14.toFixed(2);
+  $('gamOut').textContent = Math.round(st.gamma / D2R) + '°';
   $('legend').style.display = st.split ? 'block' : 'none';
 
   drawPolar(st);
   drawCart(st);
   drawFiber(st, te);
 
-  const perturbed = st.delta > 1e-6 || Math.abs(st.c14) > 1e-6;
-  const fit = perturbed ? fitNaive(st.phi, st.delta, st.rho, st.c14) : null;
+  const perturbed = st.delta > 1e-6 || Math.abs(st.c14) > 1e-6 || st.gamma > 1e-6;
+  const fit = perturbed ? fitNaive(st.phi, st.delta, st.rho, st.c14, st.gamma) : null;
   $('formula').innerHTML = formulaHTML(st, fit);
   $('fiberCap').innerHTML = fiberCap(st, te);
 
@@ -576,7 +721,7 @@ function render() {
   if (perturbed) {
     const teA = thetaE(fit.rhoA);
     const bias = (fit.rhoA / st.rho - 1) * 100;
-    const flat = curveFull(st.phi, 0, st.rho, st.c14, 360);
+    const flat = curveFull(st.phi, 0, st.rho, st.c14, 0, 360);
     let sig = 0, sig0 = 0;
     for (const p of st.main.pts) sig += p[3];
     for (const p of flat.pts) sig0 += p[3];
@@ -585,11 +730,13 @@ function render() {
        + `（偏差 <b class="bias">${bias >= 0 ? '+' : ''}${bias.toFixed(0)}%</b>，θ̂e=${teA.toFixed(1)}°）<br>`
        + `天真模型擬合殘差：<b>${(fit.resid * 100).toFixed(1)}%</b>`
        + (Math.abs(st.c14) > 1e-6 && st.delta > 1e-6 ? '（手性讓曲線歪斜，天真模型跟不上）' : '') + '<br>'
-       + `總訊號 vs δ=0：<b>${lvl.toFixed(0)}%</b>`;
+       + `總訊號 vs 無擾動：<b>${lvl.toFixed(0)}%</b>`;
   } else {
-    s += `表觀 ρ̂ = 真實 ρ（δ=0 且無手性，天真模型無偏）<br>`
+    s += `表觀 ρ̂ = 真實 ρ（無 δ/χ₁₄/Γ 擾動，天真模型無偏）<br>`
        + `平行/垂直強度比 I(φ)/I(φ+90°)：<b>${(st.rho * st.rho).toFixed(2)}</b>（= ρ²）`;
   }
+  const fr = fourier(st.main.pts.map(p => [p[0], p[3]]));
+  s += `<br>Fourier：a₂/a₀=<b>${fr.r2.toFixed(2)}</b>、a₄/a₀=<b>${fr.r4.toFixed(2)}</b>`;
   $('stats').innerHTML = s;
 
   if (exp) {
@@ -620,7 +767,7 @@ function setRho(r) {
 $('rho').addEventListener('input', () => { $('te').value = thetaE(parseFloat($('rho').value)).toFixed(1); render(); });
 $('te').addEventListener('input', () => { $('rho').value = rhoOf(parseFloat($('te').value)).toFixed(2); render(); });
 $('phi').addEventListener('input', e => { phiDeg = parseFloat(e.target.value); render(); });
-for (const id of ['delta', 'c14']) $(id).addEventListener('input', render);
+for (const id of ['delta', 'c14', 'gam']) $(id).addEventListener('input', render);
 for (const id of ['split', 'refCol', 'refMyo']) $(id).addEventListener('change', render);
 $('presetCol').addEventListener('click', () => setRho(RHO_COL));
 $('presetMyo').addEventListener('click', () => setRho(RHO_MYO));
@@ -639,13 +786,30 @@ function tick() {
 
 $('expGo').addEventListener('click', () => {
   exp = makeExperiment();
-  $('delta').value = 0;                  // 遊戲出題假設 δ=0、無手性
+  $('delta').value = 0;                  // 遊戲出題假設 δ=0、無手性、無雙折射
   $('c14').value = 0;
+  $('gam').value = 0;
   $('expReveal').style.display = '';
   $('expClear').style.display = '';
   render();
 });
 $('expReveal').addEventListener('click', () => { if (exp) { exp.revealed = true; render(); } });
+$('csvFit').addEventListener('click', () => {
+  const pts = parseCSV($('csvIn').value);
+  if (pts.length < 5) { $('csvMsg').textContent = '至少需要 5 個「角度,強度」資料點'; return; }
+  const fit = fitData(pts);
+  csv = { pts: pts.map(([t, I]) => [t, fit.A > 0 ? I / fit.A : I]) };
+  $('delta').value = 0; $('c14').value = 0; $('gam').value = 0;
+  phiDeg = ((fit.phi / D2R) % 360 + 360) % 360;
+  $('phi').value = phiDeg;
+  $('csvMsg').innerHTML =
+    `擬合：ρ=<b>${fit.rho.toFixed(2)}</b>、φ=${Math.round(phiDeg)}°、θe=${thetaE(fit.rho).toFixed(1)}°、`
+    + `殘差 RMS ${(fit.rms * 100).toFixed(1)}%<br>`
+    + `Fourier：a₂/a₀=${fit.fourier.r2.toFixed(2)}、a₄/a₀=${fit.fourier.r4.toFixed(2)}`
+    + `（白點＝你的數據，已換算到 χ₁₅² 單位）`;
+  setRho(fit.rho);
+});
+$('csvClear').addEventListener('click', () => { csv = null; $('csvMsg').textContent = ''; render(); });
 $('expClear').addEventListener('click', () => {
   exp = null;
   $('expReveal').style.display = 'none';

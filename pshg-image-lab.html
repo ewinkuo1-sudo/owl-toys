@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P-SHG 影像實驗室 🦉</title>
+<style>
+  :root {
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --accent: #6ec6ff; --data: #f5e663; --grid: #2e3340; --warn: #ffb86c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 860px; text-align: center; line-height: 1.6; }
+  .wrap, .maps { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
+  canvas { background: var(--panel); border-radius: 12px; max-width: 100%; }
+  .mapbox { text-align: center; }
+  .mapbox canvas { width: 300px; height: 300px; image-rendering: pixelated; cursor: crosshair; }
+  .mapbox .cap { font-size: 0.8rem; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .rhobar {
+    width: 220px; height: 10px; border-radius: 5px; margin: 4px auto 0;
+    background: linear-gradient(90deg, #3b6bff, #e8e8e8, #ff5544);
+  }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 18px;
+    display: flex; flex-direction: column; gap: 14px; width: min(340px, 100%);
+  }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  select {
+    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 6px; font-family: inherit; font-size: 0.85rem;
+  }
+  button {
+    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 8px; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+  }
+  button:hover { border-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--muted); }
+  .toggle input { accent-color: var(--warn); }
+  .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.9; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hint { font-size: 0.76rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .inspbox { background: var(--panel); border-radius: 12px; padding: 14px; width: min(430px, 100%); }
+  .inspbox .cap { font-size: 0.8rem; color: var(--muted); line-height: 1.8; margin-top: 6px; }
+  .inspbox .cap b { color: var(--ink); }
+  a { color: var(--accent); }
+  @media (max-width: 520px) { body { padding: 12px; } .mapbox canvas { width: 100%; height: auto; } }
+</style>
+</head>
+<body>
+<h1>P-SHG 影像實驗室</h1>
+<p class="sub">
+  真實的 P-SHG 輸出不是一條曲線，是一疊影像：每個偏振角拍一張，逐像素做 Fourier 分析解出
+  纖維方向 φ 和 ρ = χ₃₃/χ₁₅。這裡合成一塊假組織（膠原束、肌肉帶、病變結節），
+  模擬光子噪聲，跑完整分析管線。拉角度數和光子數，看 ρ 圖什麼時候開始糊掉——
+  這就是實驗設計的取捨。點任一張圖可以檢視單一像素的偏振曲線。
+</p>
+<div class="wrap">
+  <div class="maps">
+    <div class="mapbox">
+      <canvas id="mInt" width="160" height="160"></canvas>
+      <div class="cap">平均 SHG 強度（你顯微鏡上看到的樣子）</div>
+    </div>
+    <div class="mapbox">
+      <canvas id="mPhi" width="160" height="160"></canvas>
+      <div class="cap" id="capPhi">纖維方向 φ 圖（色相 = 方向，0–180°）</div>
+    </div>
+    <div class="mapbox">
+      <canvas id="mRho" width="160" height="160"></canvas>
+      <div class="cap" id="capRho">ρ 圖</div>
+      <div class="rhobar"></div>
+      <div class="cap">ρ：0.3 ─ 1.4 ─ 2.5（肌肉 0.57／膠原 1.4／病變 2.0）</div>
+    </div>
+  </div>
+  <div class="inspbox">
+    <canvas id="insp" width="400" height="240"></canvas>
+    <div class="cap" id="inspCap">👆 點上面任何一張圖，檢視該像素的 I(θ) 數據與擬合</div>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label>偏振角度數（0–180° 均分）</label>
+      <select id="nAng">
+        <option value="6">6 角</option>
+        <option value="9">9 角</option>
+        <option value="18" selected>18 角</option>
+        <option value="36">36 角</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>光子預算／像素／角度 <output id="phOut">300</output></label>
+      <input type="range" id="photons" min="1.4" max="3.5" step="0.05" value="2.48">
+    </div>
+    <button id="resim">🎲 重新模擬（新噪聲）</button>
+    <div class="toggle">
+      <input type="checkbox" id="truth">
+      <label for="truth">顯示真值（ground truth）對照</label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="hint">
+      管線：每像素取 I(θ) 的 Fourier 分量 c₀、c₂、c₄ →
+      φ̂ = arg(c₂)/2，ρ̂ 由 (|c₂|/c₀, |c₄|/c₀) 查表反推——
+      跟文獻常用的 FFT 法同一路數，對噪聲比逐點擬合穩。
+      玩法：把光子數拉到最低，看 ρ 圖先崩、φ 圖後崩（φ 只吃 c₂ 相位，比較耐噪）；
+      或把角度數降到 6，看係數估計變毛。病變結節（右上圓）ρ=2.0，
+      正常膠原 1.4——噪聲多大時你還分得出來？
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const D2R = Math.PI / 180;
+const SIZE = 160, NPIX = SIZE * SIZE;
+
+// --- 核心 -------------------------------------------------------------------
+function naiveI(theta, phi, rho) {
+  const d = theta - phi, s = Math.sin(d), c = Math.cos(d);
+  const a = Math.sin(2 * d), b = s * s + rho * c * c;
+  return a * a + b * b;
+}
+
+// ρ 查表：ρ → (a₂/a₀ 絕對值, a₄/a₀ 絕對值, a₂ 正負)
+const RHO_TAB = [];
+for (let i = 0; i <= 240; i++) {
+  const rho = 0.2 * Math.pow(4 / 0.2, i / 240);
+  const A = (1 + rho) / 2, B = (rho - 1) / 2;
+  const a0 = A * A + B * B / 2 + 0.5, a2 = 2 * A * B, a4 = B * B / 2 - 0.5;
+  RHO_TAB.push([rho, Math.abs(a2) / a0, Math.abs(a4) / a0, Math.sign(a2)]);
+}
+function rhoFromRatios(r2, r4) {
+  let best = RHO_TAB[0], bd = Infinity;
+  for (const row of RHO_TAB) {
+    const d = (row[1] - r2) ** 2 + (row[2] - r4) ** 2;
+    if (d < bd) { bd = d; best = row; }
+  }
+  return best; // [rho, r2m, r4m, sign2]
+}
+
+const randn = () => {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+
+// --- 假組織 -----------------------------------------------------------------
+// 三種組織：病變結節（切向膠原 ρ=2.0）、斜向膠原束（ρ=1.4）、水平肌肉帶（ρ=0.57）
+const truthAmp = new Float32Array(NPIX);
+const truthPhi = new Float32Array(NPIX);
+const truthRho = new Float32Array(NPIX);
+const region = new Uint8Array(NPIX);           // 0 背景 1 肌肉 2 膠原束 3 病變
+const smooth = (edge0, edge1, x) => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+function makeTissue() {
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const i = y * SIZE + x;
+      let amp = 0, phi = 0, rho = 1.4, reg = 0;
+      const dxL = x - 112, dyL = y - 46, rL = Math.hypot(dxL, dyL);
+      const dDiag = Math.abs(y - x + 30) / Math.SQRT2;
+      const dMus = Math.abs(y - 122);
+      if (rL < 26) {                                       // 病變：同心圓走向
+        phi = Math.atan2(dyL, dxL) + Math.PI / 2;
+        rho = 2.0; reg = 3;
+        amp = smooth(26, 20, rL) * 0.9;
+      } else if (dMus < 22) {                              // 肌肉帶：波浪水平
+        phi = 0.35 * Math.sin(2 * Math.PI * x / 64);
+        rho = 0.57; reg = 1;
+        amp = smooth(22, 15, dMus);
+      } else if (dDiag < 20) {                             // 膠原束：45° 波浪
+        phi = Math.PI / 4 + 0.25 * Math.sin(2 * Math.PI * (x + y) / 70);
+        rho = 1.4; reg = 2;
+        amp = smooth(20, 13, dDiag) * 0.85;
+      }
+      if (amp > 0) {                                       // 纖維條紋質感
+        const q = -x * Math.sin(phi) + y * Math.cos(phi);
+        amp *= (0.62 + 0.38 * Math.abs(Math.sin(q * 0.9)));
+        amp *= 0.8 + 0.4 * Math.random();
+      } else {
+        amp = 0.015 * Math.random();
+      }
+      truthAmp[i] = amp;
+      truthPhi[i] = ((phi % Math.PI) + Math.PI) % Math.PI;
+      truthRho[i] = rho;
+      region[i] = reg;
+    }
+  }
+}
+
+// --- 模擬與分析 -------------------------------------------------------------
+let N = 18, photons = 300;
+let stack = null;                               // Float32Array N×NPIX
+let estPhi = new Float32Array(NPIX), estRho = new Float32Array(NPIX);
+let meanI = new Float32Array(NPIX);
+
+function simulate() {
+  N = parseInt($('nAng').value);
+  photons = Math.round(Math.pow(10, parseFloat($('photons').value)));
+  stack = new Float32Array(N * NPIX);
+  for (let i = 0; i < NPIX; i++) {
+    const amp = truthAmp[i], phi = truthPhi[i], rho = truthRho[i];
+    for (let k = 0; k < N; k++) {
+      const th = k * Math.PI / N;
+      const lam = photons * amp * naiveI(th, phi, rho) / 3;
+      stack[k * NPIX + i] = Math.max(0, lam + Math.sqrt(lam) * randn());
+    }
+  }
+}
+
+function analyze() {
+  const cos2 = new Float64Array(N), sin2 = new Float64Array(N);
+  const cos4 = new Float64Array(N), sin4 = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    const th = k * Math.PI / N;
+    cos2[k] = Math.cos(2 * th); sin2[k] = Math.sin(2 * th);
+    cos4[k] = Math.cos(4 * th); sin4[k] = Math.sin(4 * th);
+  }
+  for (let i = 0; i < NPIX; i++) {
+    let c0 = 0, c2r = 0, c2i = 0, c4r = 0, c4i = 0;
+    for (let k = 0; k < N; k++) {
+      const I = stack[k * NPIX + i];
+      c0 += I;
+      c2r += I * cos2[k]; c2i += I * sin2[k];
+      c4r += I * cos4[k]; c4i += I * sin4[k];
+    }
+    c0 /= N;
+    meanI[i] = c0;
+    if (c0 <= 0) { estPhi[i] = 0; estRho[i] = 1; continue; }
+    const r2 = 2 * Math.hypot(c2r, c2i) / N / c0;
+    const r4 = 2 * Math.hypot(c4r, c4i) / N / c0;
+    const row = rhoFromRatios(r2, r4);
+    estRho[i] = row[0];
+    let ph = Math.atan2(c2i, c2r) / 2;
+    if (row[3] < 0) ph += Math.PI / 2;          // ρ<1 時 a₂ 變號，相位差 90°
+    estPhi[i] = ((ph % Math.PI) + Math.PI) % Math.PI;
+  }
+}
+
+// --- 上色 -------------------------------------------------------------------
+function hsv2rgb(h, s, v) {
+  const f = (n) => {
+    const k = (n + h * 6) % 6;
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  return [f(5) * 255, f(3) * 255, f(1) * 255];
+}
+function rhoColor(rho) {
+  const t = Math.min(1, Math.max(0, (rho - 0.3) / 2.2));
+  let r, g, b;
+  if (t < 0.5) { const u = t / 0.5; r = 59 + u * (232 - 59); g = 107 + u * (232 - 107); b = 255 + u * (232 - 255); }
+  else { const u = (t - 0.5) / 0.5; r = 232 + u * (255 - 232); g = 232 - u * (232 - 85); b = 232 - u * (232 - 68); }
+  return [r, g, b];
+}
+
+function drawMaps() {
+  const truth = $('truth').checked;
+  let iScale = 0;
+  const sorted = Float32Array.from(meanI).sort();
+  iScale = sorted[Math.floor(NPIX * 0.99)] || 1;
+
+  const put = (cv, fn) => {
+    const ctx = cv.getContext('2d');
+    const img = ctx.createImageData(SIZE, SIZE);
+    for (let i = 0; i < NPIX; i++) {
+      const [r, g, b] = fn(i);
+      img.data[i * 4] = r; img.data[i * 4 + 1] = g; img.data[i * 4 + 2] = b; img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  };
+  const bright = i => Math.min(1, (truth ? truthAmp[i] : meanI[i] / iScale));
+
+  put($('mInt'), i => {
+    const v = Math.min(1, meanI[i] / iScale) * 255;
+    return [v, v, v];
+  });
+  put($('mPhi'), i => {
+    const ph = truth ? truthPhi[i] : estPhi[i];
+    return hsv2rgb(ph / Math.PI, 0.85, bright(i));
+  });
+  put($('mRho'), i => {
+    const v = bright(i);
+    if (v < 0.06) return [10, 11, 14];
+    const [r, g, b] = rhoColor(truth ? truthRho[i] : estRho[i]);
+    return [r * (0.25 + 0.75 * Math.min(1, v * 1.6)), g * (0.25 + 0.75 * Math.min(1, v * 1.6)), b * (0.25 + 0.75 * Math.min(1, v * 1.6))];
+  });
+  $('capPhi').textContent = (truth ? '真值 ' : '估計 ') + '纖維方向 φ 圖（色相 = 方向，0–180°）';
+  $('capRho').textContent = (truth ? '真值 ' : '估計 ') + 'ρ 圖';
+}
+
+function stats() {
+  const names = ['背景', '肌肉帶 (真值 ρ=0.57)', '膠原束 (真值 ρ=1.40)', '病變結節 (真值 ρ=2.00)'];
+  let s = `每像素每角 <b>${photons}</b> 光子 × <b>${N}</b> 角<br>`;
+  for (const reg of [1, 2, 3]) {
+    let sum = 0, n = 0;
+    for (let i = 0; i < NPIX; i++) {
+      if (region[i] === reg && truthAmp[i] > 0.3) { sum += estRho[i]; n++; }
+    }
+    if (n) s += `${names[reg]}：估計 ρ̂ 平均 <b>${(sum / n).toFixed(2)}</b><br>`;
+  }
+  $('stats').innerHTML = s;
+}
+
+// --- 單像素檢視 -------------------------------------------------------------
+let inspPix = null;
+function drawInspector() {
+  const cv = $('insp'), ctx = cv.getContext('2d');
+  const w = cv.width, h = cv.height, mL = 40, mB = 30, mT = 14, mR = 10;
+  const pw = w - mL - mR, ph2 = h - mT - mB;
+  ctx.clearRect(0, 0, w, h);
+  if (inspPix === null) return;
+  const i = inspPix;
+  const data = [];
+  let dMax = 0;
+  for (let k = 0; k < N; k++) {
+    const v = stack[k * NPIX + i];
+    if (v > dMax) dMax = v;
+    data.push([k * 180 / N, v]);
+  }
+  // 擬合曲線：用估計 φ̂、ρ̂，振幅由 c₀ 對齊
+  const rho = estRho[i], phE = estPhi[i];
+  const A0 = (1 + rho) / 2, B0 = (rho - 1) / 2;
+  const a0m = A0 * A0 + B0 * B0 / 2 + 0.5;
+  const A = meanI[i] / a0m;
+  let cMax = 0;
+  const curve = [];
+  for (let a = 0; a <= 180; a += 2) {
+    const v = A * naiveI(a * D2R, phE, rho);
+    if (v > cMax) cMax = v;
+    curve.push([a, v]);
+  }
+  const yMax = Math.max(dMax, cMax) * 1.1 || 1;
+
+  ctx.strokeStyle = '#2e3340'; ctx.fillStyle = '#9aa0ae';
+  ctx.font = '10px sans-serif'; ctx.lineWidth = 1;
+  for (let g = 0; g <= 3; g++) {
+    const y = mT + ph2 - ph2 * g / 3;
+    ctx.beginPath(); ctx.moveTo(mL, y); ctx.lineTo(w - mR, y); ctx.stroke();
+    ctx.fillText(Math.round(yMax * g / 3), 8, y + 3);
+  }
+  for (let a = 0; a <= 180; a += 45) {
+    const x = mL + pw * a / 180;
+    ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, mT + ph2); ctx.stroke();
+    ctx.fillText(a + '°', x - 8, h - 14);
+  }
+  ctx.fillText('偏振角 θ（光子數）', w / 2 - 40, h - 2);
+
+  ctx.strokeStyle = '#6ec6ff'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  curve.forEach(([a, v], j) => {
+    const x = mL + pw * a / 180, y = mT + ph2 - ph2 * v / yMax;
+    j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#f5e663';
+  for (const [a, v] of data) {
+    const x = mL + pw * a / 180, y = mT + ph2 - ph2 * v / yMax;
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
+  }
+  const px = i % SIZE, py = Math.floor(i / SIZE);
+  $('inspCap').innerHTML =
+    `像素 (${px}, ${py})：估計 <b>ρ̂=${rho.toFixed(2)}、φ̂=${Math.round(estPhi[i] / D2R)}°</b>｜`
+    + `真值 ρ=${truthRho[i].toFixed(2)}、φ=${Math.round(truthPhi[i] / D2R)}°`
+    + `（黃點＝${N} 角量測，藍線＝Fourier 反推的模型曲線）`;
+}
+
+for (const id of ['mInt', 'mPhi', 'mRho']) {
+  $(id).addEventListener('click', e => {
+    const r = e.target.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * SIZE);
+    const y = Math.floor((e.clientY - r.top) / r.height * SIZE);
+    inspPix = Math.min(NPIX - 1, Math.max(0, y * SIZE + x));
+    drawInspector();
+  });
+}
+
+// --- 主流程 -----------------------------------------------------------------
+function runAll() {
+  $('phOut').textContent = Math.round(Math.pow(10, parseFloat($('photons').value)));
+  simulate();
+  analyze();
+  drawMaps();
+  stats();
+  drawInspector();
+}
+$('nAng').addEventListener('change', runAll);
+$('photons').addEventListener('change', runAll);
+$('photons').addEventListener('input', () => {
+  $('phOut').textContent = Math.round(Math.pow(10, parseFloat($('photons').value)));
+});
+$('resim').addEventListener('click', runAll);
+$('truth').addEventListener('change', () => { drawMaps(); });
+
+makeTissue();
+runAll();
+</script>
+</body>
+</html>
