@@ -25,7 +25,7 @@
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
-  canvas { background: var(--panel); border-radius: 12px; }
+  canvas { background: var(--panel); border-radius: 12px;  max-width: 100%; height: auto; }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 20px;
     display: flex; flex-direction: column; gap: 18px; min-width: 300px; max-width: 320px;
@@ -48,6 +48,10 @@
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .warn { color: var(--ref); }
   .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+  @media (max-width: 520px) {
+    body { padding: 12px; }
+    .controls, .panel { width: 100%; max-width: 100%; min-width: 0; }
+  }
 </style>
 </head>
 <body>

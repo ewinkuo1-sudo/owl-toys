@@ -24,7 +24,7 @@
   .col { display: flex; flex-direction: column; gap: 14px; }
   .panel { background: var(--panel); border-radius: 12px; padding: 14px; }
   .panel h2 { font-size: 0.92rem; margin: 0 0 8px 4px; font-weight: 600; color: var(--ink); }
-  canvas { display: block; }
+  canvas { display: block;  max-width: 100%; height: auto; }
   .controls { background: var(--panel); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 15px; width: 300px; }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 5px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -40,6 +40,10 @@
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .stats .g { color: var(--mark1); } .stats .p { color: var(--mark2); } .stats .o { color: var(--life); }
   .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--grid); padding-top: 10px; }
+  @media (max-width: 520px) {
+    body { padding: 12px; }
+    .controls, .panel { width: 100%; max-width: 100%; min-width: 0; }
+  }
 </style>
 </head>
 <body>
