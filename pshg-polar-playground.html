@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>P-SHG 偏振極座標遊樂場 v2 🦉</title>
+<title>P-SHG 偏振極座標遊樂場 v2.3 🦉</title>
 <style>
   :root {
     --bg: #14161c;
@@ -20,6 +20,7 @@
     --grid: #2e3340;
   }
   * { box-sizing: border-box; }
+  html { scrollbar-gutter: stable both-edges; }
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
@@ -31,12 +32,16 @@
   .sub code { color: var(--accent); background: none; }
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px; }
+  canvas, .controls, .formulabox, .helixbox {
+    border: 1px solid #232734; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  }
+  .helixbox canvas { border: none; box-shadow: none; }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 18px;
     display: flex; flex-direction: column; gap: 14px; width: 320px;
   }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
-  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 3.6em; text-align: right; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); }
@@ -46,15 +51,17 @@
     border-radius: 8px; padding: 7px 6px; font-size: 0.82rem; cursor: pointer;
     font-family: inherit;
   }
-  .presets button:hover, .expbar button:hover { border-color: var(--accent); }
+  .presets button, .expbar button { transition: border-color 0.15s ease, background 0.15s ease; }
+  .presets button:hover, .expbar button:hover { border-color: var(--accent); background: #2a3040; }
   .expbar { display: flex; gap: 8px; }
   .expmsg { font-size: 0.82rem; color: var(--data); line-height: 1.6; min-height: 0; }
-  .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 10px; min-height: 8em; font-variant-numeric: tabular-nums; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .stats .bias, .formulabox .bias { color: var(--warn); }
   .formulabox {
     background: var(--panel); border-radius: 12px; padding: 12px 16px;
     width: 400px; font-size: 0.8rem; line-height: 2; color: var(--muted);
+    min-height: 7em; font-variant-numeric: tabular-nums;
   }
   .formulabox .f { color: var(--ink); }
   .formulabox b { color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -74,13 +81,13 @@
   .legend { font-size: 0.78rem; color: var(--muted); }
   .legend span { margin-right: 10px; }
   .hint { font-size: 0.76rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 10px; }
-  .sidecol { display: flex; flex-direction: column; gap: 16px; align-items: center; }
-  .helixbox { background: var(--panel); border-radius: 12px; padding: 12px 12px 6px; text-align: center; }
-  .helixbox .cap { font-size: 0.75rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .sidecol { display: flex; flex-direction: column; gap: 16px; align-items: center; width: 400px; }
+  .helixbox { background: var(--panel); border-radius: 12px; padding: 12px 12px 6px; text-align: center; width: 266px; max-width: 100%; }
+  .helixbox .cap { font-size: 0.75rem; color: var(--muted); margin-top: 4px; line-height: 1.5; min-height: 4.5em; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
-<h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2</span></h1>
+<h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2.3</span></h1>
 <p class="sub">
   纖維狀組織（C₆ 圓柱對稱）的偏振解析 SHG 模型。單軸分子模型下
   <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>，把花瓣形狀直接連到螺旋等效傾角 θe
@@ -186,10 +193,22 @@
 const polar = document.getElementById('polar');
 const cart = document.getElementById('cart');
 const fiber = document.getElementById('fiber');
-const pctx = polar.getContext('2d');
-const cctx = cart.getContext('2d');
-const fctx = fiber.getContext('2d');
 const $ = id => document.getElementById(id);
+
+// 高 DPI 畫布：實體像素 = 邏輯像素 × DPR，畫圖仍用邏輯座標
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+function ctx2d(c, w, h) {
+  c.width = Math.round(w * DPR);
+  c.height = Math.round(h * DPR);
+  c.style.width = w + 'px';
+  const g = c.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  return g;
+}
+const POLAR_W = 400, POLAR_H = 400, CART_W = 400, CART_H = 400, FIBER_W = 240, FIBER_H = 240;
+const pctx = ctx2d(polar, POLAR_W, POLAR_H);
+const cctx = ctx2d(cart, CART_W, CART_H);
+const fctx = ctx2d(fiber, FIBER_W, FIBER_H);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'),
@@ -383,7 +402,7 @@ function tracePolar(pts, idx, norm, cx, cy, R, color, lw, dashed) {
 }
 
 function drawPolar(st) {
-  const w = polar.width, h = polar.height, cx = w / 2, cy = h / 2, R = w / 2 - 36;
+  const w = POLAR_W, h = POLAR_H, cx = w / 2, cy = h / 2, R = w / 2 - 36;
   pctx.clearRect(0, 0, w, h);
 
   pctx.strokeStyle = C.grid;
@@ -453,7 +472,7 @@ function drawPolar(st) {
 
 // --- 直角座標圖 -------------------------------------------------------------
 function drawCart(st) {
-  const w = cart.width, h = cart.height, mL = 46, mB = 34, mT = 18, mR = 12;
+  const w = CART_W, h = CART_H, mL = 46, mB = 34, mT = 18, mR = 12;
   const pw = w - mL - mR, ph = h - mT - mB;
   cctx.clearRect(0, 0, w, h);
 
@@ -531,7 +550,7 @@ function drawCart(st) {
 // z = 光軸、xy = 影像平面。纖維（圓柱＋螺旋條紋）方位 φ、翹角 δ，
 // 螺旋傾角 = θe，旋向隨 χ₁₄ 正負翻轉；橘虛線是纖維在影像平面上的投影。
 function drawFiber(st, teDeg) {
-  const w = fiber.width, h = fiber.height, cx = w / 2, cy = h / 2 + 14, S = 54;
+  const w = FIBER_W, h = FIBER_H, cx = w / 2, cy = h / 2 + 14, S = 54;
   fctx.clearRect(0, 0, w, h);
   const psi = 25 * D2R, eps = 28 * D2R;
   const cp = Math.cos(psi), sp = Math.sin(psi), ce = Math.cos(eps), se = Math.sin(eps);
@@ -678,7 +697,7 @@ function expRms(st) {
 }
 
 // --- 狀態與渲染 -------------------------------------------------------------
-let spinning = false, phiDeg = 0, raf = null;
+let spinning = false, phiDeg = 0, raf = null, lastTick = 0;
 
 function state() {
   return {
@@ -774,11 +793,14 @@ $('presetMyo').addEventListener('click', () => setRho(RHO_MYO));
 
 $('spin').addEventListener('change', e => {
   spinning = e.target.checked;
-  if (spinning) tick(); else cancelAnimationFrame(raf);
+  if (spinning) { lastTick = 0; raf = requestAnimationFrame(tick); }
+  else cancelAnimationFrame(raf);
 });
-function tick() {
+// 以時間為基準（24°/s），任何螢幕更新率下轉速一致
+function tick(ts) {
   if (!spinning) return;
-  phiDeg = (phiDeg + 0.4) % 360;
+  if (lastTick) phiDeg = (phiDeg + 24 * Math.min(100, ts - lastTick) / 1000) % 360;
+  lastTick = ts;
   $('phi').value = phiDeg;
   render();
   raf = requestAnimationFrame(tick);
