@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>P-SHG 偏振極座標遊樂場 🦉</title>
+<title>P-SHG 偏振極座標遊樂場 v2 🦉</title>
 <style>
   :root {
     --bg: #14161c;
@@ -12,6 +12,11 @@
     --muted: #9aa0ae;
     --accent: #6ec6ff;
     --ref: #ffb86c;
+    --myo: #d2a8ff;
+    --ix: #7ee787;
+    --iy: #ff7b72;
+    --data: #f5e663;
+    --warn: #ffb86c;
     --grid: #2e3340;
   }
   * { box-sizing: border-box; }
@@ -22,94 +27,232 @@
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
-  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 860px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px; }
   .controls {
-    background: var(--panel); border-radius: 12px; padding: 20px;
-    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+    background: var(--panel); border-radius: 12px; padding: 18px;
+    display: flex; flex-direction: column; gap: 14px; width: 320px;
   }
-  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); }
-  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .presets { display: flex; gap: 8px; }
+  .presets button, .expbar button {
+    flex: 1; background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 7px 6px; font-size: 0.82rem; cursor: pointer;
+    font-family: inherit;
+  }
+  .presets button:hover, .expbar button:hover { border-color: var(--accent); }
+  .expbar { display: flex; gap: 8px; }
+  .expmsg { font-size: 0.82rem; color: var(--data); line-height: 1.6; min-height: 0; }
+  .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 10px; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats .bias { color: var(--warn); }
+  .legend { font-size: 0.78rem; color: var(--muted); }
+  .legend span { margin-right: 10px; }
+  .hint { font-size: 0.76rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 10px; }
+  .sidecol { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+  .helixbox { background: var(--panel); border-radius: 12px; padding: 12px 12px 6px; text-align: center; }
+  .helixbox .cap { font-size: 0.75rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 </style>
 </head>
 <body>
-<h1>P-SHG 偏振極座標遊樂場</h1>
+<h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2</span></h1>
 <p class="sub">
-  膠原蛋白（C<sub>6∞</sub> 圓柱對稱）的偏振解析 SHG 強度模型：
-  <code>I(θ) ∝ sin²(2Δ) + (sin²Δ + ρ·cos²Δ)²</code>，其中 <code>Δ = θ − φ</code>，
-  <code>ρ = χ₃₃/χ₁₅</code>。模型假設纖維躺在影像平面、Kleinman 對稱（χ₁₅ = χ₃₁），
-  且偵測端收集兩個偏振分量的總強度。拖拉滑桿，看 ρ 怎麼決定花瓣形狀、φ 怎麼轉整朵花。
+  纖維狀組織（C₆ 圓柱對稱）的偏振解析 SHG 模型。單軸分子模型下
+  <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>，把花瓣形狀直接連到螺旋等效傾角 θe
+  （Tiaho 2007：肌凝蛋白 θe≈62°、膠原 θe≈49°）。
+  再加上出平面傾角 δ 與手性 χ₁₄——忽略這兩項正是文獻 ρ 值分歧的主因（Lee et al. 2023, APL）。
+  非手性部分仍假設 Kleinman 對稱（χ₁₅ = χ₃₁）；預設收總強度，可切 X/Y 分光。
 </p>
 <div class="wrap">
-  <canvas id="polar" width="420" height="420"></canvas>
-  <canvas id="cart" width="420" height="420"></canvas>
+  <div class="sidecol">
+    <canvas id="polar" width="400" height="400"></canvas>
+    <div class="helixbox">
+      <canvas id="helix" width="150" height="200"></canvas>
+      <div class="cap">單股螺旋，傾角 θe = <span id="helixDeg" style="color:var(--accent)">50°</span></div>
+    </div>
+  </div>
+  <canvas id="cart" width="400" height="400"></canvas>
   <div class="controls">
+    <div class="presets">
+      <button id="presetCol">🩹 膠原 I 型<br><span style="color:var(--muted);font-size:0.72rem">ρ=1.40, θe≈50°</span></button>
+      <button id="presetMyo">💪 肌凝蛋白<br><span style="color:var(--muted);font-size:0.72rem">ρ=0.57, θe≈62°</span></button>
+    </div>
     <div class="ctl">
       <label>ρ = χ₃₃/χ₁₅ <output id="rhoOut">1.40</output></label>
       <input type="range" id="rho" min="0.2" max="4" step="0.01" value="1.4">
     </div>
     <div class="ctl">
-      <label>纖維方位角 φ <output id="phiOut">0°</output></label>
+      <label>螺旋傾角 θe = arctan√(2/ρ) <output id="teOut">50.1°</output></label>
+      <input type="range" id="te" min="36" max="72" step="0.1" value="50.1">
+    </div>
+    <div class="ctl">
+      <label>纖維方位角 φ（面內） <output id="phiOut">0°</output></label>
       <input type="range" id="phi" min="0" max="180" step="1" value="0">
     </div>
+    <div class="ctl">
+      <label>出平面傾角 δ <output id="deltaOut">0°</output></label>
+      <input type="range" id="delta" min="0" max="60" step="1" value="0">
+    </div>
+    <div class="ctl">
+      <label>手性 χ₁₄/χ₁₅ <output id="c14Out">0.00</output></label>
+      <input type="range" id="c14" min="-0.6" max="0.6" step="0.01" value="0">
+    </div>
     <div class="toggle">
-      <input type="checkbox" id="showRef" checked>
-      <label for="showRef">顯示參考曲線：肌腱膠原典型值 ρ = 1.4（橘）</label>
+      <input type="checkbox" id="split">
+      <label for="split">X/Y 分光偵測（拆成兩個偏振分量）</label>
+    </div>
+    <div class="legend" id="legend" style="display:none">
+      <span style="color:var(--ix)">— I_X（沿纖維）</span>
+      <span style="color:var(--iy)">— I_Y（垂直）</span>
+      <span style="color:var(--accent)">— 總強度</span>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="refCol" checked>
+      <label for="refCol">參考曲線：膠原 ρ=1.4（橘虛線）</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="refMyo">
+      <label for="refMyo">參考曲線：肌凝蛋白 ρ=0.57（紫虛線）</label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="spin">
-      <label for="spin">讓纖維自己轉（模擬視野裡不同走向的纖維）</label>
+      <label for="spin">讓纖維自己轉（視野裡不同走向）</label>
     </div>
+    <div class="expbar">
+      <button id="expGo">🎯 出題（噪聲擬合遊戲）</button>
+      <button id="expReveal" style="display:none">揭曉</button>
+      <button id="expClear" style="display:none">清除</button>
+    </div>
+    <div class="expmsg" id="expMsg"></div>
     <div class="stats" id="stats"></div>
     <div class="hint">
-      玩法提示：ρ = 1 時兩個 χ 分量等強，剩下的各向異性全來自 sin²(2Δ) 交叉項——
-      花變成四瓣、對比只剩 2:1，瓣尖指向纖維軸 ±45°；方向其實還讀得出來，
-      只是 ρ 本身不再攜帶資訊。ρ 越大，沿纖維方向的花瓣越突出、對比越高。
-      實驗上就是反過來：轉入射偏振拍一圈，
-      把 I(θ) 擬合回去解出 ρ 和 φ——ρ 對應組織的膠原狀態（正常 vs 病變），
-      φ 給你纖維走向圖。
+      <b>玩法提示：</b>ρ = 1 時兩個 χ 分量等強，各向異性全來自 sin²(2Δ) 交叉項——
+      花變成四瓣、對比只剩 2:1，瓣尖指向纖維軸 ±45°；方向仍讀得出來，只是 ρ 不再攜帶資訊。
+      實驗上是反過來：轉入射偏振拍一圈，把 I(θ) 擬合回去解出 ρ 和 φ。<br>
+      <b>δ 和 χ₁₄ 在搞什麼鬼：</b>纖維翹出影像平面（δ≠0）時，
+      用「天真」平面內模型去擬合會得到偏掉的表觀 ρ̂——上面 stats 會即時顯示偏差。
+      手性項 χ₁₄ 在 δ=0 時輻射方向沿光軸、幾乎隱形，纖維一翹起來就現形，讓花瓣歪斜。
+      這正是 Lee et al. (APL 123, 133703, 2023) 對文獻 ρ 值分歧的解釋，
+      也是他們用 X/Y 分光偵測改善精度的動機。
+      θe 對應請見 Tiaho, Recher &amp; Rouède (Opt. Express 15, 12286, 2007)。
     </div>
   </div>
 </div>
 <script>
 const polar = document.getElementById('polar');
 const cart = document.getElementById('cart');
+const helix = document.getElementById('helix');
 const pctx = polar.getContext('2d');
 const cctx = cart.getContext('2d');
+const hctx = helix.getContext('2d');
 const $ = id => document.getElementById(id);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'),
+            myo: css('--myo'), ix: css('--ix'), iy: css('--iy'), data: css('--data'), grid: css('--grid') };
 
-function intensity(theta, phi, rho) {
-  const d = theta - phi;
-  const s = Math.sin(d), c = Math.cos(d);
-  const a = Math.sin(2 * d);
-  const b = s * s + rho * c * c;
-  return a * a + b * b;
+const RHO_COL = 1.4, RHO_MYO = 0.57;
+const D2R = Math.PI / 180;
+
+// --- 物理核心 ---------------------------------------------------------------
+// C6 圓柱對稱＋單軸近似，χ15=χ31=1（歸一化單位），χ33=ρ，χ14=c14（手性）。
+// 纖維軸 a 在面內方位 φ、出平面傾角 δ；入射線偏振在 xy 面、角度 θ；只偵測橫向分量。
+// P = [(1−p²)+ρp²]·a + 2p·(E−p·a) + 2c14·p·(E×a)，p = E·a
+function fields(theta, phi, delta, rho, c14) {
+  const cd = Math.cos(delta), sd = Math.sin(delta);
+  const ax = cd * Math.cos(phi), ay = cd * Math.sin(phi), az = sd;
+  const ex = Math.cos(theta), ey = Math.sin(theta);
+  const p = ex * ax + ey * ay;
+  const lin = (1 - p * p) + rho * p * p;
+  const crx = ey * az, cry = -ex * az;           // (E×a) 的橫向分量
+  const Px = lin * ax + 2 * p * (ex - p * ax) + 2 * c14 * p * crx;
+  const Py = lin * ay + 2 * p * (ey - p * ay) + 2 * c14 * p * cry;
+  return [Px * Px, Py * Py];
 }
 
-function curve(phi, rho, n = 720) {
-  const pts = [];
-  let max = 0;
+function curveFull(phi, delta, rho, c14, n = 720) {
+  const pts = []; let max = 0;
   for (let i = 0; i <= n; i++) {
     const t = i / n * 2 * Math.PI;
-    const I = intensity(t, phi, rho);
-    if (I > max) max = I;
-    pts.push([t, I]);
+    const [Ix, Iy] = fields(t, phi, delta, rho, c14);
+    const It = Ix + Iy;
+    if (It > max) max = It;
+    pts.push([t, Ix, Iy, It]);
   }
   return { pts, max };
 }
 
-function drawPolar(phi, rho, showRef) {
+// 天真平面內模型（v1 的公式）
+function naiveI(theta, phi, rho) {
+  const d = theta - phi, s = Math.sin(d), c = Math.cos(d);
+  const a = Math.sin(2 * d), b = s * s + rho * c * c;
+  return a * a + b * b;
+}
+
+// 用天真模型對「真實」曲線做最小平方擬合，解出表觀 ρ̂
+function fitNaive(phi, delta, rho, c14) {
+  const N = 180, data = new Float64Array(N), th = new Float64Array(N);
+  let sumI2 = 0;
+  for (let k = 0; k < N; k++) {
+    th[k] = k / N * 2 * Math.PI;
+    const [Ix, Iy] = fields(th[k], phi, delta, rho, c14);
+    data[k] = Ix + Iy;
+    sumI2 += data[k] * data[k];
+  }
+  const cost = ra => {
+    let sf2 = 0, sfi = 0;
+    for (let k = 0; k < N; k++) {
+      const f = naiveI(th[k], phi, ra);
+      sf2 += f * f; sfi += f * data[k];
+    }
+    const A = sf2 > 0 ? sfi / sf2 : 0;
+    let sse = 0;
+    for (let k = 0; k < N; k++) {
+      const r = data[k] - A * naiveI(th[k], phi, ra);
+      sse += r * r;
+    }
+    return sse;
+  };
+  let best = 0.05, bestC = Infinity;
+  for (let i = 0; i <= 120; i++) {                       // 粗掃（對數間距）
+    const ra = 0.05 * Math.pow(6 / 0.05, i / 120);
+    const c = cost(ra);
+    if (c < bestC) { bestC = c; best = ra; }
+  }
+  const lo = best * 0.9, hi = best * 1.1;
+  for (let i = 0; i <= 60; i++) {                        // 細掃
+    const ra = lo + (hi - lo) * i / 60;
+    const c = cost(ra);
+    if (c < bestC) { bestC = c; best = ra; }
+  }
+  return { rhoA: best, resid: sumI2 > 0 ? Math.sqrt(bestC / sumI2) : 0 };
+}
+
+const thetaE = rho => Math.atan(Math.sqrt(2 / rho)) / D2R;
+const rhoOf = te => 2 / Math.pow(Math.tan(te * D2R), 2);
+
+// --- 極座標圖 ---------------------------------------------------------------
+function tracePolar(pts, idx, norm, cx, cy, R, color, lw, dashed) {
+  pctx.strokeStyle = color;
+  pctx.lineWidth = lw;
+  if (dashed) pctx.setLineDash([4, 4]);
+  pctx.beginPath();
+  pts.forEach((pt, i) => {
+    const t = pt[0], r = R * pt[idx] / norm;
+    const x = cx + r * Math.cos(t), y = cy - r * Math.sin(t);
+    i ? pctx.lineTo(x, y) : pctx.moveTo(x, y);
+  });
+  pctx.stroke();
+  pctx.setLineDash([]);
+}
+
+function drawPolar(st) {
   const w = polar.width, h = polar.height, cx = w / 2, cy = h / 2, R = w / 2 - 36;
   pctx.clearRect(0, 0, w, h);
 
@@ -118,12 +261,10 @@ function drawPolar(phi, rho, showRef) {
   pctx.font = '11px sans-serif';
   pctx.lineWidth = 1;
   for (const f of [0.25, 0.5, 0.75, 1]) {
-    pctx.beginPath();
-    pctx.arc(cx, cy, R * f, 0, 2 * Math.PI);
-    pctx.stroke();
+    pctx.beginPath(); pctx.arc(cx, cy, R * f, 0, 2 * Math.PI); pctx.stroke();
   }
   for (let a = 0; a < 180; a += 30) {
-    const t = a * Math.PI / 180;
+    const t = a * D2R;
     pctx.beginPath();
     pctx.moveTo(cx - R * Math.cos(t), cy + R * Math.sin(t));
     pctx.lineTo(cx + R * Math.cos(t), cy - R * Math.sin(t));
@@ -131,49 +272,60 @@ function drawPolar(phi, rho, showRef) {
     pctx.fillText(a + '°', cx + (R + 8) * Math.cos(t) - 8, cy - (R + 8) * Math.sin(t) + 4);
   }
 
-  const main = curve(phi, rho);
-  const norm = main.max;
-
-  if (showRef) {
-    const ref = curve(phi, 1.4);
-    tracePolar(ref.pts, ref.max, cx, cy, R, C.ref, 1.5, true);
+  if (st.refCol) {
+    const ref = curveFull(st.phi, 0, RHO_COL, 0);
+    tracePolar(ref.pts, 3, ref.max, cx, cy, R, C.ref, 1.4, true);
   }
-  tracePolar(main.pts, norm, cx, cy, R, C.accent, 2.5, false);
+  if (st.refMyo) {
+    const ref = curveFull(st.phi, 0, RHO_MYO, 0);
+    tracePolar(ref.pts, 3, ref.max, cx, cy, R, C.myo, 1.4, true);
+  }
+
+  const main = st.main;
+  if (st.split) {
+    tracePolar(main.pts, 3, main.max, cx, cy, R, 'rgba(110,198,255,0.35)', 1.5, false);
+    tracePolar(main.pts, 1, main.max, cx, cy, R, C.ix, 2, false);
+    tracePolar(main.pts, 2, main.max, cx, cy, R, C.iy, 2, false);
+  } else {
+    tracePolar(main.pts, 3, main.max, cx, cy, R, C.accent, 2.5, false);
+  }
+
+  if (st.exp) {
+    pctx.fillStyle = C.data;
+    for (const [t, v] of st.exp.pts) {
+      const r = R * v;
+      pctx.beginPath();
+      pctx.arc(cx + r * Math.cos(t), cy - r * Math.sin(t), 2.5, 0, 2 * Math.PI);
+      pctx.fill();
+    }
+  }
 
   pctx.strokeStyle = C.ink;
   pctx.setLineDash([6, 6]);
   pctx.lineWidth = 1;
   pctx.beginPath();
-  pctx.moveTo(cx - R * Math.cos(phi), cy + R * Math.sin(phi));
-  pctx.lineTo(cx + R * Math.cos(phi), cy - R * Math.sin(phi));
+  pctx.moveTo(cx - R * Math.cos(st.phi), cy + R * Math.sin(st.phi));
+  pctx.lineTo(cx + R * Math.cos(st.phi), cy - R * Math.sin(st.phi));
   pctx.stroke();
   pctx.setLineDash([]);
   pctx.fillStyle = C.ink;
-  pctx.fillText('纖維軸', cx + (R - 40) * Math.cos(phi), cy - (R - 40) * Math.sin(phi) - 8);
+  pctx.fillText('纖維軸', cx + (R - 40) * Math.cos(st.phi), cy - (R - 40) * Math.sin(st.phi) - 8);
 }
 
-function tracePolar(pts, norm, cx, cy, R, color, lw, dashed) {
-  pctx.strokeStyle = color;
-  pctx.lineWidth = lw;
-  if (dashed) pctx.setLineDash([4, 4]);
-  pctx.beginPath();
-  pts.forEach(([t, I], i) => {
-    const r = R * I / norm;
-    const x = cx + r * Math.cos(t), y = cy - r * Math.sin(t);
-    i ? pctx.lineTo(x, y) : pctx.moveTo(x, y);
-  });
-  pctx.stroke();
-  pctx.setLineDash([]);
-}
-
-function drawCart(phi, rho, showRef) {
+// --- 直角座標圖 -------------------------------------------------------------
+function drawCart(st) {
   const w = cart.width, h = cart.height, mL = 46, mB = 34, mT = 18, mR = 12;
   const pw = w - mL - mR, ph = h - mT - mB;
   cctx.clearRect(0, 0, w, h);
 
-  const main = curve(phi, rho, 360);
-  const ref = curve(phi, 1.4, 360);
-  const yMax = Math.max(main.max, showRef ? ref.max : 0) * 1.05;
+  const refC = st.refCol ? curveFull(st.phi, 0, RHO_COL, 0, 360) : null;
+  const refM = st.refMyo ? curveFull(st.phi, 0, RHO_MYO, 0, 360) : null;
+  const main = curveFull(st.phi, st.delta, st.rho, st.c14, 360);
+  let yMax = main.max;
+  if (refC) yMax = Math.max(yMax, refC.max);
+  if (refM) yMax = Math.max(yMax, refM.max);
+  if (st.exp) yMax = Math.max(yMax, st.exp.max * 1.1);
+  yMax *= 1.05;
 
   cctx.strokeStyle = C.grid;
   cctx.fillStyle = C.muted;
@@ -192,49 +344,205 @@ function drawCart(phi, rho, showRef) {
   cctx.fillText('入射偏振角 θ', w / 2 - 30, h - 0.5);
   cctx.save();
   cctx.translate(12, h / 2 + 30); cctx.rotate(-Math.PI / 2);
-  cctx.fillText('SHG 強度（a.u.）', 0, 0);
+  cctx.fillText('SHG 強度（χ₁₅² 單位）', 0, 0);
   cctx.restore();
 
-  const trace = (pts, color, lw, dashed) => {
+  const trace = (pts, idx, color, lw, dashed) => {
     cctx.strokeStyle = color; cctx.lineWidth = lw;
     if (dashed) cctx.setLineDash([4, 4]);
     cctx.beginPath();
-    pts.forEach(([t, I], i) => {
-      const x = mL + pw * t / (2 * Math.PI);
-      const y = mT + ph - ph * I / yMax;
+    pts.forEach((pt, i) => {
+      const x = mL + pw * pt[0] / (2 * Math.PI);
+      const y = mT + ph - ph * pt[idx] / yMax;
       i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
     });
     cctx.stroke();
     cctx.setLineDash([]);
   };
-  if (showRef) trace(ref.pts, C.ref, 1.5, true);
-  trace(main.pts, C.accent, 2.5, false);
+  if (refC) trace(refC.pts, 3, C.ref, 1.4, true);
+  if (refM) trace(refM.pts, 3, C.myo, 1.4, true);
+  if (st.split) {
+    trace(main.pts, 3, 'rgba(110,198,255,0.35)', 1.5, false);
+    trace(main.pts, 1, C.ix, 2, false);
+    trace(main.pts, 2, C.iy, 2, false);
+  } else {
+    trace(main.pts, 3, C.accent, 2.5, false);
+  }
+
+  if (st.exp) {
+    cctx.fillStyle = C.data;
+    for (const [t, v] of st.exp.pts) {
+      const x = mL + pw * t / (2 * Math.PI);
+      const y = mT + ph - ph * (v * st.exp.max) / yMax;
+      cctx.beginPath(); cctx.arc(x, y, 2.5, 0, 2 * Math.PI); cctx.fill();
+    }
+  }
 }
 
-function stats(phi, rho) {
-  const { pts } = curve(phi, rho, 1440);
-  let max = -1, min = 1e9;
-  for (const [, I] of pts) { if (I > max) max = I; if (I < min) min = I; }
-  const contrast = min > 1e-9 ? (max / min).toFixed(2) : '∞';
-  $('stats').innerHTML =
-    `I<sub>max</sub>/I<sub>min</sub> 對比：<b>${contrast}</b><br>` +
-    `平行纖維 I(φ)：<b>${intensity(phi, phi, rho).toFixed(2)}</b>（= ρ²）<br>` +
-    `垂直纖維 I(φ+90°)：<b>${intensity(phi + Math.PI / 2, phi, rho).toFixed(2)}</b>（= 1）`;
+// --- 螺旋小圖 ---------------------------------------------------------------
+function drawHelix(teDeg) {
+  const w = helix.width, h = helix.height, cx = w / 2;
+  hctx.clearRect(0, 0, w, h);
+  const R = 32, yTop = 16, yBot = h - 16;
+  const v = R / Math.tan(teDeg * D2R);          // 每弧度的軸向前進量
+
+  hctx.strokeStyle = C.grid;
+  hctx.setLineDash([4, 4]);
+  hctx.lineWidth = 1;
+  hctx.beginPath(); hctx.moveTo(cx, yTop); hctx.lineTo(cx, yBot); hctx.stroke();
+  hctx.setLineDash([]);
+  hctx.strokeStyle = 'rgba(46,51,64,0.9)';
+  hctx.beginPath(); hctx.moveTo(cx - R, yTop); hctx.lineTo(cx - R, yBot); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(cx + R, yTop); hctx.lineTo(cx + R, yBot); hctx.stroke();
+
+  const tMax = (yBot - yTop) / v;
+  const n = Math.min(1200, Math.max(200, Math.round(tMax * 40)));
+  const pass = front => {
+    hctx.lineWidth = front ? 2.5 : 1.2;
+    hctx.strokeStyle = front ? C.accent : 'rgba(110,198,255,0.28)';
+    let drawing = false;
+    hctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const t = tMax * i / n;
+      const z = Math.cos(t);
+      const x = cx + R * Math.sin(t), y = yBot - v * t;
+      if ((z >= 0) === front) {
+        if (!drawing) { hctx.moveTo(x, y); drawing = true; }
+        else hctx.lineTo(x, y);
+      } else drawing = false;
+    }
+    hctx.stroke();
+  };
+  pass(false);
+  pass(true);
 }
 
+// --- 實驗模式（噪聲擬合遊戲） ----------------------------------------------
+let exp = null;
+const randn = () => {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+
+function makeExperiment() {
+  const rho = 0.4 + Math.random() * 2.1;
+  const phi = Math.random() * Math.PI;
+  const full = curveFull(phi, 0, rho, 0, 720);
+  const pts = [];
+  for (let a = 0; a < 360; a += 5) {
+    const t = a * D2R;
+    const [Ix, Iy] = fields(t, phi, 0, rho, 0);
+    const In = (Ix + Iy) / full.max;
+    const noisy = Math.max(0, In + (0.03 + 0.05 * Math.sqrt(In)) * randn());
+    pts.push([t, noisy]);
+  }
+  return { rho, phi, pts, max: full.max, revealed: false };
+}
+
+function expRms(st) {
+  const cur = curveFull(st.phi, st.delta, st.rho, st.c14, 720);
+  let sse = 0;
+  for (const [t, v] of exp.pts) {
+    const [Ix, Iy] = fields(t, st.phi, st.delta, st.rho, st.c14);
+    sse += Math.pow((Ix + Iy) / cur.max - v, 2);
+  }
+  return Math.sqrt(sse / exp.pts.length);
+}
+
+// --- 狀態與渲染 -------------------------------------------------------------
 let spinning = false, phiDeg = 0, raf = null;
 
-function render() {
-  const rho = parseFloat($('rho').value);
-  const showRef = $('showRef').checked;
-  const phi = phiDeg * Math.PI / 180;
-  $('rhoOut').textContent = rho.toFixed(2);
-  $('phiOut').textContent = Math.round(phiDeg) + '°';
-  drawPolar(phi, rho, showRef);
-  drawCart(phi, rho, showRef);
-  stats(phi, rho);
+function state() {
+  return {
+    rho: parseFloat($('rho').value),
+    phi: phiDeg * D2R,
+    delta: parseFloat($('delta').value) * D2R,
+    c14: parseFloat($('c14').value),
+    split: $('split').checked,
+    refCol: $('refCol').checked,
+    refMyo: $('refMyo').checked,
+    exp,
+  };
 }
 
+function render() {
+  const st = state();
+  st.main = curveFull(st.phi, st.delta, st.rho, st.c14);
+  const te = thetaE(st.rho);
+
+  $('rhoOut').textContent = st.rho.toFixed(2);
+  $('teOut').textContent = te.toFixed(1) + '°';
+  $('phiOut').textContent = Math.round(phiDeg) + '°';
+  $('deltaOut').textContent = Math.round(st.delta / D2R) + '°';
+  $('c14Out').textContent = st.c14.toFixed(2);
+  $('legend').style.display = st.split ? 'block' : 'none';
+  $('helixDeg').textContent = te.toFixed(1) + '°';
+
+  drawPolar(st);
+  drawCart(st);
+  drawHelix(te);
+
+  const perturbed = st.delta > 1e-6 || Math.abs(st.c14) > 1e-6;
+  let s = `螺旋傾角 θe：<b>${te.toFixed(1)}°</b>（膠原~49°，肌凝蛋白~62°）<br>`;
+  if (perturbed) {
+    const fit = fitNaive(st.phi, st.delta, st.rho, st.c14);
+    const teA = thetaE(fit.rhoA);
+    const bias = (fit.rhoA / st.rho - 1) * 100;
+    const flat = curveFull(st.phi, 0, st.rho, st.c14, 360);
+    let sig = 0, sig0 = 0;
+    for (const p of st.main.pts) sig += p[3];
+    for (const p of flat.pts) sig0 += p[3];
+    const lvl = sig / st.main.pts.length / (sig0 / flat.pts.length) * 100;
+    s += `天真擬合表觀 ρ̂：<b class="bias">${fit.rhoA.toFixed(2)}</b>`
+       + `（偏差 <b class="bias">${bias >= 0 ? '+' : ''}${bias.toFixed(0)}%</b>，θ̂e=${teA.toFixed(1)}°）<br>`
+       + `天真模型擬合殘差：<b>${(fit.resid * 100).toFixed(1)}%</b>`
+       + (Math.abs(st.c14) > 1e-6 && st.delta > 1e-6 ? '（手性讓曲線歪斜，天真模型跟不上）' : '') + '<br>'
+       + `總訊號 vs δ=0：<b>${lvl.toFixed(0)}%</b>`;
+  } else {
+    s += `表觀 ρ̂ = 真實 ρ（δ=0 且無手性，天真模型無偏）<br>`
+       + `平行/垂直強度比 I(φ)/I(φ+90°)：<b>${(st.rho * st.rho).toFixed(2)}</b>（= ρ²）`;
+  }
+  $('stats').innerHTML = s;
+
+  if (exp) {
+    const rms = expRms(st);
+    let m = `殘差 RMS：<b>${(rms * 100).toFixed(1)}%</b>　`;
+    if (exp.revealed) {
+      m += `<br>答案：ρ*=${exp.rho.toFixed(2)}、φ*=${Math.round(exp.phi / D2R)}°`
+         + `（你：ρ=${st.rho.toFixed(2)}、φ=${Math.round(phiDeg)}°）`;
+    } else if (rms < 0.05) {
+      m += '✓ 擬合得不錯！按「揭曉」對答案';
+    } else {
+      m += '拖 ρ 和 φ 讓曲線穿過黃點';
+    }
+    $('expMsg').innerHTML = m;
+  } else {
+    $('expMsg').innerHTML = '';
+  }
+}
+
+function setRho(r) {
+  r = Math.min(4, Math.max(0.2, r));
+  $('rho').value = r;
+  $('te').value = thetaE(r).toFixed(1);
+  render();
+}
+
+// --- 事件 -------------------------------------------------------------------
+$('rho').addEventListener('input', () => { $('te').value = thetaE(parseFloat($('rho').value)).toFixed(1); render(); });
+$('te').addEventListener('input', () => { $('rho').value = rhoOf(parseFloat($('te').value)).toFixed(2); render(); });
+$('phi').addEventListener('input', e => { phiDeg = parseFloat(e.target.value); render(); });
+for (const id of ['delta', 'c14']) $(id).addEventListener('input', render);
+for (const id of ['split', 'refCol', 'refMyo']) $(id).addEventListener('change', render);
+$('presetCol').addEventListener('click', () => setRho(RHO_COL));
+$('presetMyo').addEventListener('click', () => setRho(RHO_MYO));
+
+$('spin').addEventListener('change', e => {
+  spinning = e.target.checked;
+  if (spinning) tick(); else cancelAnimationFrame(raf);
+});
 function tick() {
   if (!spinning) return;
   phiDeg = (phiDeg + 0.4) % 180;
@@ -243,12 +551,20 @@ function tick() {
   raf = requestAnimationFrame(tick);
 }
 
-$('rho').addEventListener('input', render);
-$('phi').addEventListener('input', e => { phiDeg = parseFloat(e.target.value); render(); });
-$('showRef').addEventListener('change', render);
-$('spin').addEventListener('change', e => {
-  spinning = e.target.checked;
-  if (spinning) tick(); else cancelAnimationFrame(raf);
+$('expGo').addEventListener('click', () => {
+  exp = makeExperiment();
+  $('delta').value = 0;                  // 遊戲出題假設 δ=0、無手性
+  $('c14').value = 0;
+  $('expReveal').style.display = '';
+  $('expClear').style.display = '';
+  render();
+});
+$('expReveal').addEventListener('click', () => { if (exp) { exp.revealed = true; render(); } });
+$('expClear').addEventListener('click', () => {
+  exp = null;
+  $('expReveal').style.display = 'none';
+  $('expClear').style.display = 'none';
+  render();
 });
 
 render();
