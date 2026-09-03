@@ -10,7 +10,7 @@
 |---|---|
 | [FLIM Phasor 遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/flim-phasor-playground.html) | 螢光壽命 phasor 圖：單指數在半圓上、混合在弦上、光子數決定點雲；g/s = IQ 解調分量 |
 | [反卷積互動實驗台](https://ewinkuo1-sudo.github.io/owl-toys/deconvolution-playground.html) | Richardson-Lucy 迭代滑桿看 semi-convergence：迭代過頭雜訊放大成 ringing |
-| [共軛焦 Pinhole 模擬](https://ewinkuo1-sudo.github.io/owl-toys/pinhole-playground.html) | Pinhole 大小 vs 切片厚度 vs 收光量，附 FV300 五段旋鈕示意對應 |
+| [共軛焦 Pinhole 模擬](https://ewinkuo1-sudo.github.io/owl-toys/pinhole-playground.html) | FV300 五段 CONFOCAL APERTURE 旋鈕換算 AU → 切片厚度 vs 收光量；反射式硬幣實測對照：最小針孔＝等高線儀，掃 z、z-stack 重建高度圖 |
 | [桌面反射梳狀濾波模擬](https://ewinkuo1-sudo.github.io/owl-toys/desk-comb-filter.html) | 桌面反射幾何 → 梳狀濾波頻響，為什麼 EQ 修不了 600 Hz 梳齒 |
 | [房間模態 2D 駐波熱圖](https://ewinkuo1-sudo.github.io/owl-toys/room-modes-heatmap.html) | 矩形房間駐波熱圖、可拖聽點，69 Hz 軸向模態對應 ~2.5 m 邊長 |
 | [脈衝串 ↔ 頻率梳遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/pulse-comb-playground.html) | 週期脈衝串 ⇔ 頻率梳的互動模擬：疊諧波長出尖脈衝、螢光壽命低通、NADH 1f/2f 取頻取捨 |
