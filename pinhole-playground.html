@@ -140,27 +140,24 @@
 <header class="hero">
   <div class="eyebrow">🦉 Owl Toys · Olympus FluoView FV300</div>
   <h1>共軛焦 Pinhole 模擬</h1>
-  <p>共軛焦最核心的取捨：pinhole <b>關小</b>，切片變薄但光子被丟掉；<b>開大</b>，訊號回來但切片變厚。
-  上半部把 FV300 那顆 CONFOCAL APERTURE 五段旋鈕換算成 Airy 單位，看每一格落在曲線哪裡；
-  下半部用 2026-09-02 硬幣反射式取像當對照，看「最小針孔」為什麼把刻線變成一條條等高線。</p>
+  <p>Pinhole <b>關小</b>：切片薄、光子少；<b>開大</b>：光子多、切片厚。轉 FV300 的五段旋鈕看每一格落在哪，再用硬幣實測看最小針孔為什麼把刻線變成等高線。</p>
 </header>
 
 <!-- ================= 儀器設定 ================= -->
 <section class="grid setup">
   <div class="card stack">
-    <h2>儀器設定 <small>物鏡與波長決定 1 AU 的實際大小</small></h2>
+    <h2>儀器設定 <small>決定 1 AU 多大</small></h2>
     <div>
       <h3>物鏡</h3>
       <div class="chips" id="objChips"></div>
     </div>
     <div>
-      <h3>波長（反射模式＝雷射波長；螢光模式請用放射波長）</h3>
+      <h3>波長</h3>
       <div class="chips" id="lamChips"></div>
     </div>
     <div class="ctl">
-      <label>Pinhole 直徑 D（連續微調）<output id="dOut">1.00 AU</output></label>
+      <label>Pinhole 直徑 D（連續）<output id="dOut">1.00 AU</output></label>
       <input type="range" id="d" min="0.1" max="6" step="0.01" value="1">
-      <div class="note">拖這條可以離開五段旋鈕、看連續變化；點旋鈕會跳回實際檔位。</div>
     </div>
     <details>
       <summary>進階：pinhole 平面的放大率 k</summary>
@@ -169,16 +166,13 @@
           <label><span>k（pinhole 處總放大 = 物鏡倍率 × k）</span><output id="kOut">3.8</output></label>
           <input type="range" id="k" min="1" max="6" step="0.1" value="3.8">
         </div>
-        <div class="note">
-          FV300 手冊沒公開這個數字。3.8 是用手冊的建議檔位反推：10×/20× 建議 1 檔（60 µm）、60× 油鏡建議 2–3 檔（100–150 µm），
-          代入 k≈3.8 時兩者都剛好落在 0.8–1.2 AU 附近，而 Olympus 下一代 FV1000 的已知值也是 3.82。這是估計值，不是原廠規格。
-        </div>
+        <div class="note">FV300 未公開；3.8 是從手冊建議檔位（低倍 1 檔、油鏡 2–3 檔 ≈ 1 AU）反推的估計，FV1000 的已知值為 3.82。</div>
       </div>
     </details>
   </div>
 
   <div class="card stack" style="justify-content:space-between">
-    <h2>CONFOCAL APERTURE <small>點數字轉旋鈕</small></h2>
+    <h2>CONFOCAL APERTURE <small>點數字</small></h2>
     <div class="knobwrap">
       <svg viewBox="0 0 200 200" id="knob">
         <defs>
@@ -194,7 +188,7 @@
       </svg>
       <div class="knob-read" id="knobRead"></div>
     </div>
-    <div class="note">檔位＝實際孔徑（手冊）：1＝60 µm、2＝100 µm、3＝150 µm、4＝200 µm、5＝300 µm，全通道共用。</div>
+    <div class="note" style="text-align:center">1＝60 · 2＝100 · 3＝150 · 4＝200 · 5＝300 µm</div>
   </div>
 </section>
 
@@ -204,56 +198,50 @@
 <!-- ================= 曲線 ================= -->
 <section class="grid charts">
   <figure class="card fig" style="margin:0">
-    <h2>軸向切片 <small>焦點附近 z 方向的收光範圍</small></h2>
+    <h2>軸向切片</h2>
     <canvas id="axial"></canvas>
-    <div class="legend"><span><i style="background:var(--ref)"></i>光學切片 dz（FWHM）</span><span><i style="background:var(--accent)"></i>軸向響應 I(z)</span><span><i style="background:rgba(110,198,255,.35)"></i>物鏡收光錐</span></div>
   </figure>
   <figure class="card fig" style="margin:0">
-    <h2>取捨曲線 <small>五個檔位標在橫軸上</small></h2>
+    <h2>取捨曲線</h2>
     <canvas id="trade"></canvas>
     <div class="row" style="justify-content:space-between">
-      <div class="legend"><span><i style="background:var(--accent)"></i>焦平面收光 E(D)</span><span><i style="background:var(--ref)"></i>切片厚度 dz(D)</span><span id="sbrLeg" hidden><i style="background:var(--ink)"></i>相對 SBR</span></div>
-      <label class="note" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="showSBR"> 顯示厚樣本的相對 SBR（E ÷ D²）</label>
+      <div class="legend"><span><i style="background:var(--accent)"></i>收光 E</span><span><i style="background:var(--ref)"></i>切片 dz</span><span id="sbrLeg" hidden><i style="background:var(--ink)"></i>相對 SBR</span></div>
+      <label class="note" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="showSBR"> 厚樣本 SBR（E ÷ D²）</label>
     </div>
   </figure>
 </section>
 
 <section class="card hint">
-  <b>約 1 AU 是經典甜蜜點</b>：Airy 盤裡約 84% 的焦平面光子都收得到，切片厚度也已接近繞射極限。
-  再關小只是用光子換薄度：0.25 AU 以下逼近理想共軛焦（橫向解析度理論上可再好 √2 倍），但光子少到雜訊淹沒一切。
-  開到 2–3 AU 以上，訊號幾乎不再多拿（曲線壓平），切片卻線性變厚，等於把共軛焦退化成寬場。
-  FV300 只有 5 段離散檔位，所以能做的是挑「最不壞」的那一格：薄樣本、螢光弱就往大開；厚樣本要做 z-stack 就咬牙往小關。
-  切換物鏡看看：同一顆旋鈕，在 20×/0.40 跟 60× 油鏡上落點差很多。
+  <b>≈ 1 AU</b>：收到 84% 光子，切片已接近繞射極限——經典甜蜜點。<br>
+  <b>再關小</b>：只是用光子換薄度，雜訊很快吃掉一切。<br>
+  <b>開過 2–3 AU</b>：光子不再變多，切片卻線性變厚，退化成寬場。
 </section>
 
 <!-- ================= 硬幣反射模式 ================= -->
 <section class="card stack">
-  <h2>反射式看硬幣：pinhole 變成等高線儀 <small>對照 2026-09-02 實測（20×/0.40，檔位 1＝60 µm，Detection = Mirror）</small></h2>
+  <h2>反射式看硬幣：pinhole 變成等高線儀 <small>2026-09-02 實測，20×/0.40，檔位 1，Mirror</small></h2>
   <p class="cap" style="margin:0;max-width:900px">
-    反射模式收的是硬幣表面直接彈回來的雷射，沒有螢光。兩件事一起決定哪裡亮：
-    <b style="color:var(--ink)">① 高度閘門</b>——表面必須落在焦平面 ± dz/2 的切片裡，pinhole 越小切片越薄、亮帶越細；
-    <b style="color:var(--ink)">② 斜率閘門</b>——傾斜的表面把鏡面反射打出物鏡的收光錐（NA 0.40 ≈ 半角 24°），所以刻線的斜坡是黑的。
-    結果就是：只有「剛好在焦平面高度的平坦處」發亮，影像變成一張等高線圖。
-    上面的旋鈕在這裡同樣生效；拉焦點 z 看亮帶怎麼搬家。
+    亮不亮由兩道閘門決定：<b style="color:var(--ink)">高度</b>——表面落在焦平面 ± dz/2 內；<b style="color:var(--ink)">斜率</b>——斜坡把反射打出 NA 收光錐。
+    只有焦平面高度的平坦處發亮，影像就是等高線圖。上面的旋鈕在這裡同樣生效。
   </p>
 
   <div class="grid coin">
     <div class="quad">
       <figure class="fig" style="margin:0">
         <div class="imgbox"><canvas id="simImg"></canvas><span class="badge">模擬 · <span id="simBadge"></span></span><div class="bar"><i></i>200 µm</div></div>
-        <figcaption>模擬影像：合成刻線浮雕 × 高度閘門 × 斜率閘門 ＋ 光子雜訊</figcaption>
+        <figcaption>模擬：合成刻線 × 兩道閘門 ＋ 雜訊</figcaption>
       </figure>
       <figure class="fig" style="margin:0">
         <div class="imgbox"><img id="realImg" alt="FV300 反射式硬幣實測"><span class="badge" id="realBadge">實測 · 405 nm</span></div>
-        <figcaption>實測：NT$10 硬幣緞帶刻線，2048² px，視野 711 µm，檔位 1。<button class="btn" id="swapReal" style="padding:2px 8px;font-size:.72rem;margin-left:6px">切 488 nm</button></figcaption>
+        <figcaption>實測：NT$10 硬幣刻線，視野 711 µm <button class="btn" id="swapReal" style="padding:2px 8px;font-size:.72rem;margin-left:6px">切 488 nm</button></figcaption>
       </figure>
       <figure class="fig" style="margin:0">
         <canvas id="profile"></canvas>
-        <figcaption>中央垂直剖面：表面高度 h(y)（灰）、焦平面 ± dz/2（橘帶）、對應的亮度（藍）</figcaption>
+        <figcaption>中央剖面：高度 h(y)、切片帶、亮度</figcaption>
       </figure>
       <figure class="fig" style="margin:0">
         <div class="imgbox"><canvas id="heightImg"></canvas><span class="badge" id="hBadge">高度圖 · 尚未掃描</span></div>
-        <figcaption>把 z-stack 每個像素最亮的 z 記下來，就是共軛焦表面輪廓儀（profilometry）的原理</figcaption>
+        <figcaption>每像素取最亮的 z ＝ 表面輪廓儀</figcaption>
       </figure>
     </div>
 
@@ -272,50 +260,48 @@
         <input type="range" id="p" min="40" max="200" step="1" value="95">
       </div>
       <div class="ctl">
-        <label>刻線深度（峰到谷）<output id="ampOut">24 µm</output></label>
+        <label>刻線深度<output id="ampOut">24 µm</output></label>
         <input type="range" id="amp" min="4" max="80" step="1" value="24">
       </div>
       <div class="ctl">
         <label>相鄰刻線高低差<output id="altOut">8 µm</output></label>
         <input type="range" id="alt" min="0" max="30" step="0.5" value="8">
-        <div class="note">實測裡亮帶之間夾著一條較暗的帶，用「一高一低交錯的刻線」重現；拉 z 就能看到暗帶輪流亮起來。</div>
       </div>
       <div class="ctl">
-        <label>硬幣弧面（視野上下緣落差）<output id="sagOut">12 µm</output></label>
+        <label>硬幣弧面<output id="sagOut">12 µm</output></label>
         <input type="range" id="sag" min="0" max="80" step="1" value="12">
       </div>
       <div class="ctl">
-        <label>表面粗糙度（鏡面 ↔ 漫反射）<output id="roughOut">0.70</output></label>
+        <label>粗糙度（0 鏡面 → 1 漫反射）<output id="roughOut">0.70</output></label>
         <input type="range" id="rough" min="0" max="1" step="0.01" value="0.7">
       </div>
       <div class="ctl">
-        <label>光子預算（PMT 增益／曝光）<output id="phOut">120</output></label>
+        <label>光子預算<output id="phOut">120</output></label>
         <input type="range" id="ph" min="5" max="600" step="5" value="120">
       </div>
       <div class="hint" style="font-size:.78rem">
-        試試：把旋鈕轉到 5 檔——切片變厚 2.5 倍，亮帶跟著變寬、相鄰暗帶也浮出來，等高線解析力就沒了；
-        但光子多了，雜訊乾淨很多。這就是實測時「為什麼選最小針孔」的答案：<b>要拿最薄的高度切片，就得付光子。</b>
-        再把粗糙度拉到 0 看純鏡面：斜坡全黑、只剩極窄的亮線；拉到 1 看純漫反射：斜率閘門失效，只剩高度閘門。
+        <b>轉到 5 檔</b>：切片厚 2.5 倍，亮帶變寬、暗帶浮出，但雜訊乾淨。<br>
+        <b>最小針孔＝最薄的高度切片，代價是光子。</b><br>
+        粗糙度 0：只剩鏡面亮線；粗糙度 1：斜率閘門失效。
       </div>
     </div>
   </div>
 </section>
 
 <section class="card">
-  <details open>
+  <details>
     <summary>公式與假設</summary>
     <div class="formula" style="margin-top:10px">
-      1 AU（回投影到物空間的 Airy 盤直徑）＝ <code>1.22 λ / NA</code>；旋鈕孔徑換算：<code>D(AU) = PH<sub>實體</sub> / (M<sub>obj</sub> · k) / AU</code><br>
-      光學切片厚度（FWHM，Wilson 2011 常用式）：<code>dz = √[(0.88 λ / (n − √(n² − NA²)))² + (√2 · n · PH / NA)²]</code>，PH 為回投影 pinhole 直徑<br>
-      焦平面收光比例：Airy 圈內能量 <code>E = 1 − J₀²(v) − J₁²(v)</code>，<code>v = 3.8317 · D</code><br>
-      厚樣本的失焦背景近似 ∝ D²，所以相對 SBR ∝ <code>E / D²</code>（只用來比趨勢，不是絕對值）<br>
-      硬幣模擬：亮度 <code>I = R(斜率) · exp(−4 ln2 (h − z<sub>f</sub>)² / dz²) · 紋理 + 雜訊</code>；鏡面項在反射角 2θ 超過 <code>asin(NA/n)</code> 時衰減，漫反射項不受斜率閘門影響。
-      dz 沿用螢光公式，反射式的實際軸向響應略窄一些，趨勢相同。相對高度、刻線深度都是為了「長得像」而挑的，不是硬幣的實測輪廓。
+      1 AU ＝ <code>1.22 λ / NA</code>；<code>D(AU) = PH<sub>實體</sub> / (M<sub>obj</sub> · k) / AU</code><br>
+      切片厚度 <code>dz = √[(0.88 λ / (n − √(n² − NA²)))² + (√2 · n · PH / NA)²]</code>（FWHM，Wilson 2011）<br>
+      收光 <code>E = 1 − J₀²(v) − J₁²(v)</code>，<code>v = 3.8317 · D</code>；厚樣本 SBR ∝ <code>E / D²</code><br>
+      硬幣 <code>I = R(斜率) · exp(−4 ln2 (h − z<sub>f</sub>)² / dz²) · 紋理 + 雜訊</code>，鏡面項在 2θ > <code>asin(NA/n)</code> 時衰減。
+      dz 沿用螢光公式，反射式略窄；刻線形狀是為了像實測而挑的，不是量測值。
     </div>
   </details>
 </section>
 
-<footer>單一 HTML、無外部套件。實測影像來自 TBL 實驗室 FV300 + IX 倒立機架，2026-09-02。<a href="index.html">← 回 Owl Toys</a></footer>
+<footer>實測影像：TBL 實驗室 FV300，2026-09-02。<a href="index.html">← Owl Toys</a></footer>
 </div>
 
 <script>
@@ -564,10 +550,10 @@ function drawTiles(o) {
   const stop = currentStop();
   const sbr = (o.E / (o.D * o.D)) / encircled(1);
   $('tiles').innerHTML = `
-    <div class="tile a"><div class="k">Pinhole 直徑</div><div class="v">${o.D.toFixed(2)}<small>AU</small></div><div class="s">回投影 ${o.PH.toFixed(2)} µm ＝ 實體 ${o.PHphys.toFixed(0)} µm${stop >= 0 ? '（' + (stop + 1) + ' 檔）' : ''}</div></div>
-    <div class="tile r"><div class="k">光學切片厚度 dz</div><div class="v">${o.dz.toFixed(2)}<small>µm</small></div><div class="s">FWHM，繞射極限 ${optics(0.0001).dz.toFixed(2)} µm</div></div>
-    <div class="tile a"><div class="k">焦平面收光 E</div><div class="v">${(o.E * 100).toFixed(1)}<small>%</small></div><div class="s">Airy 圈內能量；1 AU ＝ ${(encircled(1) * 100).toFixed(0)} %</div></div>
-    <div class="tile"><div class="k">厚樣本相對 SBR</div><div class="v">${sbr.toFixed(2)}<small>×</small></div><div class="s">以 1 AU 為 1；1 AU 本身 ＝ ${o.AU.toFixed(2)} µm</div></div>`;
+    <div class="tile a"><div class="k">Pinhole 直徑</div><div class="v">${o.D.toFixed(2)}<small>AU</small></div><div class="s">實體 ${o.PHphys.toFixed(0)} µm${stop >= 0 ? '・' + (stop + 1) + ' 檔' : ''}</div></div>
+    <div class="tile r"><div class="k">光學切片厚度 dz</div><div class="v">${o.dz.toFixed(2)}<small>µm</small></div><div class="s">繞射極限 ${optics(0.0001).dz.toFixed(2)} µm</div></div>
+    <div class="tile a"><div class="k">焦平面收光 E</div><div class="v">${(o.E * 100).toFixed(1)}<small>%</small></div><div class="s">1 AU ＝ ${(encircled(1) * 100).toFixed(0)} %</div></div>
+    <div class="tile"><div class="k">厚樣本相對 SBR</div><div class="v">${sbr.toFixed(2)}<small>×</small></div><div class="s">1 AU ＝ ${o.AU.toFixed(2)} µm</div></div>`;
 }
 
 /* ============================================================
@@ -718,7 +704,7 @@ function runStack(o) {
       const rms = Math.sqrt(se / (NS * NS));
       drawHeight(bestZ, hmin, hmax);
       $('hBadge').textContent = `高度圖 · ${nz} 張，z 步距 ${stepZ.toFixed(1)} µm`;
-      $('stackNote').textContent = `高度圖 RMS 誤差 ${rms.toFixed(1)} µm（dz = ${o.dz.toFixed(1)} µm）。針孔越小、切片越薄，高度定得越準——但光子少了，斜坡處會先失守。`;
+      $('stackNote').textContent = `高度 RMS 誤差 ${rms.toFixed(1)} µm（dz ${o.dz.toFixed(1)} µm）`;
       stackBusy = false; $('runStack').disabled = false;
     }
   };
