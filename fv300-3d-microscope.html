@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FV300 3D 互動顯微鏡 🦉</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --line: #262b36;
+    --ink: #e8e9ee;
+    --muted: #98a0b0;
+    --faint: #5c6474;
+    --accent: #6ec6ff;
+    --accent-dim: rgba(110,198,255,0.14);
+    --green: #7ee787;
+    --amber: #ffb86c;
+    --red: #ff7b72;
+    --radius: 14px;
+    --laser-405: #9b6bff;
+    --laser-488: #00bbff;
+    --laser-543: #8aff5a;
+    --laser-633: #ff4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  html { background: var(--bg); }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 16px; padding: 10px 18px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: 0 0 auto;
+  }
+  .topbar .eyebrow { font-size: 0.72rem; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
+  .topbar h1 { font-size: 1.15rem; margin: 0; font-weight: 650; letter-spacing: 0.01em; }
+  .topbar p { margin: 0; color: var(--muted); font-size: 0.82rem; }
+  .topbar .grow { flex: 1; min-width: 0; }
+  .topbar .hint { font-size: 0.76rem; color: var(--faint); white-space: nowrap; }
+  .topbar .back { font-size: 0.8rem; white-space: nowrap; }
+
+  /* ---------- layout ---------- */
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+  .side {
+    width: 330px; flex: 0 0 330px; overflow-y: auto; padding: 14px 14px 30px;
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin;
+  }
+  .side::-webkit-scrollbar { width: 6px; }
+  .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .viewport { flex: 1; position: relative; min-width: 0; background: var(--bg); }
+  #c3d { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* ---------- cards / controls ---------- */
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .card h2 { font-size: 0.92rem; margin: 0 0 8px; font-weight: 650; display: flex; align-items: baseline; gap: 8px; }
+  .card h2 small { font-size: 0.72rem; color: var(--muted); font-weight: 400; }
+  h3 { font-size: 0.74rem; margin: 8px 0 6px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button, .btn {
+    padding: 5px 10px; cursor: pointer; font: inherit; font-size: 0.78rem;
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; transition: all .12s;
+  }
+  .chips button:hover, .btn:hover { color: var(--ink); border-color: var(--faint); }
+  .chips button.on { background: var(--accent); color: #0c1219; border-color: var(--accent); font-weight: 600; }
+  .chips button[disabled] { opacity: 0.45; cursor: not-allowed; border-style: dashed; }
+  .chips button[disabled]:hover { color: var(--muted); border-color: var(--line); }
+  .chips button.l405.on { background: var(--laser-405); border-color: var(--laser-405); color: #fff; }
+  .chips button.l488.on { background: var(--laser-488); border-color: var(--laser-488); }
+  .chips button.l543.on { background: var(--laser-543); border-color: var(--laser-543); }
+  .chips button.l633.on { background: var(--laser-633); border-color: var(--laser-633); color: #fff; }
+  .btn.primary { background: var(--accent-dim); border-color: rgba(110,198,255,0.4); color: var(--accent); }
+  .btn.primary.on { background: var(--accent); color: #0c1219; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .views .btn { border-radius: 8px; text-align: left; padding: 7px 10px; }
+  .views .btn b { display: block; font-size: 0.8rem; color: var(--ink); font-weight: 600; }
+  .views .btn span { font-size: 0.68rem; color: var(--faint); }
+
+  .ctl label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; margin-bottom: 2px; color: var(--muted); }
+  .ctl output { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0 6px; }
+  .note { font-size: 0.72rem; color: var(--faint); line-height: 1.5; margin-top: 4px; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .toggles label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
+  .toggles input { accent-color: var(--accent); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .stat .val { font-size: 1.0rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 0.66rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+  .stat.ch1 .val { color: var(--green); }
+  .stat.ch2 .val { color: var(--red); }
+
+  .scanwrap { display: flex; gap: 10px; align-items: flex-start; }
+  #scanCanvas { width: 150px; height: 150px; border-radius: 8px; background: #05070a; border: 1px solid var(--line); image-rendering: auto; flex: 0 0 auto; }
+  .scanmeta { font-size: 0.72rem; color: var(--muted); line-height: 1.6; }
+  .scanmeta b { color: var(--ink); font-weight: 600; }
+  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.72rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: 2px; margin-right: 5px; }
+
+  /* ---------- floating info panel ---------- */
+  .info {
+    position: absolute; top: 14px; right: 14px; width: min(360px, calc(100% - 28px));
+    max-height: calc(100% - 28px); overflow-y: auto;
+    background: rgba(23,26,33,0.93); backdrop-filter: blur(8px);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45); display: none; scrollbar-width: thin;
+  }
+  .info.show { display: block; animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .info .close { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--faint); font-size: 1.2rem; cursor: pointer; line-height: 1; }
+  .info .close:hover { color: var(--ink); }
+  .info .kind { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .info h2 { margin: 2px 0 0; font-size: 1.05rem; font-weight: 650; }
+  .info .en { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+  .info p { margin: 0 0 8px; font-size: 0.82rem; color: var(--ink); line-height: 1.6; }
+  .info table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 4px; }
+  .info td { padding: 4px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  .info td:first-child { color: var(--muted); width: 38%; padding-right: 8px; }
+  .info td:last-child { font-variant-numeric: tabular-nums; }
+  .info .live { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .info .live h4 { margin: 0 0 4px; font-size: 0.72rem; color: var(--accent); letter-spacing: 0.06em; }
+  .info .tag { display: inline-block; padding: 1px 8px; font-size: 0.68rem; border-radius: 999px; font-weight: 600; margin-left: 6px; vertical-align: 2px; }
+  .tag.ok { background: rgba(126,231,135,0.18); color: var(--green); }
+  .tag.na { background: rgba(255,184,108,0.18); color: var(--amber); }
+
+  /* ---------- 3D labels ---------- */
+  .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .lbl3d {
+    position: absolute; transform: translate(-50%, -100%); padding: 2px 7px; border-radius: 6px;
+    background: rgba(15,17,22,0.72); border: 1px solid rgba(110,198,255,0.25); color: var(--ink);
+    font-size: 0.68rem; white-space: nowrap; pointer-events: none;
+  }
+  .lbl3d::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 1px; height: 5px; background: rgba(110,198,255,0.5); }
+  .lbl3d.dim { opacity: 0.55; }
+
+  .hud { position: absolute; left: 14px; bottom: 12px; font-size: 0.72rem; color: var(--faint); pointer-events: none; }
+  .hud b { color: var(--muted); font-weight: 600; }
+  .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; pointer-events: none; }
+
+  .sidebtn { display: none; }
+  @media (max-width: 900px) {
+    .main { flex-direction: column-reverse; }
+    .side { width: 100%; flex: 0 0 auto; max-height: 42vh; border-right: none; border-top: 1px solid var(--line); }
+    .topbar .hint, .topbar p { display: none; }
+    .info { top: 10px; right: 10px; max-height: 55%; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="grow">
+    <div class="eyebrow">🦉 Owl Toys · Olympus FluoView FV300 / IX71</div>
+    <h1>FV300 3D 互動顯微鏡</h1>
+    <p>共軛焦顯微鏡的工程透視模型：轉動觀察、掀開掃描頭、點任何零件看它是什麼、看雷射怎麼走到樣品又怎麼回到 PMT。</p>
+  </div>
+  <div class="hint">拖曳旋轉 · 滾輪縮放 · 右鍵平移 · 點擊零件看說明</div>
+  <a class="back" href="index.html">← Owl Toys</a>
+</header>
+
+<div class="main">
+  <aside class="side">
+
+    <div class="card">
+      <h2>視角 <small>Views</small></h2>
+      <div class="views">
+        <button class="btn" data-view="overview"><b>全景</b><span>整套系統</span></button>
+        <button class="btn" data-view="head"><b>掃描頭內部</b><span>掀蓋看光學元件</span></button>
+        <button class="btn" data-view="focus"><b>物鏡焦點</b><span>樣品與掃描光斑</span></button>
+        <button class="btn" data-view="path"><b>光路追跡</b><span>外殼透明化</span></button>
+        <button class="btn" data-view="lasers"><b>雷射模組</b><span>雷射與光纖</span></button>
+        <button class="btn" data-view="pc"><b>電腦螢幕</b><span>看即時掃描影像</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>掃描頭 <small>FV300 Scan Unit</small></h2>
+      <div class="chips">
+        <button class="btn primary" id="lidBtn">掀開外殼</button>
+        <button class="btn" id="xrayBtn">外殼透明</button>
+        <button class="btn" id="labelBtn">標籤</button>
+      </div>
+      <div class="ctl" style="margin-top:10px">
+        <label>Pinhole 段位（CONFOCAL APERTURE）<output id="pinOut">3</output></label>
+        <input type="range" id="pinSlider" min="1" max="5" step="1" value="3">
+      </div>
+      <h3>偵測分光鏡（滑軌）</h3>
+      <div class="chips" id="dmChips">
+        <button data-dm="mirror">Mirror</button>
+        <button data-dm="DM570" class="on">DM570</button>
+        <button data-dm="DM630">DM630</button>
+      </div>
+      <h3>CH1 Barrier Filter</h3>
+      <div class="chips" id="ch1Chips">
+        <button data-f="BA505-525" class="on">BA505-525</button>
+        <button data-f="BA510-550">BA510-550</button>
+        <button data-f="none">無</button>
+      </div>
+      <h3>CH2 Barrier Filter</h3>
+      <div class="chips" id="ch2Chips">
+        <button data-f="BA560-600" class="on">BA560-600</button>
+        <button data-f="BA660IF">BA660IF</button>
+        <button data-f="BA610IF">BA610IF</button>
+        <button data-f="none">無</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>雷射 <small>Lasers</small></h2>
+      <div class="chips" id="laserChips">
+        <button class="l405" data-laser="405">LD 405</button>
+        <button class="l488 on" data-laser="488">Ar 488</button>
+        <button class="l543" data-laser="543" disabled title="尚未安裝（預留）">HeNe 543 ⌀</button>
+        <button class="l633" data-laser="633" disabled title="尚未安裝（預留）">HeNe 633 ⌀</button>
+      </div>
+      <div class="ctl" style="margin-top:10px">
+        <label>雷射功率 <output id="powerOut">30</output> %</label>
+        <input type="range" id="powerSlider" min="1" max="100" step="1" value="30">
+      </div>
+      <h3>光路顯示</h3>
+      <div class="toggles">
+        <label><input type="checkbox" id="exToggle" checked> 激發光路</label>
+        <label><input type="checkbox" id="emToggle" checked> 螢光回程</label>
+        <label><input type="checkbox" id="scanToggle" checked> 振鏡掃描</label>
+        <label><input type="checkbox" id="photonToggle" checked> 光子流動</label>
+      </div>
+      <div class="legend" style="margin-top:8px">
+        <span><i id="legEx" style="background:#00bbff"></i>激發</span>
+        <span><i id="legEm" style="background:#44ff88"></i>螢光</span>
+        <span><i style="background:#e0a030"></i>光纖</span>
+      </div>
+      <div class="note">目前實驗室實裝 405 / 488；543 與 633 為預留插槽（模型中以半透明顯示），加裝後把資料表裡的 <code>installed</code> 改成 true 即可啟用。</div>
+    </div>
+
+    <div class="card">
+      <h2>物鏡 <small>Objective</small></h2>
+      <div class="chips" id="objChips">
+        <button data-obj="10x">10X</button>
+        <button data-obj="20x" class="on">20X</button>
+        <button data-obj="40x">40X</button>
+        <button data-obj="60x">60X Oil</button>
+      </div>
+      <div class="note" id="objNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>即時數值 <small>Live numbers</small></h2>
+      <div class="stats">
+        <div class="stat"><div class="val" id="sSpot">--</div><div class="lbl">焦點光斑<br>半徑 μm</div></div>
+        <div class="stat"><div class="val" id="sAiry">--</div><div class="lbl">Airy 半徑<br>μm</div></div>
+        <div class="stat"><div class="val" id="sSlice">--</div><div class="lbl">光學切片<br>厚度 μm</div></div>
+        <div class="stat"><div class="val" id="sAU">--</div><div class="lbl">Pinhole<br>AU</div></div>
+        <div class="stat ch1"><div class="val" id="sCh1">--</div><div class="lbl">CH1 訊號</div></div>
+        <div class="stat ch2"><div class="val" id="sCh2">--</div><div class="lbl">CH2 訊號</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>掃描影像 <small>Live scan</small></h2>
+      <div class="scanwrap">
+        <canvas id="scanCanvas" width="80" height="80"></canvas>
+        <div class="scanmeta" id="scanMeta"></div>
+      </div>
+      <div class="note">合成樣品：細胞核（DAPI）、細胞骨架（Alexa 488 / GFP）、粒線體（TRITC，需 543）、細胞膜（Cy5，需 633）。CH1 顯示為綠、CH2 顯示為紅。</div>
+    </div>
+
+  </aside>
+
+  <div class="viewport">
+    <canvas id="c3d"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="info" id="info"><button class="close" id="infoClose">×</button><div id="infoBody"></div></div>
+    <div class="hud" id="hud"><b>點擊</b>任何零件顯示說明 · 點空白處關閉</div>
+    <div class="loading" id="loading">載入 Three.js…</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ============================================================
+//  資料庫（沿用 fv300-optics-sim.html，加上 405 nm 與安裝狀態）
+// ============================================================
+const LASERS = {
+  405: { wl: 405, color: '#9b6bff', name: 'LD 405 nm',   kind: '藍紫光半導體雷射', installed: true,  beamDia: 0.7,
+         emPeak: 461, emSigma: 35, dye: 'DAPI', dyes: 'DAPI / Hoechst / Alexa 405 / CFP', fluorColor: '#6f8cff' },
+  488: { wl: 488, color: '#00bbff', name: 'Ar 488 nm',   kind: '藍光氬離子雷射',   installed: true,  beamDia: 0.7,
+         emPeak: 519, emSigma: 25, dye: 'FITC', dyes: 'FITC / GFP / Alexa 488 / Calcein', fluorColor: '#44ff88' },
+  543: { wl: 543, color: '#8aff5a', name: 'HeNe 543 nm', kind: '綠光氦氖氣體雷射', installed: false, beamDia: 0.8,
+         emPeak: 575, emSigma: 25, dye: 'TRITC', dyes: 'TRITC / Cy3 / Alexa 546 / Rhodamine', fluorColor: '#ff8844' },
+  633: { wl: 633, color: '#ff4444', name: 'HeNe 633 nm', kind: '紅光氦氖氣體雷射', installed: false, beamDia: 0.8,
+         emPeak: 668, emSigma: 25, dye: 'Cy5', dyes: 'Cy5 / Alexa 633 / Alexa 647 / TO-PRO-3', fluorColor: '#ff4466' },
+};
+
+const OBJECTIVES = {
+  '10x': { mag: 10, na: 0.40, fl: 18.0, wd: 3.1,  label: 'UPLSAPO 10X',      pupil: 14.4, ring: 0xf2d24b },
+  '20x': { mag: 20, na: 0.75, fl: 9.0,  wd: 0.6,  label: 'UPLAPO 20X',       pupil: 13.5, ring: 0x4fd06b },
+  '40x': { mag: 40, na: 0.85, fl: 4.5,  wd: 0.2,  label: 'UPLAPO 40X',       pupil: 7.65, ring: 0x6ec6ff },
+  '60x': { mag: 60, na: 1.35, fl: 3.0,  wd: 0.15, label: 'UPLSAPO 60X Oil',  pupil: 8.1,  ring: 0x2f4fd8, oil: true },
+};
+const OBJ_ORDER = ['10x', '20x', '40x', '60x'];
+
+const PINHOLE_DIAMETERS = { 1: 60, 2: 100, 3: 150, 4: 200, 5: 300 }; // μm
+
+const FILTERS = {
+  'BA505-525': { type: 'bp', lo: 505, hi: 525, label: 'BA505-525', color: 0x44ff88 },
+  'BA510-550': { type: 'bp', lo: 510, hi: 550, label: 'BA510-550', color: 0x66ff99 },
+  'BA560-600': { type: 'bp', lo: 560, hi: 600, label: 'BA560-600', color: 0xff8844 },
+  'BA660IF':   { type: 'lp', lo: 660, hi: 900, label: 'BA660IF',   color: 0xff4466 },
+  'BA610IF':   { type: 'lp', lo: 610, hi: 900, label: 'BA610IF',   color: 0xff6644 },
+  'none':      { type: 'open', lo: 400, hi: 900, label: '無（空槽）', color: 0x556070 },
+};
+
+const DMS = {
+  'mirror': { cutoff: null, label: 'Mirror（全反射至 CH1）', color: 0xd8dde6 },
+  'DM570':  { cutoff: 570,  label: 'DM570（570 nm 分割）',   color: 0xffc36e },
+  'DM630':  { cutoff: 630,  label: 'DM630（630 nm 分割）',   color: 0xff6e6e },
+};
+const DM_ORDER = ['mirror', 'DM570', 'DM630'];
+
+// 合成樣品用的染料 → 各雷射的激發效率
+const DYES = {
+  dapi:  { em: 461, sigma: 35 },
+  fitc:  { em: 519, sigma: 25 },
+  tritc: { em: 575, sigma: 25 },
+  cy5:   { em: 668, sigma: 25 },
+};
+const EXC = {
+  405: { dapi: 1.0, fitc: 0.15, tritc: 0.02, cy5: 0.0 },
+  488: { dapi: 0.02, fitc: 1.0, tritc: 0.15, cy5: 0.0 },
+  543: { dapi: 0.0, fitc: 0.08, tritc: 1.0, cy5: 0.05 },
+  633: { dapi: 0.0, fitc: 0.0, tritc: 0.05, cy5: 1.0 },
+};
+
+// ============================================================
+//  狀態
+// ============================================================
+const state = {
+  laser: 488, power: 30, divergence: 0.5,
+  pinhole: 3, detDM: 'DM570', ch1Filter: 'BA505-525', ch2Filter: 'BA560-600',
+  objective: '20x', zOffset: 0,
+  lidOpen: false, xray: false, labels: false,
+  showEx: true, showEm: true, scanning: true, photons: true,
+};
+
+// ============================================================
+//  元件說明（點擊顯示）
+// ============================================================
+const INFO = {
+  ix71: { kind: '顯微鏡本體', zh: 'IX71 倒立式研究級顯微鏡', en: 'Olympus IX71 Inverted Microscope',
+    desc: '倒立式構型：物鏡在樣品下方，適合培養皿／載玻片活細胞觀察。採 UIS2 無限遠校正光學，管鏡焦距 180 mm。左側埠接 FV300 掃描頭，把顯微鏡變成共軛焦系統。',
+    specs: [['光學系統', 'UIS2 無限遠校正'], ['管鏡焦距', '180 mm'], ['光路切換', '目鏡 / 側埠 / 底埠'], ['調焦', '粗調 + 微調同軸旋鈕']] },
+  base: { kind: 'IX71', zh: '底座', en: 'Base', desc: '承載整台顯微鏡，內含管鏡與光路切換稜鏡；物鏡出來的無限遠光束在這裡被管鏡聚焦，再由反射鏡轉向側面埠送進掃描頭。', specs: [['內含', '管鏡 (f = 180 mm)、光路切換稜鏡']] },
+  column: { kind: 'IX71', zh: '立柱（照明支柱）', en: 'Illumination Pillar', desc: '後方立柱撐起透射光照明系統：鹵素燈室、聚光鏡與視野光圈。共軛焦掃描時通常不點亮。', specs: [['照明', '柯勒照明 (Köhler)'], ['燈源', '12 V 100 W 鹵素燈（由 LG-PS2 供電）']] },
+  stage: { kind: 'IX71', zh: '載物台', en: 'Stage', desc: '放置載玻片或培養皿。XY 同軸旋鈕移動樣品；中央開口讓下方的物鏡靠近樣品。', specs: [['行程', '約 120 × 80 mm'], ['操作', 'XY 同軸旋鈕']] },
+  stageKnob: { kind: 'IX71', zh: '載物台 XY 旋鈕', en: 'Stage XY Knobs', desc: '同軸雙旋鈕：上層移 Y、下層移 X，把要看的區域移到物鏡上方。', specs: [] },
+  turret: { kind: 'IX71', zh: '物鏡轉盤', en: 'Objective Nosepiece', desc: '六孔旋轉轉盤，把要用的物鏡轉到光軸上。UI 切換物鏡時轉盤會跟著轉。', specs: [['孔位', '6'], ['已裝', 'UPLSAPO 10X、UPLAPO 20X、UPLAPO 40X、UPLSAPO 60X Oil']] },
+  objective: { kind: 'IX71', zh: '物鏡', en: 'Objective', desc: '把掃描光束聚成繞射極限的焦點，並收集同一點發出的螢光。NA 決定解析度與收光效率，WD 決定能看多深。', specs: [] },
+  focusKnob: { kind: 'IX71', zh: '粗／微調焦旋鈕', en: 'Coarse / Fine Focus Knobs', desc: '左右各一組同軸旋鈕：外圈粗調（每轉約數 mm）、內圈微調（每格 1 μm）。倒立式是移動物鏡轉盤，而不是載物台。', specs: [['微調刻度', '1 μm / 格'], ['移動件', '物鏡轉盤（Z）']] },
+  eyepiece: { kind: 'IX71', zh: '目鏡筒（雙目觀察筒）', en: 'Binocular Eyepiece Tube', desc: '一般寬場觀察與找樣品用。切到掃描頭模式後光路改走側埠，目鏡看不到共軛焦影像。', specs: [['目鏡', 'WHN10X (FN 22)'], ['傾角', '30°']] },
+  sidePort: { kind: 'IX71', zh: '側面埠', en: 'Side Port', desc: '無限遠空間（或中間像面）的出口，經轉接筒接到 FV300 掃描頭。掃描光束由這裡進入顯微鏡，螢光也從這裡回到掃描頭。', specs: [['光路切換', '100% 至側埠（掃描時）']] },
+  condenser: { kind: 'IX71', zh: '聚光鏡', en: 'Condenser', desc: '透射光照明：把鹵素燈光均勻聚到樣品上，用來做寬場明視野／相位差找細胞。', specs: [['NA', '0.55 (LWD)']] },
+  lamp: { kind: 'IX71', zh: '鹵素燈室', en: 'Halogen Lamp House', desc: '12 V 100 W 鹵素燈，透射光照明的光源，電源來自 LG-PS2。', specs: [['燈泡', '12 V 100 W 鹵素']] },
+  sample: { kind: '樣品', zh: '樣品（載玻片 / 培養皿）', en: 'Specimen', desc: '合成樣品：DAPI 染細胞核（405 激發）、Alexa 488 染細胞骨架（488 激發）、TRITC 粒線體（需 543）、Cy5 細胞膜（需 633）。點「物鏡焦點」視角看掃描光斑在樣品上掃過。', specs: [] },
+  focus: { kind: '光路', zh: '物鏡焦點（掃描光斑）', en: 'Focal Spot', desc: '雷射被物鏡聚成繞射極限光斑，振鏡讓它在樣品上一行行掃過（模型中把掃描範圍放大了很多倍好看）。只有這一點發出的螢光能對準 pinhole。', specs: [] },
+
+  scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 側埠的雷射掃描共軛焦單元。內含 XY 振鏡、激發分光鏡、共軛焦 pinhole、偵測分光鏡與兩支 PMT。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕'], ['偵測器', '2 × PMT（側窗型）']] },
+  lid: { kind: '掃描單元', zh: '掃描頭外殼', en: 'Scan Unit Cover', desc: '遮光外殼。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [] },
+  fiberPort: { kind: '掃描單元', zh: '光纖入口 / 準直鏡', en: 'Fiber Port & Collimator', desc: '單模光纖送來的雷射從這裡進入，準直鏡把發散光變成平行光束後射向激發分光鏡。', specs: [['光纖', '單模，偏振保持'], ['準直後光束', '約 0.7–0.8 mm']] },
+  exDM: { kind: '掃描單元', zh: '激發分光鏡（45°）', en: 'Excitation Dichroic Mirror', desc: '反射短波長的雷射到振鏡與樣品；讓長波長的螢光穿透到偵測端。是激發與偵測光路分開的關鍵。', specs: [['角度', '45°'], ['型式', 'DM405/488 雙波段（依雷射組合更換）'], ['選項', 'DM488 / DM488/543 / DM488/543/633']] },
+  galvoX: { kind: '掃描單元', zh: '振鏡 X（快軸）', en: 'Galvanometer Mirror X', desc: '高速擺動的反射鏡，負責影像的水平（行）掃描。掃描頻率數百 Hz，決定每行的時間。', specs: [['頻率', '數百 Hz（行）'], ['光學掃描角', '約 ±6°'], ['驅動', '閉迴路電流計']] },
+  galvoY: { kind: '掃描單元', zh: '振鏡 Y（慢軸）', en: 'Galvanometer Mirror Y', desc: '較慢的擺動鏡，每掃完一行往下走一步，決定幀率。X 與 Y 一快一慢合成光柵掃描。', specs: [['速度', '每幀一個鋸齒'], ['幀率', '約 0.3–3 fps（依像素數）']] },
+  scanLens: { kind: '掃描單元', zh: '掃描透鏡', en: 'Scan Lens', desc: '把振鏡的角度掃描轉成中間像面的位置掃描，並與顯微鏡管鏡組成中繼系統，讓光束樞軸落在物鏡後焦面。', specs: [['焦距', '約 50 mm（示意）']] },
+  tubeLens: { kind: 'IX71', zh: '管鏡', en: 'Tube Lens', desc: '在顯微鏡本體內。與掃描透鏡合成中繼光學，把振鏡的擺角轉成物鏡瞳孔上的角度變化。', specs: [['焦距', '180 mm']] },
+  glassA: { kind: '掃描單元', zh: '調整平面玻璃 A', en: 'Alignment Plate A', desc: '兩片可微傾的平面玻璃之一。傾斜時光束平移（不改變角度），用來把螢光回程光路精準對到 pinhole 中心。', specs: [['作用', '光束橫向平移'], ['配合', '玻璃 B（正交方向）']] },
+  glassB: { kind: '掃描單元', zh: '調整平面玻璃 B', en: 'Alignment Plate B', desc: '與 A 正交的第二片平板玻璃，負責另一個方向的平移。兩片合起來可把光斑對準 pinhole。', specs: [['作用', '光束橫向平移']] },
+  confocalLens: { kind: '掃描單元', zh: '共軛焦透鏡', en: 'Confocal Lens', desc: '把回程的平行螢光聚焦到 pinhole 平面。焦點處的螢光成一個 Airy 光斑，離焦的則是一團模糊大光斑。', specs: [] },
+  pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五段）', en: 'Confocal Aperture', desc: '只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。五段旋鈕選孔徑；CH1/CH2 共用同一個 pinhole。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm']] },
+  pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '外殼上的五段旋鈕，轉動即切換 pinhole 孔徑。', specs: [] },
+  detDM: { kind: '掃描單元', zh: '偵測分光鏡（滑軌）', en: 'Detection Dichroic Slider', desc: '把螢光依波長分成 CH1（反射）與 CH2（穿透）。滑軌上有 Mirror、DM570、DM630 三片可換。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
+  ba1: { kind: '掃描單元', zh: 'CH1 Barrier Filter 插槽', en: 'CH1 Emission Filter', desc: 'PMT 前方的發射濾片，只放行螢光波段、擋掉殘餘雷射與其他通道的光。', specs: [['可插', 'BA505-525 / BA510-550']] },
+  ba2: { kind: '掃描單元', zh: 'CH2 Barrier Filter 插槽', en: 'CH2 Emission Filter', desc: 'CH2 的發射濾片插槽。', specs: [['可插', 'BA560-600 / BA660IF / BA610IF']] },
+  pmt1: { kind: '掃描單元', zh: 'CH1 光電倍增管', en: 'CH1 Photomultiplier Tube', desc: '把每個像素時間內收到的螢光子放大成電流。高壓（HV）調增益、Offset 調背景。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 反射端（短波側）']] },
+  pmt2: { kind: '掃描單元', zh: 'CH2 光電倍增管', en: 'CH2 Photomultiplier Tube', desc: '第二通道 PMT，接偵測 DM 穿透端（長波側）。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 穿透端（長波側）']] },
+
+  laser405: { kind: '雷射', zh: 'LD 405 nm 半導體雷射', en: '405 nm Diode Laser', desc: '藍紫光半導體雷射，激發 DAPI / Hoechst / Alexa 405。體積小、開機即可用。Class 3B——切勿直視。',
+    specs: [['波長', '405 nm'], ['等級', 'Class 3B'], ['激發', 'DAPI / Hoechst / Alexa 405 / CFP'], ['熱機', '不需要（半導體）']] },
+  laser488: { kind: '雷射', zh: 'Ar 488 nm 氬離子雷射', en: 'Argon-ion Laser 488 nm', desc: '藍光氬離子氣體雷射，共軛焦最常用的線，激發 FITC / GFP / Alexa 488。氣體雷射需風扇散熱，功率會隨管齡下降。Class 3B。',
+    specs: [['波長', '488 nm（主線）'], ['等級', 'Class 3B'], ['激發', 'FITC / GFP / Alexa 488'], ['熱機', '約 10 分鐘']] },
+  laser543: { kind: '雷射（預留）', zh: 'HeNe 543 nm 氦氖雷射', en: 'Green HeNe Laser 543 nm', desc: '綠光氣體雷射，激發 TRITC / Cy3 / Alexa 546。需 10–15 分鐘熱機讓功率穩定。目前尚未安裝，預留位置。',
+    specs: [['波長', '543 nm'], ['等級', 'Class 3B'], ['激發', 'TRITC / Cy3 / Alexa 546'], ['熱機', '10–15 分鐘']] },
+  laser633: { kind: '雷射（預留）', zh: 'HeNe 633 nm 氦氖雷射', en: 'Red HeNe Laser 633 nm', desc: '紅光氣體雷射，激發 Cy5 / Alexa 633 / 647 / TO-PRO-3。目前尚未安裝，預留位置。',
+    specs: [['波長', '633 nm'], ['等級', 'Class 3B'], ['激發', 'Cy5 / Alexa 633 / 647 / TO-PRO-3'], ['熱機', '10–15 分鐘']] },
+  combiner: { kind: '雷射', zh: '雷射合束器 / 光纖耦合器', en: 'Laser Combiner & Fiber Launch', desc: '把各支雷射用分光鏡合成同一束，經 ND 濾片與快門控制強度後耦合進單模光纖送到掃描頭。', specs: [['強度控制', 'ND 濾片 + 機械快門（AOTF 選配）'], ['輸出', '單模光纖']] },
+  fiber: { kind: '雷射', zh: '單模光纖', en: 'Single-mode Optical Fiber', desc: '把雷射從光學桌送進掃描頭，同時當空間濾波器把光束整成乾淨的高斯模。彎折半徑不能太小。', specs: [['型式', '單模、偏振保持'], ['最小彎折半徑', '> 3 cm']] },
+
+  psu: { kind: '周邊', zh: 'FV5-PSU 電源供應器', en: 'FV5-PSU Power Supply Unit', desc: '供應掃描頭的振鏡驅動、PMT 高壓與控制電子。前面板有電源、雷射與掃描狀態指示燈。', specs: [['供應', '振鏡驅動 / PMT HV / 控制板'], ['指示燈', 'POWER · LASER · SCAN']] },
+  lgps2: { kind: '周邊', zh: 'LG-PS2 透射光源電源', en: 'LG-PS2 Lamp Power Supply', desc: '供 IX71 鹵素燈的穩壓電源，旋鈕調亮度。做寬場觀察找細胞用，掃共軛焦時關掉避免雜光進 PMT。', specs: [['輸出', '12 V 100 W'], ['調光', '手動旋鈕']] },
+  monitor: { kind: '周邊', zh: '控制電腦螢幕', en: 'Control PC Monitor', desc: 'FluoView 軟體：即時顯示掃描影像、設定 PMT 增益、掃描速度與像素數。這裡的螢幕會同步顯示模擬掃描出來的影像。', specs: [] },
+  pc: { kind: '周邊', zh: '控制電腦主機', en: 'Control PC', desc: '裝有 FluoView 控制卡的電腦，透過 PSU 對掃描頭下指令並讀回 PMT 訊號。', specs: [] },
+  table: { kind: '環境', zh: '光學桌', en: 'Optical Table', desc: '防震桌面，讓雷射、光纖與顯微鏡的相對位置穩定。', specs: [] },
+};
+
+// ============================================================
+//  數值引擎（移植自 fv300-optics-sim.html）
+// ============================================================
+function filterTransmission(filter, wl) {
+  if (filter.type === 'open') return 1.0;
+  if (filter.type === 'bp') {
+    if (wl >= filter.lo && wl <= filter.hi) return 0.9;
+    const d = Math.min(Math.abs(wl - filter.lo), Math.abs(wl - filter.hi));
+    return 0.9 * Math.exp(-0.5 * (d / 5) ** 2);
+  }
+  if (filter.type === 'lp') {
+    if (wl >= filter.lo) return 0.9;
+    return 0.9 * Math.exp(-0.5 * ((filter.lo - wl) / 5) ** 2);
+  }
+  return 0;
+}
+
+// 某個高斯發射譜經過偵測 DM + 兩片 barrier filter 後，到 CH1/CH2 的比例（相對於全部發射）
+function spectralSplit(emPeak, emSigma) {
+  const dm = DMS[state.detDM], f1 = FILTERS[state.ch1Filter], f2 = FILTERS[state.ch2Filter];
+  let c1 = 0, c2 = 0, tot = 0;
+  for (let wl = 380; wl <= 800; wl += 2) {
+    const em = Math.exp(-0.5 * ((wl - emPeak) / emSigma) ** 2);
+    tot += em;
+    let to1, to2;
+    if (!dm.cutoff) { to1 = em; to2 = 0; }
+    else { const s = 1 / (1 + Math.exp(-0.5 * (wl - dm.cutoff))); to1 = em * (1 - s); to2 = em * s; }
+    c1 += to1 * filterTransmission(f1, wl);
+    c2 += to2 * filterTransmission(f2, wl);
+  }
+  return { ch1: c1 / tot, ch2: c2 / tot };
+}
+
+function computeOptics() {
+  const laser = LASERS[state.laser];
+  const obj = OBJECTIVES[state.objective];
+  const wl_um = laser.wl / 1000;
+  const n = obj.oil ? 1.515 : 1.0;
+
+  const scanLensFl = 50, tubeLensFl = 180, fiberToScan = 120;
+  const beamAtScanLens = laser.beamDia + 2 * fiberToScan * (state.divergence / 1000);
+  const beamAtPupil = beamAtScanLens * (tubeLensFl / scanLensFl);
+  const fillFactor = beamAtPupil / obj.pupil;
+  const effectiveNA = Math.min(obj.na, obj.na * fillFactor);
+
+  const airyRadius = 0.61 * wl_um / effectiveNA;
+  const spotRadius = wl_um / (Math.PI * effectiveNA);
+
+  const pinholeD = PINHOLE_DIAMETERS[state.pinhole];
+  const pinholeInSample = pinholeD / obj.mag;
+  const axialPSF = (0.88 * wl_um) / (n - Math.sqrt(Math.max(1e-6, n * n - effectiveNA * effectiveNA)));
+  const sliceThickness = Math.sqrt(axialPSF ** 2 + (pinholeInSample / Math.SQRT2) ** 2);
+
+  const airyAtPinhole = airyRadius * obj.mag;
+  const ratio = (pinholeD / 2) / airyAtPinhole;
+  const pinholeEff = ratio >= 3 ? 1.0 : 1 - Math.exp(-3.67 * ratio * ratio);
+  const airyUnits = pinholeD / (2 * airyAtPinhole);
+
+  const split = spectralSplit(laser.emPeak, laser.emSigma);
+  const gain = pinholeEff * (state.power / 100);
+  return {
+    laser, obj, wl_um, effectiveNA, fillFactor, beamAtPupil,
+    airyRadius, spotRadius, sliceThickness, pinholeD, pinholeEff, airyUnits, airyAtPinhole,
+    ch1Frac: split.ch1, ch2Frac: split.ch2,
+    ch1Signal: split.ch1 * gain, ch2Signal: split.ch2 * gain,
+  };
+}
+
+// ============================================================
+//  場景基礎
+// ============================================================
+const canvas = document.getElementById('c3d');
+const viewport = canvas.parentElement;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1116);
+scene.fog = new THREE.Fog(0x0f1116, 260, 620);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 1, 1500);
+camera.position.set(70, 115, 165);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.target.set(-20, 8, -12);
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.minDistance = 8; controls.maxDistance = 420;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.4;
+
+const hemi = new THREE.HemisphereLight(0x8fa7c8, 0x1a1c22, 0.4); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2e0, 1.35);
+sun.position.set(90, 140, 70); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -150; sun.shadow.camera.right = 150;
+sun.shadow.camera.top = 150; sun.shadow.camera.bottom = -150;
+sun.shadow.camera.near = 20; sun.shadow.camera.far = 420;
+sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.6;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x6ec6ff, 0.5); fill.position.set(-120, 60, -40); scene.add(fill);
+const rim = new THREE.PointLight(0xffb86c, 60, 220, 1.6); rim.position.set(-60, 45, 60); scene.add(rim);
+
+// 後製：泛光讓光路發亮
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.65, 0.45, 1.0);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function resize() {
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  renderer.setSize(w, h, false);
+  composer.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+resize();
+
+// ============================================================
+//  小工具
+// ============================================================
+const pickables = [];          // 可點擊 mesh
+const housingMats = [];        // 可透明化的外殼材質
+const labelAnchors = [];       // 3D 標籤
+
+const M = {
+  body: (c = 0xb4b9c2) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.15 }),
+  dark: (c = 0x2a2e37) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.3 }),
+  metal: (c = 0x9aa3b2) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.85 }),
+  black: () => new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.5, metalness: 0.4 }),
+  glass: (c = 0x9fd8ff, o = 0.35) => new THREE.MeshPhysicalMaterial({ color: c, transparent: true, opacity: o, roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false }),
+  mirror: () => new THREE.MeshStandardMaterial({ color: 0xe8eef8, roughness: 0.05, metalness: 1.0 }),
+  emissive: (c, i = 1) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i, roughness: 0.4 }),
+  ghost: (c = 0x6ec6ff) => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: 0.16, roughness: 0.5, depthWrite: false }),
+};
+
+function mesh(geo, mat, x = 0, y = 0, z = 0, opts = {}) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = opts.shadow !== false; m.receiveShadow = true;
+  if (opts.rx) m.rotation.x = opts.rx; if (opts.ry) m.rotation.y = opts.ry; if (opts.rz) m.rotation.z = opts.rz;
+  return m;
+}
+const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+const cyl = (rt, rb, h, seg = 32) => new THREE.CylinderGeometry(rt, rb, h, seg);
+const HOUSING = (m) => { m.userData.baseOpacity = 1; housingMats.push(m); return m; };
+
+// 給整個群組貼上 info 名稱，讓射線挑選能回報
+function tag(obj, part, opts = {}) {
+  obj.traverse(o => { if (o.isMesh) { if (!o.userData.part || opts.force) o.userData.part = part; if (!pickables.includes(o)) pickables.push(o); } });
+  return obj;
+}
+function anchor(obj, text, offset = [0, 4, 0], opts = {}) {
+  labelAnchors.push({ obj, text, offset: new THREE.Vector3(...offset), el: null, interior: !!opts.interior });
+}
+
+// 群組助手
+function group(parent, x = 0, y = 0, z = 0) { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; }
+
+// ============================================================
+//  光學桌與地板
+// ============================================================
+{
+  const top = mesh(box(230, 6, 150), HOUSING(M.dark(0x20242c)), 0, -3, 0);
+  scene.add(tag(top, 'table'));
+  const grid = new THREE.GridHelper(230, 46, 0x2c313c, 0x2c313c);
+  grid.position.set(0, 0.05, 0); grid.material.transparent = true; grid.material.opacity = 0.45; scene.add(grid);
+  const legMat = M.dark(0x1a1d24);
+  for (const [x, z] of [[-100, -60], [100, -60], [-100, 60], [100, 60]]) scene.add(mesh(box(10, 80, 10), legMat, x, -46, z));
+  const floor = mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x0b0d12, roughness: 0.95 }), 0, -86, 0, { rx: -Math.PI / 2, shadow: false });
+  scene.add(floor);
+}
+
+// ============================================================
+//  IX71 倒立式顯微鏡
+// ============================================================
+const ix = new THREE.Group(); scene.add(ix);
+const AXIS = { x: 0, z: 2 };          // 物鏡光軸 (x,z)
+const PORT_Y = 12;                   // 側面埠 / 掃描頭光軸高度
+const bodyMat = HOUSING(M.body(0xb9bec7));
+const trimMat = HOUSING(M.dark(0x33373f));
+{
+  // 底座
+  const base = group(ix);
+  base.add(mesh(box(34, 9, 40), bodyMat, 0, 4.5, 2));
+  base.add(mesh(box(34.4, 1.2, 40.4), trimMat, 0, 0.6, 2));
+  base.add(mesh(box(30, 2.5, 3), trimMat, 0, 7, 22.6));               // 前面板飾條
+  base.add(mesh(cyl(0.8, 0.8, 0.6), M.emissive(0x7ee787, 2), -12, 5.5, 22.2, { rx: Math.PI / 2 })); // 電源燈
+  tag(base, 'base'); anchor(base, 'IX71 倒立顯微鏡', [0, 64, -10]);
+
+  // 內部：管鏡 + 轉向鏡（透明化時可見）
+  const tube = mesh(cyl(2.4, 2.4, 0.8), M.glass(0xbfe6ff, 0.55), -8, PORT_Y, AXIS.z, { rz: Math.PI / 2 });
+  ix.add(tag(tube, 'tubeLens'));
+  const turnMirror = mesh(box(0.3, 4.5, 4.5), M.mirror(), AXIS.x, PORT_Y, AXIS.z);
+  turnMirror.rotation.z = Math.PI / 4;  // 把 -x 的光轉成 +y
+  ix.add(tag(turnMirror, 'base'));
+
+  // 立柱（照明支柱）
+  const col = group(ix);
+  col.add(mesh(box(18, 46, 16), bodyMat, 0, 32, -14));
+  col.add(mesh(box(18.4, 2, 16.4), trimMat, 0, 10, -14));
+  col.add(mesh(box(8, 6, 28), bodyMat, 0, 58, -3));                    // 上臂
+  col.add(mesh(cyl(1.2, 1.2, 12), M.metal(), AXIS.x, 49, AXIS.z));      // 聚光鏡吊桿
+  tag(col, 'column');
+  const cond = mesh(cyl(3.6, 3.0, 7), M.dark(0x3a3f4a), AXIS.x, 40.5, AXIS.z); ix.add(tag(cond, 'condenser'));
+  const condLens = mesh(cyl(2.4, 2.4, 0.6), M.glass(), AXIS.x, 36.8, AXIS.z); ix.add(condLens);
+  const lamp = mesh(cyl(4.5, 4.5, 12), M.dark(0x3a3f4a), 0, 58, -24, { rx: Math.PI / 2 }); ix.add(tag(lamp, 'lamp'));
+  const lampFins = mesh(box(11, 11, 1.2), M.dark(0x2a2e37), 0, 58, -31); ix.add(tag(lampFins, 'lamp'));
+  anchor(lamp, '鹵素燈室', [0, 7, 0]);
+
+  // 載物台（框架 + 中央開口）
+  const stage = group(ix, 0, 26, 2);
+  const stMat = HOUSING(M.dark(0x3b404b));
+  stage.add(mesh(box(5, 1.6, 26), stMat, -12.5, 0, 0));
+  stage.add(mesh(box(5, 1.6, 26), stMat, 12.5, 0, 0));
+  stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, -10));
+  stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, 10));
+  tag(stage, 'stage');
+  const knob = group(ix, 17, 21, 12);
+  knob.add(mesh(cyl(0.6, 0.6, 6), M.metal(), 0, 2.5, 0));
+  knob.add(mesh(cyl(2.2, 2.2, 1.4), M.black(), 0, -0.5, 0));
+  knob.add(mesh(cyl(1.5, 1.5, 1.4), M.black(), 0, -2.0, 0));
+  tag(knob, 'stageKnob');
+
+  // 樣品：載玻片 + 樣品滴
+  const slide = mesh(box(7.6, 0.12, 2.6), M.glass(0xd8f0ff, 0.45), AXIS.x, 26.9, AXIS.z); ix.add(tag(slide, 'sample'));
+  const specimen = mesh(cyl(0.95, 0.95, 0.14), new THREE.MeshStandardMaterial({ color: 0xff9bd0, transparent: true, opacity: 0.55, roughness: 0.3, emissive: 0x552244, emissiveIntensity: 0.3 }), AXIS.x, 27.03, AXIS.z);
+  ix.add(tag(specimen, 'sample')); anchor(specimen, '樣品', [0, 2.4, 0]);
+
+  // 目鏡筒
+  const eye = group(ix, 0, 21, 16);
+  eye.add(mesh(box(12, 7, 8), bodyMat, 0, 0, 0));
+  eye.add(mesh(box(8, 3, 6), trimMat, 0, 2.5, 5));
+  for (const sx of [-1, 1]) {
+    const tubeE = mesh(cyl(1.4, 1.6, 9), trimMat, sx * 3.2, 5.5, 8.5); tubeE.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(tubeE);
+    const cup = mesh(cyl(1.9, 1.7, 1.2), M.black(), sx * 3.2, 9.4, 10.7); cup.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(cup);
+  }
+  tag(eye, 'eyepiece'); anchor(eye, '目鏡筒', [0, 13, 4]);
+
+  // 粗／微調焦旋鈕（雙側）
+  for (const sx of [-1, 1]) {
+    const k = group(ix, sx * 17.6, 6, 14);
+    k.add(mesh(cyl(3.2, 3.2, 1.6), M.black(), sx * 0.8, 0, 0, { rz: Math.PI / 2 }));
+    k.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 2.4, 0, 0, { rz: Math.PI / 2 }));
+    k.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 3.3, 0, 0, { rz: Math.PI / 2 }));
+    tag(k, 'focusKnob');
+    if (sx > 0) anchor(k, '粗／微調焦', [2, 4.5, 0]);
+  }
+
+  // 側面埠 + 轉接筒（-x 側）
+  const port = group(ix, -17, PORT_Y, AXIS.z);
+  port.add(mesh(cyl(3.4, 3.4, 1.6), M.dark(0x3a3f4a), -0.8, 0, 0, { rz: Math.PI / 2 }));
+  port.add(mesh(cyl(2.6, 2.6, 4.2), M.metal(0x7f8896), -3.5, 0, 0, { rz: Math.PI / 2 }));
+  tag(port, 'sidePort'); anchor(port, '側面埠', [-2, 5, 0]);
+}
+
+// 物鏡轉盤：轉盤中心在光軸後方 7 cm，第 i 支物鏡轉到 +z 位置就是在光軸上
+const TURRET_C = { x: AXIS.x, y: 19.0, z: AXIS.z - 7, r: 7 };
+const turret = new THREE.Group(); turret.position.set(TURRET_C.x, TURRET_C.y, TURRET_C.z); ix.add(turret);
+const objectiveMeshes = {};
+{
+  turret.add(mesh(cyl(8, 8.5, 1.5, 48), HOUSING(M.dark(0x3a3f4a)), 0, 0, 0));
+  turret.add(mesh(cyl(2.5, 2.5, 4), M.metal(0x7f8896), 0, -2.5, 0));
+  tag(turret, 'turret');
+  OBJ_ORDER.forEach((k, i) => {
+    const o = OBJECTIVES[k];
+    const ang = i * (Math.PI * 2 / 6);           // 6 孔
+    const g = new THREE.Group();
+    g.position.set(Math.sin(ang) * TURRET_C.r, 0.75, Math.cos(ang) * TURRET_C.r);
+    const len = 4.6;
+    g.add(mesh(cyl(1.55, 1.7, len * 0.7), M.black(), 0, len * 0.35, 0));
+    g.add(mesh(cyl(0.9, 1.5, len * 0.3), M.metal(0xb8bfcc), 0, len * 0.85, 0));
+    g.add(mesh(cyl(1.75, 1.75, 0.5), new THREE.MeshStandardMaterial({ color: o.ring, roughness: 0.4 }), 0, len * 0.55, 0));
+    g.add(mesh(cyl(1.62, 1.62, 0.25), M.body(0xf0f2f5), 0, len * 0.3, 0));
+    g.add(mesh(cyl(0.55, 0.55, 0.1), M.glass(0xbfe6ff, 0.8), 0, len + 0.02, 0));
+    tag(g, 'objective'); g.traverse(m => { if (m.isMesh) m.userData.objKey = k; });
+    turret.add(g); objectiveMeshes[k] = g;
+  });
+  for (const i of [4, 5]) {   // 空孔位蓋子
+    const ang = i * (Math.PI * 2 / 6);
+    turret.add(mesh(cyl(1.6, 1.6, 0.4), M.dark(0x2a2e37), Math.sin(ang) * TURRET_C.r, 0.95, Math.cos(ang) * TURRET_C.r));
+  }
+  anchor(turret, '物鏡轉盤', [-8, 3, 4]);
+}
+const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y
+const OBJ_BACK_Y = TURRET_C.y + 0.75;        // 物鏡後端 y
+const FOCUS_Y = 27.0;                        // 樣品面
+function turretAngleFor(objKey) { return -OBJ_ORDER.indexOf(objKey) * (Math.PI * 2 / 6); }
+turret.rotation.y = turretAngleFor(state.objective);
+
+// ============================================================
+//  FV300 掃描頭（接在側面埠，-x 側）
+// ============================================================
+const HEAD_POS = new THREE.Vector3(-43, PORT_Y, AXIS.z);
+const head = new THREE.Group(); head.position.copy(HEAD_POS); scene.add(head);
+const H = (x, y, z) => new THREE.Vector3(x, y, z).add(HEAD_POS);   // 掃描頭局部 → 世界
+const headMat = HOUSING(M.body(0xbfc4cc));
+const wallMats = [];
+const lidPivot = new THREE.Group();
+const galvoX = new THREE.Group(), galvoY = new THREE.Group();
+const pinWheel = new THREE.Group(), pinKnob = new THREE.Group(), dmSlider = new THREE.Group();
+let ba1Mesh, ba2Mesh, dmPlates = [];
+{
+  const HW = { x0: -27, x1: 21, z0: -10, z1: 17, y0: -7.5, y1: 7.5, t: 0.6 };
+  const cx = (HW.x0 + HW.x1) / 2, cz = (HW.z0 + HW.z1) / 2, w = HW.x1 - HW.x0, d = HW.z1 - HW.z0, h = HW.y1 - HW.y0;
+  const shell = group(head);
+  // 底板
+  shell.add(mesh(box(w, 1, d), M.dark(0x2f333c), cx, HW.y0 + 0.5, cz));
+  // 四面牆（可透明）
+  const wall = (gw, gh, gd, x, y, z) => { const m = M.body(0xbfc4cc); m.userData.baseOpacity = 1; wallMats.push(m); housingMats.push(m); const mm = mesh(box(gw, gh, gd), m, x, y, z); shell.add(mm); return mm; };
+  wall(w, h, HW.t, cx, 0, HW.z0 + HW.t / 2);                 // 後牆
+  wall(w, h, HW.t, cx, 0, HW.z1 - HW.t / 2);                 // 前牆
+  wall(HW.t, h, d, HW.x0 + HW.t / 2, 0, cz);                 // 左牆
+  wall(HW.t, h, d, HW.x1 - HW.t / 2, 0, cz);                 // 右牆（接顯微鏡）
+  // 前面板細節：Class 3B 警示貼紙 + 型號牌
+  shell.add(mesh(box(6, 2.2, 0.1), M.emissive(0xffb84d, 0.5), -20, 4.5, HW.z1 + 0.05, { shadow: false }));
+  shell.add(mesh(box(9, 1.6, 0.1), M.dark(0x1a1d24), 12, -5, HW.z1 + 0.05, { shadow: false }));
+  shell.add(mesh(box(4, 0.1, 27), M.dark(0x33373f), HW.x1 - 2, HW.y0 + 1.01, cz));  // 導軌
+  // 接顯微鏡的埠圈
+  shell.add(mesh(cyl(3.0, 3.0, 3), M.dark(0x3a3f4a), HW.x1 - 1, 0, 0, { rz: Math.PI / 2 }));
+  tag(shell, 'scanhead'); anchor(shell, 'FV300 掃描頭', [cx, 12, cz]);
+
+  // 上蓋（可掀開，樞軸在後緣）
+  lidPivot.position.set(0, HW.y1, HW.z0); head.add(lidPivot);
+  const lid = mesh(box(w, HW.t, d), headMat, cx, -HW.t / 2, d / 2);
+  lidPivot.add(lid);
+  lidPivot.add(mesh(box(w - 6, 0.3, d - 6), M.dark(0x3a3f4a), cx, 0.15, d / 2));  // 頂部飾板
+  // CONFOCAL APERTURE 旋鈕在上蓋上（pinhole 上方）
+  pinKnob.position.set(-11, 0.3, 7 - HW.z0); lidPivot.add(pinKnob);
+  pinKnob.add(mesh(cyl(1.8, 1.9, 1.6), M.black(), 0, 0.8, 0));
+  pinKnob.add(mesh(box(0.3, 0.3, 1.6), M.emissive(0xffffff, 0.4), 0, 1.65, -0.8, { shadow: false }));
+  for (let i = 0; i < 5; i++) {   // 五段刻度
+    const a = (i - 2) * 0.45 - Math.PI / 2;
+    pinKnob.add(mesh(box(0.25, 0.05, 0.5), M.emissive(0xd0d4dc, 0.6), Math.cos(a) * 2.5, 0.02, Math.sin(a) * 2.5, { ry: -a, shadow: false }));
+  }
+  tag(pinKnob, 'pinholeKnob', { force: true });
+  tag(lid, 'lid');
+
+  // ---------- 內部光學元件（局部座標，光束高度 y=0）----------
+  const inner = group(head);
+  const post = (x, z, hgt = 6.5) => inner.add(mesh(cyl(0.35, 0.35, hgt), M.metal(0x8a93a3), x, HW.y0 + 1 + hgt / 2, z));
+  const holder = (x, z, ry = 0, sz = 4.4) => { const m = mesh(box(0.6, sz, sz), M.dark(0x3a3f4a), x, 0, z, { ry }); inner.add(m); return m; };
+
+  // 掃描透鏡（靠埠）
+  const scanLens = mesh(cyl(2.4, 2.4, 0.7), M.glass(0xbfe6ff, 0.5), 17, 0, 0, { rz: Math.PI / 2 });
+  inner.add(scanLens); inner.add(tag(mesh(cyl(2.9, 2.9, 1.2, 32), M.dark(0x3a3f4a), 17, 0, 0, { rz: Math.PI / 2 }), 'scanLens')); post(17, 0);
+  tag(scanLens, 'scanLens');
+
+  // 振鏡 Y（慢軸）：鏡面 45°，水平軸擺動；馬達橫放
+  galvoY.position.set(9, 0, 0); galvoY.rotation.order = 'YZX'; galvoY.rotation.y = -Math.PI / 4; inner.add(galvoY);
+  galvoY.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
+  galvoY.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
+  const motY = mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), -0.6, 0, 4.4, { rx: Math.PI / 2 }); galvoY.add(motY);
+  tag(galvoY, 'galvoY'); post(9, 0, 6.5); anchor(galvoY, '振鏡 Y', [0, 4, 0], { interior: true });
+
+  // 振鏡 X（快軸）：鏡面 45°，垂直軸擺動；馬達在下
+  galvoX.position.set(9, 0, 7); galvoX.rotation.y = -Math.PI / 4; inner.add(galvoX);
+  galvoX.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
+  galvoX.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
+  galvoX.add(mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), 0, -4.3, 0));
+  tag(galvoX, 'galvoX'); anchor(galvoX, '振鏡 X', [0, 4, 0], { interior: true });
+
+  // 激發分光鏡（45°）：反射 +z 來的雷射成 +x，讓 -x 走的螢光穿透
+  const exDM = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.6, side: THREE.DoubleSide }), 1, 0, 7, { ry: Math.PI / 4 });
+  inner.add(exDM); tag(holder(1, 7, Math.PI / 4), 'exDM'); post(1, 7);
+  tag(exDM, 'exDM'); anchor(exDM, '激發 DM', [0, 4, 0], { interior: true });
+
+  // 光纖入口 + 準直鏡（後牆）
+  const coll = group(inner, 1, 0, -6);
+  coll.add(mesh(cyl(0.9, 0.9, 3.5), M.metal(0x8a93a3), 0, 0, 0, { rx: Math.PI / 2 }));
+  coll.add(mesh(cyl(0.6, 0.6, 3.0), M.dark(0x3a3f4a), 0, 0, -2.8, { rx: Math.PI / 2 }));
+  coll.add(mesh(box(2.4, 1, 1.6), M.dark(0x3a3f4a), 0, -1.2, 0));
+  tag(coll, 'fiberPort'); post(1, -6, 5.5);
+
+  // 調整平面玻璃 ×2
+  const glassA = mesh(box(0.35, 3.4, 3.4), M.glass(0xd8f0ff, 0.5), -3, 0, 7, { ry: 0.22 }); inner.add(glassA); tag(glassA, 'glassA'); post(-3, 7);
+  const glassB = mesh(box(0.35, 3.4, 3.4), M.glass(0xd8f0ff, 0.5), -5.5, 0, 7, { rz: 0.22 }); inner.add(glassB); tag(glassB, 'glassB'); post(-5.5, 7);
+  inner.add(tag(mesh(box(0.4, 0.5, 3.8), M.dark(0x3a3f4a), -3, -2.1, 7), 'glassA'));
+  inner.add(tag(mesh(box(0.4, 0.5, 3.8), M.dark(0x3a3f4a), -5.5, -2.1, 7), 'glassB'));
+  anchor(glassA, '調整玻璃', [-1.2, 3.5, 0], { interior: true });
+
+  // 共軛焦透鏡
+  const cLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), -8, 0, 7, { rz: Math.PI / 2 }); inner.add(cLens); tag(cLens, 'confocalLens'); post(-8, 7);
+  inner.add(tag(mesh(cyl(2.2, 2.2, 1.0), M.dark(0x3a3f4a), -8, 0, 7, { rz: Math.PI / 2 }), 'confocalLens'));
+
+  // Pinhole 轉盤：五個孔，轉到底部就在光軸上
+  pinWheel.position.set(-11, 3.1, 7); inner.add(pinWheel);
+  pinWheel.add(mesh(cyl(3.2, 3.2, 0.35, 48), M.metal(0xb8bfcc), 0, 0, 0, { rz: Math.PI / 2 }));
+  const holeR = [0.16, 0.24, 0.32, 0.40, 0.52];
+  for (let s = 0; s < 5; s++) {
+    const a = s * Math.PI * 2 / 5;
+    pinWheel.add(mesh(cyl(holeR[s], holeR[s], 0.4, 20), M.black(), 0, -3.1 * Math.cos(a), 3.1 * Math.sin(a), { rz: Math.PI / 2 }));
+  }
+  tag(pinWheel, 'pinhole'); post(-11, 7, 5.5);
+  inner.add(tag(mesh(box(1.2, 2.4, 2.4), M.dark(0x3a3f4a), -11.9, 3.1, 7), 'pinhole'));  // 轉盤軸座
+  anchor(pinWheel, 'Pinhole', [0, 3.8, 0], { interior: true });
+
+  // 偵測分光鏡滑軌：三片 45° 分光鏡（反射向上 +y 到 CH1，穿透 -x 到 CH2）
+  dmSlider.position.set(-14, 0, 0); inner.add(dmSlider);
+  dmSlider.add(mesh(box(1.2, 0.5, 16), M.dark(0x3a3f4a), 0, -2.6, 13));      // 滑桿（穿出前牆）
+  dmSlider.add(mesh(box(2.2, 2.2, 1.2), M.black(), 0, -2.6, 21.2));           // 把手
+  DM_ORDER.forEach((k, i) => {
+    const z = 7 + 4 * i;
+    const plate = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: DMS[k].color, transparent: k !== 'mirror', opacity: k === 'mirror' ? 1 : 0.7, roughness: 0.05, metalness: k === 'mirror' ? 1 : 0.5, side: THREE.DoubleSide }), 0, 0, z, { rz: Math.PI / 4 });
+    dmSlider.add(plate); dmPlates.push(plate);
+    dmSlider.add(mesh(box(0.5, 1.2, 3.8), M.dark(0x3a3f4a), 0, -2.0, z));
+  });
+  tag(dmSlider, 'detDM'); anchor(dmSlider, '偵測 DM', [0, 3.6, 7], { interior: true });
+
+  // CH1：向上 → barrier filter → PMT（穿出上蓋）
+  ba1Mesh = mesh(box(3.4, 0.3, 3.4), new THREE.MeshStandardMaterial({ color: 0x44ff88, transparent: true, opacity: 0.6, roughness: 0.1 }), -14, 3.4, 7); inner.add(ba1Mesh); tag(ba1Mesh, 'ba1');
+  inner.add(tag(mesh(box(4.4, 0.8, 4.4), M.dark(0x3a3f4a), -14, 3.4, 7), 'ba1'));
+  const pmt1 = group(inner, -14, 0, 7);
+  pmt1.add(mesh(cyl(1.8, 1.8, 6.5), M.dark(0x33373f), 0, 8.0, 0));
+  pmt1.add(mesh(cyl(2.4, 2.4, 0.6), M.metal(0x8a93a3), 0, 7.5, 0));
+  pmt1.add(mesh(cyl(1.4, 1.4, 1.2), M.black(), 0, 11.6, 0));
+  pmt1.add(mesh(cyl(0.5, 0.5, 2), M.dark(0x1a1d24), 0, 13, 0));
+  tag(pmt1, 'pmt1'); anchor(pmt1, 'PMT CH1', [0, 15.5, 0], { interior: true });
+
+  // CH2：穿透 -x → barrier filter → PMT
+  ba2Mesh = mesh(box(0.3, 3.4, 3.4), new THREE.MeshStandardMaterial({ color: 0xff8844, transparent: true, opacity: 0.6, roughness: 0.1 }), -17.5, 0, 7); inner.add(ba2Mesh); tag(ba2Mesh, 'ba2');
+  inner.add(tag(mesh(box(0.8, 4.4, 4.4), M.dark(0x3a3f4a), -17.5, 0, 7), 'ba2')); post(-17.5, 7);
+  const pmt2 = group(inner, -19, 0, 7);
+  pmt2.add(mesh(cyl(1.8, 1.8, 5.5), M.dark(0x33373f), -2.75, 0, 0, { rz: Math.PI / 2 }));
+  pmt2.add(mesh(cyl(2.3, 2.3, 0.6), M.metal(0x8a93a3), -0.3, 0, 0, { rz: Math.PI / 2 }));
+  pmt2.add(mesh(box(2, 3.6, 3.6), M.black(), -6.3, 0, 0));
+  pmt2.add(mesh(box(4, 1.4, 3), M.dark(0x3a3f4a), -3, -2.6, 0));
+  tag(pmt2, 'pmt2'); anchor(pmt2, 'PMT CH2', [-3, 4.5, 0], { interior: true });
+}
+
+// ============================================================
+//  雷射模組 + 合束器 + 光纖
+// ============================================================
+const laserGroups = {};
+const LASER_GEOM = {   // 出光口位置（世界座標），光束沿 +x 射向合束器
+  405: { x: -33, y: 2.5, z: -30 },
+  488: { x: -27, y: 4.5, z: -40 },
+  543: { x: -27, y: 2.6, z: -50 },
+  633: { x: -27, y: 2.6, z: -60 },
+};
+const COMBINER_X = -22;
+{
+  // LD 405：小方塊模組 + 散熱片
+  const g405 = group(scene, -40, 2.5, -30);
+  g405.add(mesh(box(14, 5, 6), M.dark(0x3a3f4a), 0, 0, 0));
+  for (let i = 0; i < 6; i++) g405.add(mesh(box(12, 0.3, 7), M.metal(0x6a7280), 0, -2.0 + i * 0.7, 0));
+  g405.add(mesh(cyl(0.9, 0.9, 1.2), M.metal(0x8a93a3), 7.3, 0, 0, { rz: Math.PI / 2 }));
+  g405.add(mesh(box(1.4, 1.4, 0.15), M.emissive(0x9b6bff, 1.5), -5, 1.2, 3.05, { shadow: false }));
+  tag(g405, 'laser405'); anchor(g405, 'LD 405 nm', [0, 5, 0]); laserGroups[405] = g405;
+
+  // Ar 488：長圓筒氣體雷射 + 支架 + 藍色識別環
+  const g488 = group(scene, -50, 4.5, -40);
+  g488.add(mesh(cyl(4.5, 4.5, 46), M.body(0xb9c0cc), 0, 0, 0, { rz: Math.PI / 2 }));
+  g488.add(mesh(cyl(4.7, 4.7, 2), M.dark(0x1e88c8), 12, 0, 0, { rz: Math.PI / 2 }));
+  g488.add(mesh(cyl(4.6, 4.6, 6), M.dark(0x33373f), -20, 0, 0, { rz: Math.PI / 2 }));
+  g488.add(mesh(cyl(1.2, 1.2, 1.5), M.metal(0x8a93a3), 23.6, 0, 0, { rz: Math.PI / 2 }));
+  for (const x of [-16, 14]) { g488.add(mesh(box(8, 2.5, 10), M.dark(0x2a2e37), x, -3.2, 0)); }
+  g488.add(mesh(box(1.6, 0.8, 0.15), M.emissive(0x00bbff, 1.5), 18, 3.2, 3.4, { rx: -0.7, shadow: false }));
+  tag(g488, 'laser488'); anchor(g488, 'Ar 488 nm', [0, 8, 0]); laserGroups[488] = g488;
+
+  // HeNe 543 / 633：預留位置（半透明）
+  const ghost = (wl, z, tint) => {
+    const g = group(scene, -45, 2.6, z);
+    g.add(mesh(cyl(2.6, 2.6, 36), M.ghost(tint), 0, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    g.add(mesh(cyl(2.8, 2.8, 3), M.ghost(tint), -14, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    for (const x of [-12, 12]) g.add(mesh(box(5, 1.6, 7), M.ghost(0x6ec6ff), x, -1.8, 0, { shadow: false }));
+    g.traverse(m => { if (m.isMesh) m.receiveShadow = false; });
+    tag(g, 'laser' + wl); anchor(g, `HeNe ${wl} nm（預留）`, [0, 5.5, 0]); laserGroups[wl] = g;
+  };
+  ghost(543, -50, 0x8aff5a); ghost(633, -60, 0xff4444);
+
+  // 合束器 / 光纖耦合器
+  const comb = group(scene, -18, 3.5, -46);
+  comb.add(mesh(box(8, 7, 40), HOUSING(M.dark(0x2f333c)), 0, 0, 0));
+  comb.add(mesh(box(8.4, 0.6, 40.4), M.dark(0x1a1d24), 0, -3.3, 0));
+  for (const z of [-30, -40, -50, -60]) comb.add(mesh(cyl(1.2, 1.2, 0.6), M.black(), -4.1, LASER_GEOM[z === -30 ? 405 : z === -40 ? 488 : z === -50 ? 543 : 633].y - 3.5, z + 46, { rz: Math.PI / 2 }));
+  comb.add(mesh(cyl(0.7, 0.7, 2.4), M.metal(0x8a93a3), 0, 4.2, 16));       // 光纖接頭朝上
+  comb.add(mesh(box(2, 1, 2), M.dark(0x3a3f4a), 0, 3.9, 16));
+  comb.add(mesh(cyl(1.0, 1.0, 1.0), M.black(), 0, 3.6, 4));                // ND / 快門旋鈕
+  tag(comb, 'combiner'); anchor(comb, '合束器 / 光纖耦合', [0, 7, 0]);
+}
+
+// 光纖：合束器頂端 → 掃描頭後牆入口
+const fiberCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-18, 7.6, -30), new THREE.Vector3(-19.5, 12.5, -25),
+  new THREE.Vector3(-28, 16, -18), new THREE.Vector3(-38, 14.5, -11.5),
+  HEAD_POS.clone().add(new THREE.Vector3(1, 0, -9.8)),
+]);
+{
+  const jacket = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 64, 0.42, 10, false), new THREE.MeshStandardMaterial({ color: 0xe0a030, roughness: 0.6, transparent: true, opacity: 0.62 }));
+  jacket.castShadow = true; jacket.userData.pickAlways = true; scene.add(tag(jacket, 'fiber')); anchor(jacket, '單模光纖', [-30, 18, -17]);
+}
+const fiberCore = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 64, 0.2, 8, false), new THREE.MeshBasicMaterial({ color: 0x00bbff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+scene.add(fiberCore);
+const fiberPts = fiberCurve.getPoints(40);
+
+// ============================================================
+//  周邊：FV5-PSU、LG-PS2、電腦
+// ============================================================
+const leds = {};
+{
+  // FV5-PSU
+  const psu = group(scene, -100, 7, 30);
+  psu.add(mesh(box(24, 14, 34), HOUSING(M.body(0xaab0ba)), 0, 0, 0));
+  psu.add(mesh(box(24.4, 1.2, 34.4), M.dark(0x33373f), 0, -6.6, 0));
+  psu.add(mesh(box(22, 10, 0.3), M.dark(0x2a2e37), 0, 0.5, 17.1));
+  const led = (name, x, c) => { const m = mesh(cyl(0.55, 0.55, 0.4), M.emissive(c, 2.5), x, 3.5, 17.4, { rx: Math.PI / 2, shadow: false }); psu.add(m); leds[name] = m; };
+  led('power', -8, 0x7ee787); led('laser', -4, 0x00bbff); led('scan', 0, 0xffb86c);
+  psu.add(mesh(box(6, 2.2, 0.4), M.black(), 6, 3.5, 17.3));                  // 主開關
+  for (let i = 0; i < 8; i++) psu.add(mesh(box(20, 0.35, 0.3), M.black(), 0, -4.5 + i * 0.9, 17.3, { shadow: false }));  // 通風柵
+  tag(psu, 'psu'); anchor(psu, 'FV5-PSU 電源', [0, 10, 0]);
+
+  // LG-PS2
+  const lg = group(scene, 32, 4, -44);
+  lg.add(mesh(box(16, 8, 22), HOUSING(M.body(0xaab0ba)), 0, 0, 0));
+  lg.add(mesh(box(16.4, 1, 22.4), M.dark(0x33373f), 0, -3.6, 0));
+  lg.add(mesh(cyl(1.6, 1.6, 1.2), M.black(), -4, 0.5, 11.4, { rx: Math.PI / 2 }));
+  lg.add(mesh(cyl(0.5, 0.5, 0.4), M.emissive(0xffb86c, 2), 3, 1.5, 11.4, { rx: Math.PI / 2, shadow: false }));
+  lg.add(mesh(box(4, 1.2, 0.3), M.black(), 3, -1.2, 11.3));
+  tag(lg, 'lgps2'); anchor(lg, 'LG-PS2 透射光源', [0, 7, 0]);
+
+  // 電腦：螢幕（顯示即時掃描影像）+ 主機 + 鍵盤
+  const mon = group(scene, 75, 0, -15);
+  mon.add(mesh(box(24, 1, 14), M.dark(0x2a2e37), 0, 0.5, 1));
+  mon.add(mesh(box(4, 8, 3), M.dark(0x2a2e37), 0, 5, -1));
+  mon.add(mesh(box(52, 32, 2), M.dark(0x1a1d24), 0, 25, -1));
+  tag(mon, 'monitor'); anchor(mon, '控制電腦 (FluoView)', [0, 44, 0]);
+  const tower = group(scene, 105, 21, 10);
+  tower.add(mesh(box(18, 42, 44), HOUSING(M.dark(0x2f333c)), 0, 0, 0));
+  tower.add(mesh(box(18.4, 6, 4), M.black(), 0, 15, 22.1));
+  tower.add(mesh(cyl(0.5, 0.5, 0.4), M.emissive(0x6ec6ff, 2), -5, 12, 22.3, { rx: Math.PI / 2, shadow: false }));
+  tag(tower, 'pc');
+  const kb = mesh(box(44, 1.2, 14), M.dark(0x2a2e37), 75, 0.6, 14); scene.add(tag(kb, 'pc'));
+  scene.add(tag(mesh(box(3.2, 1.6, 6), M.dark(0x2a2e37), 103, 0.8, 34), 'pc'));
+}
+// 螢幕畫面（CanvasTexture）
+const screenCanvas = document.createElement('canvas'); screenCanvas.width = 640; screenCanvas.height = 400;
+const screenCtx = screenCanvas.getContext('2d');
+const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace;
+{
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(48, 30), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
+  scr.position.set(75, 25, -13.95); scene.add(tag(scr, 'monitor'));
+}
+
+// 線纜（裝飾）：PSU→掃描頭、LG-PS2→燈室、PC→PSU
+function cable(points, r = 0.5, color = 0x3a3f4a) {
+  const c = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
+  const m = new THREE.Mesh(new THREE.TubeGeometry(c, 48, r, 8, false), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
+  m.castShadow = true; scene.add(m); return m;
+}
+cable([[-100, 7, 13], [-98, 2, 0], [-84, 1.2, -4], [-72, 3, 2], [-70.2, 6, 4]], 0.55);
+cable([[32, 6, -55], [26, 14, -60], [12, 40, -58], [2, 58, -42], [0, 58, -31.5]], 0.35);
+cable([[105, 21, -12], [90, 6, -35], [30, 1.2, -60], [-60, 1.2, -68], [-100, 4, -20], [-100, 7, 13]], 0.45, 0x2a2e37);
+
+// ============================================================
+//  光路系統：發光線段池 + 光子 + 焦點光斑
+// ============================================================
+const SEG_GEO = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true);
+const _up = new THREE.Vector3(0, 1, 0), _dir = new THREE.Vector3(), _mid = new THREE.Vector3();
+function setSegment(m, a, b, r) {
+  _dir.subVectors(b, a); const len = _dir.length();
+  if (len < 1e-4) { m.visible = false; return; }
+  m.visible = true; _mid.addVectors(a, b).multiplyScalar(0.5);
+  m.position.copy(_mid); m.quaternion.setFromUnitVectors(_up, _dir.normalize()); m.scale.set(r, len, r);
+}
+function glowMat(hex, mult = 1.6, opacity = 0.9) {
+  const c = new THREE.Color(hex).multiplyScalar(mult);
+  return new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+}
+class BeamPool {
+  constructor(n, mat, r) { this.mat = mat; this.r = r; this.segs = []; for (let i = 0; i < n; i++) { const m = new THREE.Mesh(SEG_GEO, mat); m.visible = false; m.renderOrder = 5; scene.add(m); this.segs.push(m); } }
+  set(pts, on = true) {
+    let k = 0;
+    if (on) for (let i = 0; i + 1 < pts.length && k < this.segs.length; i++, k++) setSegment(this.segs[k], pts[i], pts[i + 1], this.r);
+    for (; k < this.segs.length; k++) this.segs[k].visible = false;
+  }
+}
+const exMat = glowMat('#00bbff', 1.8, 0.9);
+const emMat = glowMat('#44ff88', 1.2, 0.42);
+const ch1Mat = glowMat('#44ff88', 1.4, 0.6), ch2Mat = glowMat('#44ff88', 1.4, 0.6);
+const exBeamA = new BeamPool(2, exMat, 0.15), exBeamB = new BeamPool(14, exMat, 0.15);
+const emBeam = new BeamPool(20, emMat, 0.32);
+const ch1Beam = new BeamPool(3, ch1Mat, 0.32), ch2Beam = new BeamPool(3, ch2Mat, 0.32);
+
+// 物鏡→焦點的錐形光束（激發 + 螢光）
+const CONE_GEO = new THREE.CylinderGeometry(0.0, 1, 1, 24, 1, true);
+const exCone = new THREE.Mesh(CONE_GEO, glowMat('#00bbff', 1.2, 0.35)); scene.add(exCone);
+const emCone = new THREE.Mesh(CONE_GEO, glowMat('#44ff88', 0.9, 0.22)); scene.add(emCone);
+function setCone(m, apex, base, r) {
+  _dir.subVectors(apex, base); const len = _dir.length();
+  m.position.addVectors(apex, base).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(_up, _dir.normalize()); m.scale.set(r, len, r);
+}
+
+// 光斑 sprite
+function radialTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.25, 'rgba(255,255,255,0.55)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+}
+const spotTex = radialTex();
+const focusSpot = new THREE.Sprite(new THREE.SpriteMaterial({ map: spotTex, color: 0x00bbff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+focusSpot.scale.set(2.4, 2.4, 1); scene.add(focusSpot);
+const emSpot = new THREE.Sprite(new THREE.SpriteMaterial({ map: spotTex, color: 0x44ff88, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.8 }));
+emSpot.scale.set(4, 4, 1); scene.add(emSpot);
+const pinSpot = new THREE.Sprite(new THREE.SpriteMaterial({ map: spotTex, color: 0x44ff88, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.9 }));
+pinSpot.scale.set(1.6, 1.6, 1); scene.add(pinSpot);
+
+// 光子
+const PHOTON_GEO = new THREE.SphereGeometry(0.3, 10, 8);
+const exPhotonMat = glowMat('#00bbff', 2.6, 1), emPhotonMat = glowMat('#44ff88', 2.2, 1);
+const exPhotons = [], emPhotons = [];
+for (let i = 0; i < 70; i++) { const m = new THREE.Mesh(PHOTON_GEO, exPhotonMat); m.visible = false; scene.add(m); exPhotons.push(m); }
+for (let i = 0; i < 60; i++) { const m = new THREE.Mesh(PHOTON_GEO, emPhotonMat); m.visible = false; scene.add(m); emPhotons.push(m); }
+function polylineLengths(pts) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + pts[i].distanceTo(pts[i - 1])); return L; }
+const _tmp = new THREE.Vector3();
+function polylineAt(pts, L, s, out) {
+  if (s <= 0) return out.copy(pts[0]);
+  for (let i = 1; i < pts.length; i++) if (L[i] >= s) { const t = (s - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]); return out.lerpVectors(pts[i - 1], pts[i], t); }
+  return out.copy(pts[pts.length - 1]);
+}
+function placePhotons(pool, pts, L, spacing, phase, show, keepFn) {
+  const total = L[L.length - 1]; let k = 0;
+  if (show) for (let s = phase % spacing; s < total && k < pool.length; s += spacing, k++) {
+    const m = pool[k]; polylineAt(pts, L, s, m.position);
+    m.visible = keepFn ? keepFn(k, s) : true;
+  }
+  for (; k < pool.length; k++) pool[k].visible = false;
+}
+
+// ---------- 反射與掃描幾何 ----------
+const reflect = (d, n) => d.clone().sub(n.clone().multiplyScalar(2 * d.dot(n)));
+function planeHit(P, d, Q, n) { const t = Q.clone().sub(P).dot(n) / d.dot(n); return P.clone().add(d.clone().multiplyScalar(t)); }
+
+const scan = { ax: 0, ay: 0, sx: 0, sy: 0, pos: 0, N: 80, linesPerSec: 26 };
+const paths = { ex: [], exFree: [], exHead: [], em: [], ch1: [], ch2: [], F: new THREE.Vector3(), Q3: new THREE.Vector3() };
+
+function buildPaths() {
+  const lg = LASER_GEOM[state.laser];
+  const ex = [];
+  ex.push(new THREE.Vector3(lg.x, lg.y, lg.z), new THREE.Vector3(COMBINER_X, lg.y, lg.z));
+  for (const p of fiberPts) ex.push(p);
+  // 掃描頭內部
+  const coll = H(1, 0, -4.2), exDM = H(1, 0, 7);
+  const P1 = H(9, 0, 7);                                       // 振鏡 X 中心
+  const thX = -Math.PI / 4 + scan.ax;
+  const nX = new THREE.Vector3(Math.cos(thX), 0, -Math.sin(thX));
+  const d1 = reflect(new THREE.Vector3(1, 0, 0), nX);          // 往振鏡 Y
+  const c = Math.cos(scan.ay), s = Math.sin(scan.ay);
+  const nY = new THREE.Vector3(c / Math.SQRT2, s, c / Math.SQRT2);
+  const Q2 = planeHit(P1, d1, H(9, 0, 0), nY);
+  const d2 = reflect(d1, nY);                                  // 往掃描透鏡 (+x)
+  const Q3 = planeHit(Q2, d2, H(17, 0, 0), new THREE.Vector3(1, 0, 0));
+  paths.Q3.copy(Q3);
+  const tube = new THREE.Vector3(-8, PORT_Y, AXIS.z), turn = new THREE.Vector3(AXIS.x, PORT_Y, AXIS.z);
+  const objBack = new THREE.Vector3(AXIS.x, OBJ_BACK_Y, AXIS.z), objFront = new THREE.Vector3(AXIS.x, OBJ_TOP_Y, AXIS.z);
+  const F = new THREE.Vector3(AXIS.x + scan.sx * 0.6, FOCUS_Y, AXIS.z + scan.sy * 0.6);
+  paths.F.copy(F);
+  ex.push(coll, exDM, P1, Q2, Q3, tube, turn, objBack, objFront, F);
+  paths.ex = ex; paths.exFree = ex.slice(0, 2); paths.exHead = ex.slice(-10);
+  // 螢光回程：焦點 → … → 激發 DM 穿透 → 調整玻璃 → 共軛焦透鏡 → pinhole → 偵測 DM
+  paths.em = [F, objFront, objBack, turn, tube, Q3, Q2, P1, exDM, H(-3, 0, 7), H(-5.5, 0, 7), H(-8, 0, 7), H(-11, 0, 7), H(-14, 0, 7)];
+  paths.ch1 = [H(-14, 0, 7), H(-14, 3.4, 7), H(-14, 5.2, 7)];
+  paths.ch2 = [H(-14, 0, 7), H(-17.5, 0, 7), H(-19.2, 0, 7)];
+}
+
+// ============================================================
+//  合成樣品與掃描影像
+// ============================================================
+const N = scan.N;
+const maps = { dapi: new Float32Array(N * N), fitc: new Float32Array(N * N), tritc: new Float32Array(N * N), cy5: new Float32Array(N * N) };
+const blurMaps = {};
+{
+  const cells = [[0.28, 0.32, 0.11, 0.08, 0.4], [0.68, 0.28, 0.09, 0.12, -0.5], [0.5, 0.7, 0.12, 0.09, 0.2], [0.18, 0.78, 0.08, 0.07, 1.0], [0.82, 0.72, 0.1, 0.08, -1.2]];
+  const rnd = (() => { let s = 12345; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })();
+  const dots = []; for (let i = 0; i < 260; i++) dots.push([rnd(), rnd(), 0.35 + rnd() * 0.65]);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = (i + 0.5) / N, v = (j + 0.5) / N, idx = j * N + i;
+    let nuc = 0, cyto = 0, memb = 0;
+    for (const [cx, cy, a, b, rot] of cells) {
+      const dx = u - cx, dy = v - cy, cr = Math.cos(rot), sr = Math.sin(rot);
+      const x = (dx * cr + dy * sr) / a, y = (-dx * sr + dy * cr) / b;
+      const r2 = x * x + y * y;
+      nuc = Math.max(nuc, Math.exp(-Math.pow(r2, 1.6) * 2.2) * (0.75 + 0.25 * Math.sin(u * 60 + v * 45)));
+      const rc = Math.sqrt(x * x + y * y) / 2.3;          // 細胞本體是核的 2.3 倍
+      const body = Math.exp(-Math.pow(rc, 6) * 1.5);
+      const fil = 0.45 + 0.55 * Math.pow(Math.abs(Math.sin(Math.atan2(y, x) * 9 + rc * 4)), 3);
+      cyto = Math.max(cyto, body * (1 - Math.exp(-r2 * 2.5)) * fil);
+      memb = Math.max(memb, Math.exp(-Math.pow((rc - 1) * 9, 2)));
+    }
+    maps.dapi[idx] = nuc; maps.fitc[idx] = cyto; maps.cy5[idx] = memb;
+    let mito = 0; for (const [dx, dy, s] of dots) { const d2 = (u - dx) ** 2 + (v - dy) ** 2; if (d2 < 0.0009) mito = Math.max(mito, s * Math.exp(-d2 * 6000)); }
+    maps.tritc[idx] = mito * Math.min(1, cyto * 2);
+  }
+  for (const k in maps) {                     // 3px box blur → 大 pinhole 的離焦霧
+    const src = maps[k], dst = new Float32Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let sum = 0, cnt = 0;
+      for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) { const x = i + di, y = j + dj; if (x >= 0 && y >= 0 && x < N && y < N) { sum += src[y * N + x]; cnt++; } }
+      dst[j * N + i] = sum / cnt;
+    }
+    blurMaps[k] = dst;
+  }
+}
+const scanCanvas = document.getElementById('scanCanvas');
+const scanCtx = scanCanvas.getContext('2d');
+const scanImg = scanCtx.createImageData(N, N);
+let dyeSplit = {};
+let optics = computeOptics();
+function refreshOptics() {
+  optics = computeOptics();
+  for (const k in DYES) dyeSplit[k] = spectralSplit(DYES[k].em, DYES[k].sigma);
+}
+refreshOptics();
+
+function samplePixel(i, j) {
+  const exc = EXC[state.laser], idx = j * N + i;
+  const h = 0.6 * (optics.pinholeD - 60) / 240;
+  let I1 = 0, I2 = 0;
+  for (const d in DYES) {
+    const e = exc[d]; if (!e) continue;
+    const v = (1 - h) * maps[d][idx] + h * blurMaps[d][idx];
+    I1 += e * v * dyeSplit[d].ch1; I2 += e * v * dyeSplit[d].ch2;
+  }
+  const gain = 8 * (state.power / 100) * optics.pinholeEff;
+  I1 *= gain; I2 *= gain;
+  const n1 = (Math.random() - 0.5) * 0.08 * Math.sqrt(I1 + 0.02), n2 = (Math.random() - 0.5) * 0.08 * Math.sqrt(I2 + 0.02);
+  return [Math.max(0, Math.min(1, I1 + n1)), Math.max(0, Math.min(1, I2 + n2))];
+}
+function writePixel(i, j) {
+  const [a, b] = samplePixel(i, j), o = (j * N + i) * 4, D = scanImg.data;
+  D[o] = Math.round(255 * Math.pow(b, 0.8)); D[o + 1] = Math.round(255 * Math.pow(a, 0.8)); D[o + 2] = Math.round(255 * (0.12 * a + 0.05 * b)); D[o + 3] = 255;
+}
+// 初始先掃一整張，接著由動畫逐行更新
+for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) writePixel(i, j);
+
+function drawScreen() {
+  const g = screenCtx, W = screenCanvas.width, Hh = screenCanvas.height;
+  g.fillStyle = '#0a0c12'; g.fillRect(0, 0, W, Hh);
+  g.fillStyle = '#171a21'; g.fillRect(0, 0, W, 38);
+  g.fillStyle = '#6ec6ff'; g.font = 'bold 20px system-ui, sans-serif'; g.fillText('FluoView FV300 — Live Scan', 18, 26);
+  g.fillStyle = '#5c6474'; g.font = '14px system-ui, sans-serif'; g.fillText('🦉 owl-toys', W - 100, 26);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(scanCanvas, 20, 56, 320, 320);
+  g.strokeStyle = '#262b36'; g.lineWidth = 2; g.strokeRect(20, 56, 320, 320);
+  // 掃描線游標
+  const ly = 56 + (Math.floor(scan.pos) % N) / N * 320;
+  g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(20, ly, 320, 2);
+  const L = LASERS[state.laser];
+  const rows = [
+    ['Laser', `${L.name}  ${state.power}%`, L.color],
+    ['Objective', OBJECTIVES[state.objective].label, '#e8e9ee'],
+    ['Pinhole', `${state.pinhole}  (${optics.pinholeD} μm · ${optics.airyUnits.toFixed(1)} AU)`, '#e8e9ee'],
+    ['Det. DM', DMS[state.detDM].label.split('（')[0], '#e8e9ee'],
+    ['CH1 BA', FILTERS[state.ch1Filter].label, '#7ee787'],
+    ['CH2 BA', FILTERS[state.ch2Filter].label, '#ff7b72'],
+    ['CH1 signal', `${Math.round(optics.ch1Signal * 100)} %`, '#7ee787'],
+    ['CH2 signal', `${Math.round(optics.ch2Signal * 100)} %`, '#ff7b72'],
+    ['Section', `${optics.sliceThickness.toFixed(1)} μm`, '#e8e9ee'],
+  ];
+  g.font = '15px system-ui, sans-serif';
+  rows.forEach((r, i) => { const y = 84 + i * 32; g.fillStyle = '#98a0b0'; g.fillText(r[0], 370, y); g.fillStyle = r[2]; g.fillText(r[1], 470, y); });
+  // 兩條訊號 bar
+  g.fillStyle = '#1e222b'; g.fillRect(370, 372, 240, 8); g.fillStyle = '#7ee787'; g.fillRect(370, 372, 240 * Math.min(1, optics.ch1Signal), 8);
+  g.fillStyle = '#1e222b'; g.fillRect(370, 386, 240, 8); g.fillStyle = '#ff7b72'; g.fillRect(370, 386, 240 * Math.min(1, optics.ch2Signal), 8);
+  screenTex.needsUpdate = true;
+}
+
+// ============================================================
+//  UI：數值、樣式、外觀同步
+// ============================================================
+const $ = (id) => document.getElementById(id);
+function fmt(v, d = 2) { return Number.isFinite(v) ? v.toFixed(d) : '--'; }
+function syncUI() {
+  refreshOptics();
+  const L = LASERS[state.laser], r = optics;
+  $('sSpot').textContent = fmt(r.spotRadius); $('sAiry').textContent = fmt(r.airyRadius);
+  $('sSlice').textContent = fmt(r.sliceThickness, 1); $('sAU').textContent = fmt(r.airyUnits, 1);
+  $('sCh1').textContent = Math.round(r.ch1Signal * 100) + '%'; $('sCh2').textContent = Math.round(r.ch2Signal * 100) + '%';
+  $('objNote').textContent = `${r.obj.label}：NA ${r.obj.na}，WD ${r.obj.wd} mm，瞳孔 ${r.obj.pupil} mm；光束填充率 ${Math.round(r.fillFactor * 100)}%`;
+  $('scanMeta').innerHTML = `<b>${L.name}</b> → ${L.dye}<br><span class="sw" style="background:#7ee787"></span>CH1 ${FILTERS[state.ch1Filter].label}<br><span class="sw" style="background:#ff7b72"></span>CH2 ${FILTERS[state.ch2Filter].label}<br>${DMS[state.detDM].label.split('（')[0]} · pinhole ${state.pinhole}`;
+  $('legEx').style.background = L.color; $('legEm').style.background = L.fluorColor;
+  $('hud').innerHTML = `<b>${L.name}</b> · ${r.obj.label} · pinhole ${state.pinhole} · <b>點擊</b>零件看說明`;
+  // 3D 材質顏色
+  exMat.color.set(L.color).multiplyScalar(1.8); exCone.material.color.set(L.color).multiplyScalar(1.2);
+  exPhotonMat.color.set(L.color).multiplyScalar(2.6); fiberCore.material.color.set(L.color).multiplyScalar(1.5);
+  focusSpot.material.color.set(L.color);
+  emMat.color.set(L.fluorColor).multiplyScalar(1.2); emCone.material.color.set(L.fluorColor).multiplyScalar(0.9);
+  emPhotonMat.color.set(L.fluorColor).multiplyScalar(2.2); emSpot.material.color.set(L.fluorColor); pinSpot.material.color.set(L.fluorColor);
+  ch1Mat.color.set(L.fluorColor).multiplyScalar(1.4); ch2Mat.color.set(L.fluorColor).multiplyScalar(1.4);
+  ch1Mat.opacity = Math.min(0.85, r.ch1Frac / 0.9 * 0.85); ch2Mat.opacity = Math.min(0.85, r.ch2Frac / 0.9 * 0.85);
+  ba1Mesh.material.color.setHex(FILTERS[state.ch1Filter].color); ba1Mesh.material.opacity = state.ch1Filter === 'none' ? 0.15 : 0.6;
+  ba2Mesh.material.color.setHex(FILTERS[state.ch2Filter].color); ba2Mesh.material.opacity = state.ch2Filter === 'none' ? 0.15 : 0.6;
+  leds.laser.material.color.set(L.color); leds.laser.material.emissive.set(L.color);
+  // chips
+  document.querySelectorAll('#laserChips button').forEach(b => b.classList.toggle('on', +b.dataset.laser === state.laser));
+  document.querySelectorAll('#dmChips button').forEach(b => b.classList.toggle('on', b.dataset.dm === state.detDM));
+  document.querySelectorAll('#ch1Chips button').forEach(b => b.classList.toggle('on', b.dataset.f === state.ch1Filter));
+  document.querySelectorAll('#ch2Chips button').forEach(b => b.classList.toggle('on', b.dataset.f === state.ch2Filter));
+  document.querySelectorAll('#objChips button').forEach(b => b.classList.toggle('on', b.dataset.obj === state.objective));
+  $('lidBtn').classList.toggle('on', state.lidOpen); $('lidBtn').textContent = state.lidOpen ? '關上外殼' : '掀開外殼';
+  $('xrayBtn').classList.toggle('on', state.xray); $('labelBtn').classList.toggle('on', state.labels);
+  $('pinOut').textContent = state.pinhole; $('powerOut').textContent = state.power;
+  if (currentInfo) showInfo(currentInfo.part, currentInfo.objKey, false);
+}
+
+// 控制事件
+document.querySelectorAll('#laserChips button').forEach(b => b.addEventListener('click', () => { const wl = +b.dataset.laser; if (!LASERS[wl].installed) return; state.laser = wl; syncUI(); }));
+document.querySelectorAll('#dmChips button').forEach(b => b.addEventListener('click', () => { state.detDM = b.dataset.dm; syncUI(); }));
+document.querySelectorAll('#ch1Chips button').forEach(b => b.addEventListener('click', () => { state.ch1Filter = b.dataset.f; syncUI(); }));
+document.querySelectorAll('#ch2Chips button').forEach(b => b.addEventListener('click', () => { state.ch2Filter = b.dataset.f; syncUI(); }));
+document.querySelectorAll('#objChips button').forEach(b => b.addEventListener('click', () => { state.objective = b.dataset.obj; syncUI(); }));
+$('pinSlider').addEventListener('input', e => { state.pinhole = +e.target.value; syncUI(); });
+$('powerSlider').addEventListener('input', e => { state.power = +e.target.value; syncUI(); });
+$('exToggle').addEventListener('change', e => { state.showEx = e.target.checked; });
+$('emToggle').addEventListener('change', e => { state.showEm = e.target.checked; });
+$('scanToggle').addEventListener('change', e => { state.scanning = e.target.checked; });
+$('photonToggle').addEventListener('change', e => { state.photons = e.target.checked; });
+$('lidBtn').addEventListener('click', () => { state.lidOpen = !state.lidOpen; syncUI(); });
+$('xrayBtn').addEventListener('click', () => { state.xray = !state.xray; syncUI(); });
+$('labelBtn').addEventListener('click', () => { state.labels = !state.labels; syncUI(); });
+
+// ============================================================
+//  視角預設 + 飛行
+// ============================================================
+const VIEWS = {
+  overview: { pos: [70, 115, 165], tgt: [-20, 8, -12] },
+  head:     { pos: [-38, 62, 62], tgt: [-46, 12, 5], lid: true },
+  focus:    { pos: [15, 41, 30], tgt: [0, 25, 2] },
+  path:     { pos: [-20, 105, 75], tgt: [-25, 14, 0], lid: true, xray: true },
+  lasers:   { pos: [-10, 42, -105], tgt: [-42, 6, -45] },
+  pc:       { pos: [75, 30, 40], tgt: [75, 24, -14] },
+};
+const fly = { active: false, t: 0, dur: 1.2, p0: new THREE.Vector3(), p1: new THREE.Vector3(), t0: new THREE.Vector3(), t1: new THREE.Vector3() };
+function flyTo(pos, tgt, dur = 1.2) {
+  fly.active = true; fly.t = 0; fly.dur = dur;
+  fly.p0.copy(camera.position); fly.t0.copy(controls.target);
+  fly.p1.set(...pos); fly.t1.set(...tgt);
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+  const v = VIEWS[b.dataset.view]; if (!v) return;
+  if (v.lid !== undefined) state.lidOpen = v.lid;
+  if (v.xray !== undefined) state.xray = v.xray; else if (b.dataset.view !== 'path' && state.xray && b.dataset.view === 'overview') state.xray = false;
+  flyTo(v.pos, v.tgt); syncUI();
+}));
+
+// ============================================================
+//  點選 + 說明面板 + 標籤
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let currentInfo = null;
+const outlineMat = new THREE.MeshBasicMaterial({ color: 0x6ec6ff, side: THREE.BackSide, transparent: true, opacity: 0.55, toneMapped: false, depthWrite: false });
+let outlines = [];
+function clearOutlines() { for (const o of outlines) o.parent && o.parent.remove(o); outlines = []; }
+function highlight(part, objKey) {
+  clearOutlines();
+  for (const m of pickables) {
+    if (m.userData.part !== part) continue;
+    if (part === 'objective' && m.userData.objKey !== objKey) continue;
+    if (housingMats.includes(m.material) && m.material.opacity < 0.5 && !m.userData.pickAlways) continue;
+    const o = new THREE.Mesh(m.geometry, outlineMat);
+    o.position.copy(m.position); o.quaternion.copy(m.quaternion); o.scale.copy(m.scale).multiplyScalar(1.06);
+    o.renderOrder = 2; m.parent.add(o); outlines.push(o);
+  }
+}
+function liveRows(part, objKey) {
+  const r = optics, L = LASERS[state.laser], rows = [];
+  switch (part) {
+    case 'objective': { const o = OBJECTIVES[objKey || state.objective]; rows.push(['型號', o.label], ['NA', o.na], ['工作距離 WD', o.wd + ' mm'], ['瞳孔直徑', o.pupil + ' mm'], ['浸液', o.oil ? '油 (n=1.515)' : '空氣']); if ((objKey || state.objective) === state.objective) rows.push(['焦點光斑半徑', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break; }
+    case 'focus': case 'sample': rows.push(['雷射', L.name], ['有效 NA', fmt(r.effectiveNA)], ['光斑半徑 (1/e²)', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['主要染料', L.dye]); break;
+    case 'pinhole': case 'pinholeKnob': case 'confocalLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break;
+    case 'detDM': rows.push(['目前', DMS[state.detDM].label], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['→ CH1', Math.round(r.ch1Frac / 0.9 * 100) + ' %（含 BA）'], ['→ CH2', Math.round(r.ch2Frac / 0.9 * 100) + ' %（含 BA）']); break;
+    case 'ba1': case 'pmt1': rows.push(['目前濾片', FILTERS[state.ch1Filter].label], ['通帶', FILTERS[state.ch1Filter].type === 'open' ? '全開' : FILTERS[state.ch1Filter].type === 'lp' ? `> ${FILTERS[state.ch1Filter].lo} nm` : `${FILTERS[state.ch1Filter].lo}–${FILTERS[state.ch1Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH1 訊號', Math.round(r.ch1Signal * 100) + ' %']); break;
+    case 'ba2': case 'pmt2': rows.push(['目前濾片', FILTERS[state.ch2Filter].label], ['通帶', FILTERS[state.ch2Filter].type === 'open' ? '全開' : FILTERS[state.ch2Filter].type === 'lp' ? `> ${FILTERS[state.ch2Filter].lo} nm` : `${FILTERS[state.ch2Filter].lo}–${FILTERS[state.ch2Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH2 訊號', Math.round(r.ch2Signal * 100) + ' %']); break;
+    case 'exDM': case 'fiber': case 'fiberPort': case 'combiner': rows.push(['目前雷射', L.name], ['激發', L.dyes], ['功率', state.power + ' %'], ['瞳孔填充率', Math.round(r.fillFactor * 100) + ' %']); break;
+    case 'galvoX': case 'galvoY': rows.push(['掃描', state.scanning ? '進行中' : '停止'], ['影像', `${N} × ${N} px（示意）`], ['行時間', (1000 / scan.linesPerSec).toFixed(0) + ' ms'], ['幀時間', (N / scan.linesPerSec).toFixed(1) + ' s']); break;
+  }
+  if (part.startsWith('laser')) { const wl = +part.slice(5); const l = LASERS[wl]; rows.push(['狀態', l.installed ? (wl === state.laser ? '已安裝 · 使用中' : '已安裝') : '未安裝（預留）'], ['光束直徑', l.beamDia + ' mm'], ['發射峰 (' + l.dye + ')', l.emPeak + ' nm']); }
+  return rows;
+}
+function showInfo(part, objKey, doHighlight = true) {
+  const info = INFO[part]; if (!info) return;
+  currentInfo = { part, objKey };
+  const rows = [...info.specs, ...liveRows(part, objKey)];
+  let title = info.zh;
+  if (part === 'objective' && objKey) title = OBJECTIVES[objKey].label + ' 物鏡';
+  const na = part.startsWith('laser') && !LASERS[+part.slice(5)].installed ? '<span class="tag na">未安裝</span>' : (part.startsWith('laser') && +part.slice(5) === state.laser ? '<span class="tag ok">使用中</span>' : '');
+  $('infoBody').innerHTML = `<div class="kind">${info.kind}</div><h2>${title}${na}</h2><div class="en">${info.en}</div><p>${info.desc}</p>` +
+    (rows.length ? `<table>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>` : '');
+  $('info').classList.add('show');
+  if (doHighlight) highlight(part, objKey);
+}
+function hideInfo() { currentInfo = null; $('info').classList.remove('show'); clearOutlines(); }
+$('infoClose').addEventListener('click', hideInfo);
+
+const pickOK = (h) => h.object.visible && (h.object.userData.pickAlways || !(housingMats.includes(h.object.material) && h.object.material.opacity < 0.5));
+let pdown = null;
+canvas.addEventListener('pointerdown', e => { pdown = { x: e.clientX, y: e.clientY, t: performance.now() }; fly.active = false; });
+canvas.addEventListener('pointerup', e => {
+  if (!pdown) return; const dx = e.clientX - pdown.x, dy = e.clientY - pdown.y, dt = performance.now() - pdown.t; pdown = null;
+  if (dx * dx + dy * dy > 36 || dt > 600) return;
+  const rect = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  const hit = hits.find(pickOK);
+  if (!hit) { hideInfo(); return; }
+  showInfo(hit.object.userData.part, hit.object.userData.objKey);
+});
+canvas.addEventListener('pointermove', e => {
+  if (pdown) return;
+  const rect = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  const hit = hits.find(pickOK);
+  canvas.style.cursor = hit ? 'pointer' : 'grab';
+});
+for (const wl of [543, 633]) laserGroups[wl].traverse(m => { if (m.isMesh) m.userData.pickAlways = true; });
+
+// 3D 標籤
+const labelLayer = $('labels');
+const _wp = new THREE.Vector3();
+function updateLabels() {
+  const show = state.labels;
+  for (const a of labelAnchors) {
+    if (!a.el) { a.el = document.createElement('div'); a.el.className = 'lbl3d'; a.el.textContent = a.text; labelLayer.appendChild(a.el); }
+    if (!show || (a.interior && !state.lidOpen && !state.xray)) { a.el.style.display = 'none'; continue; }
+    a.obj.getWorldPosition(_wp); _wp.add(a.offset);
+    const dist = _wp.distanceTo(camera.position);
+    _wp.project(camera);
+    if (_wp.z > 1 || Math.abs(_wp.x) > 1.1 || Math.abs(_wp.y) > 1.1) { a.el.style.display = 'none'; continue; }
+    a.el.style.display = 'block';
+    a.el.style.left = ((_wp.x + 1) / 2 * viewport.clientWidth) + 'px';
+    a.el.style.top = ((1 - _wp.y) / 2 * viewport.clientHeight) + 'px';
+    a.el.classList.toggle('dim', dist > 220);
+  }
+}
+
+// ============================================================
+//  動畫主迴圈
+// ============================================================
+const clock = new THREE.Clock();
+let lidAngle = 0, wallOpacity = 1, xrayMix = 0, turretAngle = turret.rotation.y, wheelAngle = 0, sliderZ = 0;
+const lerp = (a, b, t) => a + (b - a) * t;
+function angleLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; }
+let lastLine = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+  const k = 1 - Math.pow(0.001, dt);            // 平滑係數（~1 s 收斂）
+
+  // 飛行
+  if (fly.active) {
+    fly.t = Math.min(1, fly.t + dt / fly.dur); const e = fly.t < 0.5 ? 4 * fly.t ** 3 : 1 - Math.pow(-2 * fly.t + 2, 3) / 2;
+    camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.t0, fly.t1, e);
+    if (fly.t >= 1) fly.active = false;
+  }
+  controls.update();
+
+  // 外殼：掀蓋 + 牆面透明 + X 光
+  lidAngle = lerp(lidAngle, state.lidOpen ? -2.05 : 0, k); lidPivot.rotation.x = lidAngle;
+  wallOpacity = lerp(wallOpacity, state.lidOpen ? 0.12 : 1, k);
+  xrayMix = lerp(xrayMix, state.xray ? 1 : 0, k);
+  for (const m of housingMats) {
+    const target = wallMats.includes(m) ? Math.min(wallOpacity, lerp(1, 0.22, xrayMix)) : lerp(1, 0.22, xrayMix);
+    const tr = target < 0.995;
+    m.transparent = tr; m.opacity = target; m.depthWrite = !tr;
+  }
+  headMat.transparent = lidAngle < -0.01 || xrayMix > 0.01; headMat.opacity = lerp(1, 0.22, xrayMix); headMat.depthWrite = !headMat.transparent;
+
+  // 轉盤 / pinhole / DM 滑軌
+  turretAngle = angleLerp(turretAngle, turretAngleFor(state.objective), k); turret.rotation.y = turretAngle;
+  wheelAngle = angleLerp(wheelAngle, (state.pinhole - 1) * Math.PI * 2 / 5, k); pinWheel.rotation.x = wheelAngle; pinKnob.rotation.y = -((state.pinhole - 3) * 0.45) * 1 + (wheelAngle - (state.pinhole - 1) * Math.PI * 2 / 5) * 0.3;
+  sliderZ = lerp(sliderZ, -4 * DM_ORDER.indexOf(state.detDM), k); dmSlider.position.z = sliderZ;
+
+  // 掃描：光柵位置 → 振鏡角度 → 光路
+  if (state.scanning) {
+    const prev = scan.pos; scan.pos += dt * scan.linesPerSec;
+    // 把掠過的像素寫進影像
+    const p0 = Math.floor(prev * N), p1 = Math.floor(scan.pos * N);
+    for (let p = p0; p < Math.min(p1, p0 + 400); p++) { const line = Math.floor(p / N) % N, px = p % N; writePixel(px, line); }
+    const line = Math.floor(scan.pos) % N, frac = scan.pos - Math.floor(scan.pos);
+    scan.sx = frac * 2 - 1; scan.sy = (line / (N - 1)) * 2 - 1;
+  } else { scan.sx = lerp(scan.sx, 0, k); scan.sy = lerp(scan.sy, 0, k); }
+  scan.ax = scan.sx * 0.085; scan.ay = -scan.sy * 0.085;
+  galvoX.rotation.y = -Math.PI / 4 + scan.ax; galvoY.rotation.z = scan.ay;
+  buildPaths();
+
+  const exOn = state.showEx, emOn = state.showEm;
+  exBeamA.set(paths.exFree, exOn); exBeamB.set(paths.exHead, exOn); emBeam.set(paths.em, emOn);
+  ch1Beam.set(paths.ch1, emOn && optics.ch1Frac > 0.02); ch2Beam.set(paths.ch2, emOn && optics.ch2Frac > 0.02);
+  fiberCore.visible = exOn;
+  const objFront = paths.ex[paths.ex.length - 2];
+  exCone.visible = exOn; emCone.visible = emOn;
+  setCone(exCone, paths.F, objFront, 0.55); setCone(emCone, paths.F, objFront, 0.95);
+  const pulse = 0.85 + 0.15 * Math.sin(t * 9);
+  focusSpot.visible = exOn; focusSpot.position.copy(paths.F); focusSpot.scale.setScalar(2.2 * pulse * (0.6 + 0.4 * state.power / 100));
+  emSpot.visible = emOn; emSpot.position.copy(paths.F); emSpot.scale.setScalar(4.2 * pulse);
+  pinSpot.visible = emOn; pinSpot.position.copy(H(-11, 0, 7)); pinSpot.scale.setScalar(1.4 + 0.6 * (state.pinhole - 1) / 4);
+
+  // 光子
+  if (state.photons) {
+    const Lex = polylineLengths(paths.ex), Lem = polylineLengths(paths.em);
+    placePhotons(exPhotons, paths.ex, Lex, 6.5, t * 55, exOn);
+    // 螢光光子：主路徑後接 CH1 或 CH2（偶奇交替），濾片後依比例消失
+    const emAll1 = [...paths.em, ...paths.ch1.slice(1)], emAll2 = [...paths.em, ...paths.ch2.slice(1)];
+    const L1 = polylineLengths(emAll1), L2 = polylineLengths(emAll2), main = Lem[Lem.length - 1];
+    const half = Math.floor(emPhotons.length / 2);
+    placePhotons(emPhotons.slice(0, half), emAll1, L1, 9, t * 40, emOn, (i, s) => s < main || ((i * 0.618) % 1) < optics.ch1Frac / 0.9);
+    placePhotons(emPhotons.slice(half), emAll2, L2, 9, t * 40 + 4.5, emOn, (i, s) => s < main || ((i * 0.618 + 0.3) % 1) < optics.ch2Frac / 0.9);
+  } else { for (const m of exPhotons) m.visible = false; for (const m of emPhotons) m.visible = false; }
+
+  // PSU 指示燈：SCAN 閃爍
+  leds.scan.material.emissiveIntensity = state.scanning ? (Math.sin(t * 6) > 0 ? 2.5 : 0.4) : 0.4;
+  leds.laser.material.emissiveIntensity = exOn ? 2.5 : 0.3;
+
+  // 螢幕 + 面板影像
+  scanCtx.putImageData(scanImg, 0, 0);
+  const curLine = Math.floor(scan.pos) % N;
+  if (state.scanning) { scanCtx.fillStyle = 'rgba(255,255,255,0.5)'; scanCtx.fillRect(0, curLine, N, 1); }
+  drawScreen();
+
+  updateLabels();
+  composer.render();
+}
+
+// 網址 hash 可指定初始視角，例如 #head、#path、#lasers
+{
+  const v = VIEWS[location.hash.replace('#', '').split(',')[0]];
+  if (v) { camera.position.set(...v.pos); controls.target.set(...v.tgt); if (v.lid) { state.lidOpen = true; lidAngle = -2.05; wallOpacity = 0.12; } if (v.xray) { state.xray = true; xrayMix = 1; } }
+  if (location.hash.includes('labels')) state.labels = true;
+  const infoTok = location.hash.split(',').find(t => t.startsWith('info='));
+  if (infoTok) setTimeout(() => showInfo(infoTok.slice(5)), 0);
+}
+syncUI();
+$('loading').remove();
+animate();
+</script>
+</body>
+</html>
