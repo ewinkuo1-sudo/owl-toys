@@ -12,6 +12,7 @@
     --muted: #9aa0ae;
     --accent: #6ec6ff;
     --ref: #ffb86c;
+    --sel: #ff6bd6;
     --grid: #2e3340;
   }
   * { box-sizing: border-box; }
@@ -22,45 +23,64 @@
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
-  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 760px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
-  canvas { background: var(--panel); border-radius: 12px;  max-width: 100%; height: auto; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; max-width: 1260px; }
+  canvas { background: var(--panel); border-radius: 12px; max-width: 100%; height: auto; display: block; }
+  #phasor { touch-action: none; cursor: crosshair; }
+  .col { display: flex; flex-direction: column; gap: 16px; }
   .controls {
-    background: var(--panel); border-radius: 12px; padding: 20px;
-    display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+    background: var(--panel); border-radius: 12px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 14px; width: 300px;
   }
-  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+  .sec { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); }
-  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
+  button {
+    background: transparent; color: var(--sel); border: 1px solid var(--sel);
+    border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
+  }
+  button:hover { background: rgba(255,107,214,0.12); }
+  .stats { background: var(--panel); border-radius: 12px; padding: 14px 18px; width: 440px; max-width: 100%; font-size: 0.83rem; color: var(--muted); line-height: 1.75; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .stats .sel { color: var(--sel); }
+  .hint {
+    background: var(--panel); border-radius: 12px; padding: 18px 22px;
+    font-size: 0.8rem; color: var(--muted); line-height: 1.7; max-width: 1240px;
+  }
+  .hint p { margin: 0 0 10px; }
+  .hint p:last-child { margin: 0; }
+  .hint b { color: var(--ink); }
+  .hint code { color: var(--accent); background: none; }
   @media (max-width: 520px) {
     body { padding: 12px; }
-    .controls, .panel { width: 100%; max-width: 100%; min-width: 0; }
+    .controls, .col { width: 100%; max-width: 100%; min-width: 0; }
   }
 </style>
 </head>
 <body>
 <h1>FLIM Phasor 遊樂場</h1>
 <p class="sub">
-  頻域螢光壽命成像的相量表示法：單指數壽命 τ 在調變角頻率 <code>ω = 2πf</code> 下座落於
-  <code>g = 1/(1+(ωτ)²)</code>、<code>s = ωτ/(1+(ωτ)²)</code>，
-  所有單指數成分都躺在圓心 (0.5, 0)、半徑 0.5 的「萬用半圓」上。
-  雙成分混合則落在兩點連成的弦上：<code>P = f₁·P₁ + (1−f₁)·P₂</code>——
-  注意權重 <code>f₁</code> 是<b>光子數（強度）分率</b>，不是衰減式前面的振幅分率 α₁，兩者差一個 τ 的權重。
+  這裡的相量不是套公式算的：右上圖那條 TCSPC 衰減直方圖 I(t) 在雷射重複頻率 f 上取第一諧波，
+  <code>g = ΣI·cos ωt / ΣI</code>、<code>s = ΣI·sin ωt / ΣI</code>，
+  就是左上圖的那個點。單指數落在半徑 0.5 的萬用半圓上；混合物落在弦上；
+  IRF 會把點旋轉並往圓心縮，背景光子會把點往原點 (0, 0) 拉。
+  下方的合成 FLIM 影像每個像素都有自己的相量，構成點雲；在 phasor 圖上拖曳游標可以反查是哪些像素。
 </p>
 <div class="wrap">
-  <canvas id="phasor" width="460" height="300"></canvas>
-  <canvas id="decay" width="460" height="300"></canvas>
+  <div class="col">
+    <canvas id="phasor" width="440" height="330"></canvas>
+    <canvas id="img" width="288" height="326"></canvas>
+  </div>
+  <div class="col">
+    <canvas id="decay" width="440" height="330"></canvas>
+    <div class="stats" id="stats"></div>
+  </div>
   <div class="controls">
-    <div class="ctl">
-      <label>調變頻率 f <output id="freqOut">80 MHz</output></label>
-      <input type="range" id="freq" min="20" max="160" step="1" value="80">
-    </div>
+    <div class="sec">樣品</div>
     <div class="ctl">
       <label>τ₁（自由態 NADH 般） <output id="t1Out">0.40 ns</output></label>
       <input type="range" id="t1" min="0.1" max="10" step="0.01" value="0.4">
@@ -70,51 +90,162 @@
       <input type="range" id="t2" min="0.1" max="10" step="0.01" value="2.5">
     </div>
     <div class="ctl">
-      <label>成分一振幅分率 α₁ <output id="fracOut">0.50</output></label>
+      <label>A 群細胞的振幅分率 α₁ <output id="fracOut">0.50</output></label>
       <input type="range" id="frac" min="0" max="1" step="0.01" value="0.5">
     </div>
     <div class="ctl">
-      <label>光子數 N（對數） <output id="photOut">1,000</output></label>
-      <input type="range" id="phot" min="0" max="1" step="0.005" value="0.3333">
+      <label>B 群細胞的 α₁ 偏移 Δα <output id="dfracOut">+0.30</output></label>
+      <input type="range" id="dfrac" min="-0.6" max="0.6" step="0.01" value="0.3">
+    </div>
+
+    <div class="sec">儀器</div>
+    <div class="ctl">
+      <label>雷射重複頻率 f <output id="freqOut">80 MHz</output></label>
+      <input type="range" id="freq" min="20" max="160" step="1" value="80">
+    </div>
+    <div class="ctl">
+      <label>IRF 寬度（FWHM） <output id="irfOut">0.30 ns</output></label>
+      <input type="range" id="irf" min="0" max="2" step="0.01" value="0.3">
+    </div>
+    <div class="ctl">
+      <label>背景光子比例 b <output id="bgOut">0.05</output></label>
+      <input type="range" id="bg" min="0" max="0.6" step="0.01" value="0.05">
+    </div>
+    <div class="ctl">
+      <label>亮像素光子數 N（對數） <output id="photOut">1,000</output></label>
+      <input type="range" id="phot" min="2" max="5" step="0.01" value="3">
+    </div>
+
+    <div class="sec">分析</div>
+    <div class="toggle">
+      <input type="checkbox" id="cal" checked>
+      <label for="cal">用 4.0 ns 參考染料校正 IRF</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="thr" checked>
+      <label for="thr">強度門檻：phasor 圖略過 N &lt; 30% 的像素</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="harm2">
+      <label for="harm2">看二次諧波 2f 的 phasor</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="logy">
+      <label for="logy">衰減圖用對數 y 軸</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="colorTau" checked>
+      <label for="colorTau">影像依 τ_φ 上色（亮度 = 光子數）</label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="noise" checked>
-      <label for="noise">顯示散粒雜訊點雲（每秒重抽幾次）</label>
+      <label for="noise">點雲每秒重抽幾次</label>
     </div>
-    <div class="stats" id="stats"></div>
-    <div class="hint">
-      玩法提示：g、s 其實就是把螢光訊號在頻率 f 上做零差解調（homodyne）後的
-      I／Q 兩路分量——和 IQ zero-homodyne 解調鏈路是同一套數學。
-      單指數必在半圓上；混合物則落進半圓內、卡在兩成分的弦上，位置由強度分率 f₁ 決定。
-      經典陷阱：擬合軟體回報的通常是振幅分率 α₁，但 phasor 弦上的權重是光子數分率
-      f₁ = α₁τ₁/(α₁τ₁+(1−α₁)τ₂)——短壽命成分貢獻的光子比它的 α 少得多，
-      拉拉 α₁ 看 stats 裡兩個數字怎麼分開。
-      光子越多點雲越緊（此處用 σ ≈ 0.5/√N 的粗略縮放，實際還與 g、s 位置有關），
-      這就是 phasor FLIM 要斤斤計較光子預算的原因。
-      也注意混合物的 τ_φ ≠ τ_m，這正是多指數的經典指紋。
-    </div>
+    <button id="clearCur">清除 phasor 游標</button>
   </div>
 </div>
+
+<div class="hint">
+  <p><b>相量就是直方圖的第一諧波。</b>把 I(t) 乘上 cos ωt、sin ωt 再積分，得到的就是 g、s，
+  和 IQ 零差解調是同一套數學。單指數的 Fourier 轉換恰好落在半圓上，所以「半圓」不是定義，是結果。
+  週期性激發下長壽命的尾巴會疊到下一個週期（衰減圖上的 T 線右邊其實接回左邊），但第一諧波不受影響，這是 phasor 的方便之處。</p>
+  <p><b>IRF 與校正。</b>量到的直方圖是真實衰減與儀器響應 IRF 的摺積，在頻域就是兩個相量相乘：IRF 的延遲把點轉一個角度、寬度把點往圓心縮。
+  把「校正」關掉看看原始點跑去哪；打開後程式用一個已知 τ = 4.0 ns 的參考染料量出 IRF 相量，再把所有像素除回去。
+  實驗上每次換濃度、換濾片、換偵測器都要重量參考。</p>
+  <p><b>背景是加法，校正救不回來。</b>均勻背景的第一諧波為零，所以它把每個點沿著「往原點」的方向拉，比例正好是 b。
+  校正是乘法，只會旋轉縮放，對加法性的偏移無能為力，所以實作上要先扣背景、再校正。</p>
+  <p><b>α 和 f 不是同一個權重。</b>擬合軟體回報的振幅分率 α₁ 是 t = 0 的高度比，phasor 弦上的位置卻由光子數分率
+  <code>f₁ = α₁τ₁ / (α₁τ₁ + (1−α₁)τ₂)</code> 決定，短壽命成分貢獻的光子遠比它的 α 少。
+  stats 裡另外列了 amplitude-weighted 與 intensity-weighted 平均壽命，它們和 τ_φ、τ_m 是四個不同的數，只有單指數時才全部相等。</p>
+  <p><b>點雲不是圓的。</b>每個像素有 N 個光子，g、s 是 N 個 cos、sin 的樣本平均，共變異數由二次諧波決定：
+  Var(g) = (1 + g₂ₙ)/2 − g² 再除以 N。所以靠近半圓兩端的點雲是扁的、方向沿著半圓切線，
+  暗像素的點雲又大得多，這就是為什麼 FLIM 軟體一定有強度門檻。關掉門檻，看細胞外那些幾十顆光子的像素把原點附近炸成一團。</p>
+  <p><b>游標與反查。</b>在 phasor 圖上按住拖曳（滾輪調大小）圈一團點，影像上對應的像素會變成桃紅，衰減圖也會畫出被圈像素的合計直方圖。
+  這就是 phasor FLIM 的工作流程：不擬合，先在相量空間看見群集，再問這些群集在影像上是誰。
+  A、B 兩群細胞的 Δα 拉大一點，兩團就分開；拉小、或把 N 調低，兩團就糊在一起，這時才輪到「多收光子」或「換頻率」。</p>
+  <p><b>頻率與諧波。</b>ωτ ≈ 1 時半圓上的刻度最疏、對壽命最敏感，stats 裡的「τ₁、τ₂ 弧距」就是這個分辨力。
+  二次諧波 2f 把所有壽命往半圓左下推，短壽命被拉開、長壽命被壓扁；同一組像素在 f 與 2f 各得一個相量，兩個一起用可以拆到三成分。</p>
+</div>
+
 <script>
 const ph = document.getElementById('phasor');
 const dc = document.getElementById('decay');
+const im = document.getElementById('img');
 const pctx = ph.getContext('2d');
 const dctx = dc.getContext('2d');
+const ictx = im.getContext('2d');
 const $ = id => document.getElementById(id);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), sel: css('--sel'), grid: css('--grid') };
 
-// ω in rad/ns for f in MHz: 2π·f·1e6 · 1e-9
-const omegaOf = fMHz => 2 * Math.PI * fMHz * 1e-3;
+// ---------- 時間域模型 ----------
+const NB = 256;            // 每個雷射週期的時間箱數
+const IRF_T0 = 1.5;        // IRF 中心位置（ns），固定，讓校正有相位可修
+const TAU_REF = 4.0;       // 參考染料壽命（ns），fluorescein 般
 
-function phasorOf(tau, w) {
-  const wt = w * tau;
-  const d = 1 + wt * wt;
-  return { g: 1 / d, s: wt / d };
+function wrappedExp(tau, T) {
+  // 週期性激發下的單指數：exp(-t/τ) 疊上所有前面週期的尾巴，歸一化為總和 1
+  const a = new Float64Array(NB), dt = T / NB;
+  let sum = 0;
+  for (let k = 0; k < NB; k++) { a[k] = Math.exp(-(k + 0.5) * dt / tau); sum += a[k]; }
+  for (let k = 0; k < NB; k++) a[k] /= sum;
+  return a;
 }
 
-function photonsOf(v) { return Math.round(Math.pow(10, 2 + 3 * v)); }
+function irfArr(fwhm, T) {
+  const a = new Float64Array(NB), dt = T / NB;
+  if (fwhm < 1e-3) { a[Math.min(NB - 1, Math.round(IRF_T0 / dt - 0.5))] = 1; return a; }
+  const sig = fwhm / 2.3548;
+  let sum = 0;
+  for (let k = 0; k < NB; k++) {
+    let d = (k + 0.5) * dt - IRF_T0;
+    d = ((d + T / 2) % T + T) % T - T / 2;           // 週期性距離
+    a[k] = Math.exp(-d * d / (2 * sig * sig)); sum += a[k];
+  }
+  for (let k = 0; k < NB; k++) a[k] /= sum;
+  return a;
+}
+
+function cconv(a, b) {
+  const c = new Float64Array(NB);
+  for (let k = 0; k < NB; k++) {
+    let acc = 0;
+    for (let j = 0; j < NB; j++) acc += a[j] * b[(k - j + NB) % NB];
+    c[k] = acc;
+  }
+  return c;
+}
+
+function harm(H, n, T) {
+  // 直方圖的第 n 諧波：g = ΣH cos(nωt) / ΣH，s = ΣH sin(nωt) / ΣH
+  const w = 2 * Math.PI * n / T, dt = T / NB;
+  let g = 0, s = 0, tot = 0;
+  for (let k = 0; k < NB; k++) {
+    const t = (k + 0.5) * dt;
+    g += H[k] * Math.cos(w * t); s += H[k] * Math.sin(w * t); tot += H[k];
+  }
+  return { g: g / tot, s: s / tot };
+}
+
+function analyticPhasor(tau, w) { const wt = w * tau, d = 1 + wt * wt; return { g: 1 / d, s: wt / d }; }
+const cmul = (a, b) => ({ g: a.g * b.g - a.s * b.s, s: a.g * b.s + a.s * b.g });
+const cdiv = (a, b) => { const d = b.g * b.g + b.s * b.s; return { g: (a.g * b.g + a.s * b.s) / d, s: (a.s * b.g - a.g * b.s) / d }; };
+
+// N 個光子時，(g, s) 樣本平均的共變異數（單位光子），由二次諧波決定
+function covUnit(H, n, T, P) {
+  const Q = harm(H, 2 * n, T);
+  const vg = (1 + Q.g) / 2 - P.g * P.g;
+  const vs = (1 - Q.g) / 2 - P.s * P.s;
+  const cv = Q.s / 2 - P.g * P.s;
+  // Cholesky：[a 0; b c]
+  const a = Math.sqrt(Math.max(vg, 1e-12));
+  const b = cv / a;
+  const c = Math.sqrt(Math.max(vs - b * b, 1e-12));
+  return { a, b, c };
+}
+
+function photonsOf(v) { return Math.round(Math.pow(10, v)); }
 
 function gauss() {
   let u = 0, v = 0;
@@ -123,23 +254,129 @@ function gauss() {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
+// ---------- 合成影像幾何（固定種子） ----------
+const IW = 96, IH = 96;
+function mulberry32(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const pixType = new Uint8Array(IW * IH);      // 0 = 細胞外, 1 = A 群, 2 = B 群
+const pixProf = new Float32Array(IW * IH);    // 相對亮度
+(function buildImage() {
+  const rnd = mulberry32(20260904);
+  const blobs = [];
+  for (let i = 0; i < 14; i++) {
+    blobs.push({ x: 8 + rnd() * 80, y: 8 + rnd() * 80, rx: 6 + rnd() * 7, ry: 6 + rnd() * 7,
+      th: rnd() * Math.PI, type: 1 + (i % 2), br: 0.7 + rnd() * 0.5 });
+  }
+  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+    const i = y * IW + x;
+    pixType[i] = 0; pixProf[i] = 0.06;
+    for (const b of blobs) {
+      const dx = x - b.x, dy = y - b.y;
+      const u = (dx * Math.cos(b.th) + dy * Math.sin(b.th)) / b.rx;
+      const v = (-dx * Math.sin(b.th) + dy * Math.cos(b.th)) / b.ry;
+      const r2 = u * u + v * v;
+      if (r2 < 1) { pixType[i] = b.type; pixProf[i] = b.br * (1 - 0.45 * r2); break; }
+    }
+  }
+})();
+
+// ---------- 讀狀態、建模型 ----------
+function readState() {
+  const f = parseFloat($('freq').value);
+  const T = 1000 / f;                       // ns
+  const n = $('harm2').checked ? 2 : 1;
+  const w = 2 * Math.PI * n / T;            // rad/ns（含諧波）
+  const t1 = parseFloat($('t1').value);
+  const t2 = parseFloat($('t2').value);
+  const a1 = parseFloat($('frac').value);
+  const dA = parseFloat($('dfrac').value);
+  const a1B = Math.min(1, Math.max(0, a1 + dA));
+  const N = photonsOf(parseFloat($('phot').value));
+  const irfW = parseFloat($('irf').value);
+  const bg = parseFloat($('bg').value);
+  const cal = $('cal').checked;
+
+  const fracI = a => { const i1 = a * t1, i2 = (1 - a) * t2; return i1 + i2 > 0 ? i1 / (i1 + i2) : 0; };
+  const f1 = fracI(a1), f1B = fracI(a1B);
+
+  const irf = irfArr(irfW, T);
+  const E1 = wrappedExp(t1, T), E2 = wrappedExp(t2, T);
+  const D1 = cconv(irf, E1), D2 = cconv(irf, E2);
+  const mixH = (fa) => {
+    const H = new Float64Array(NB);
+    for (let k = 0; k < NB; k++) H[k] = (1 - bg) * (fa * D1[k] + (1 - fa) * D2[k]) + bg / NB;
+    return H;
+  };
+  const HA = mixH(f1), HB = mixH(f1B);
+  const Hbg = new Float64Array(NB).fill(1 / NB);
+
+  // 校正：參考染料經過同一個 IRF，量到的相量 ÷ 理論相量 = IRF 相量
+  const Dref = cconv(irf, wrappedExp(TAU_REF, T));
+  const Pref = harm(Dref, n, T);
+  const corr = cal ? cdiv(analyticPhasor(TAU_REF, w), Pref) : { g: 1, s: 0 };
+
+  const types = [Hbg, HA, HB].map(H => {
+    const raw = harm(H, n, T);
+    return { H, raw, cal: cmul(corr, raw), L: covUnit(H, n, T, raw) };
+  });
+
+  const p1 = analyticPhasor(t1, w), p2 = analyticPhasor(t2, w);
+  return { f, T, n, w, t1, t2, a1, a1B, f1, f1B, N, irfW, bg, cal, corr, irf, E1, E2, types, p1, p2,
+           thr: $('thr').checked, logy: $('logy').checked, colorTau: $('colorTau').checked };
+}
+
+// ---------- 像素相量取樣 ----------
+const pixG = new Float32Array(IW * IH), pixS = new Float32Array(IW * IH), pixN = new Float32Array(IW * IH);
+function samplePixels(st) {
+  for (let i = 0; i < IW * IH; i++) {
+    const Nexp = st.N * pixProf[i];
+    const Np = Math.max(1, Math.round(Nexp + Math.sqrt(Nexp) * gauss()));
+    pixN[i] = Np;
+    const ty = st.types[pixType[i]];
+    const z1 = gauss(), z2 = gauss(), k = 1 / Math.sqrt(Np);
+    const rg = ty.raw.g + k * ty.L.a * z1;
+    const rs = ty.raw.s + k * (ty.L.b * z1 + ty.L.c * z2);
+    pixG[i] = st.corr.g * rg - st.corr.s * rs;
+    pixS[i] = st.corr.g * rs + st.corr.s * rg;
+  }
+}
+
+// ---------- 游標 ----------
+let cursor = null;   // {g, s, r}
+const selMask = new Uint8Array(IW * IH);
+function applyCursor(st) {
+  selMask.fill(0);
+  if (!cursor) return 0;
+  let cnt = 0;
+  const thrN = st.thr ? 0.3 * st.N : 0;
+  for (let i = 0; i < IW * IH; i++) {
+    if (pixN[i] < thrN) continue;
+    const dg = pixG[i] - cursor.g, ds = pixS[i] - cursor.s;
+    if (dg * dg + ds * ds <= cursor.r * cursor.r) { selMask[i] = 1; cnt++; }
+  }
+  return cnt;
+}
+
+// ---------- Phasor 圖 ----------
 const PH = { mL: 44, mR: 18, mT: 20, mB: 34 };
-const scaleP = () => (ph.width - PH.mL - PH.mR) / 1.12;
+const scaleP = () => Math.min((ph.width - PH.mL - PH.mR) / 1.12, (ph.height - PH.mT - PH.mB) / 0.78);
 const PX = g => PH.mL + g * scaleP();
 const PY = s => ph.height - PH.mB - s * scaleP();
+const gOf = x => (x - PH.mL) / scaleP();
+const sOf = y => (ph.height - PH.mB - y) / scaleP();
 
-function drawPhasor(st, cloud) {
+function drawPhasor(st) {
   const w = ph.width, h = ph.height;
   pctx.clearRect(0, 0, w, h);
   pctx.font = '11px sans-serif';
   pctx.lineWidth = 1;
 
-  // 座標格線
-  pctx.strokeStyle = C.grid;
-  pctx.fillStyle = C.muted;
+  pctx.strokeStyle = C.grid; pctx.fillStyle = C.muted;
   for (let i = 0; i <= 4; i++) {
     const g = i / 4;
-    pctx.beginPath(); pctx.moveTo(PX(g), PY(0)); pctx.lineTo(PX(g), PY(0.62)); pctx.stroke();
+    pctx.beginPath(); pctx.moveTo(PX(g), PY(0)); pctx.lineTo(PX(g), PY(0.74)); pctx.stroke();
     pctx.fillText(g.toFixed(2), PX(g) - 12, h - PH.mB + 16);
   }
   for (const s of [0.25, 0.5]) {
@@ -147,170 +384,255 @@ function drawPhasor(st, cloud) {
     pctx.fillText(s.toFixed(2), 10, PY(s) + 4);
   }
   pctx.strokeStyle = C.muted;
-  pctx.beginPath();
-  pctx.moveTo(PX(0), PY(0.62)); pctx.lineTo(PX(0), PY(0)); pctx.lineTo(PX(1.06), PY(0));
-  pctx.stroke();
+  pctx.beginPath(); pctx.moveTo(PX(0), PY(0.74)); pctx.lineTo(PX(0), PY(0)); pctx.lineTo(PX(1.06), PY(0)); pctx.stroke();
   pctx.fillStyle = C.ink;
   pctx.fillText('g', PX(1.06) - 4, h - PH.mB + 16);
-  pctx.fillText('s', 10, PY(0.6));
+  pctx.fillText('s', 10, PY(0.72));
 
   // 萬用半圓
-  pctx.strokeStyle = C.grid;
-  pctx.lineWidth = 2;
-  pctx.beginPath();
-  pctx.arc(PX(0.5), PY(0), 0.5 * scaleP(), Math.PI, 2 * Math.PI);
-  pctx.stroke();
+  pctx.strokeStyle = C.grid; pctx.lineWidth = 2;
+  pctx.beginPath(); pctx.arc(PX(0.5), PY(0), 0.5 * scaleP(), Math.PI, 2 * Math.PI); pctx.stroke();
 
   // 半圓上的壽命刻度
-  pctx.lineWidth = 1;
-  pctx.strokeStyle = C.muted;
-  pctx.fillStyle = C.muted;
-  for (const tau of [0.5, 1, 2, 4, 8]) {
-    const p = phasorOf(tau, st.w);
+  pctx.lineWidth = 1; pctx.strokeStyle = C.muted; pctx.fillStyle = C.muted;
+  for (const tau of [0.1, 0.25, 0.5, 1, 2, 4, 8]) {
+    const p = analyticPhasor(tau, st.w);
     const ux = (p.g - 0.5) / 0.5, uy = p.s / 0.5;
     const x = PX(p.g), y = PY(p.s);
-    pctx.beginPath();
-    pctx.moveTo(x, y);
-    pctx.lineTo(x + ux * 6, y - uy * 6);
-    pctx.stroke();
+    pctx.beginPath(); pctx.moveTo(x, y); pctx.lineTo(x + ux * 6, y - uy * 6); pctx.stroke();
     pctx.fillText(tau + '', x + ux * 10 - (ux < 0 ? 14 : -2), y - uy * 10 + 4);
   }
-  pctx.fillText('半圓刻度 = 單指數 τ（ns）', PX(0.46), PY(0.58));
+  pctx.fillText(`半圓刻度 = 單指數 τ（ns），${st.n === 2 ? '二次諧波 2f = ' + 2 * st.f : 'f = ' + st.f} MHz`, PX(0.30), PY(0.70));
 
-  // 雜訊點雲
-  if (cloud) {
-    pctx.fillStyle = 'rgba(110, 198, 255, 0.28)';
-    for (const [g, s] of cloud) {
-      pctx.beginPath();
-      pctx.arc(PX(g), PY(s), 1.6, 0, 2 * Math.PI);
-      pctx.fill();
-    }
+  // 像素點雲
+  const thrN = st.thr ? 0.3 * st.N : 0;
+  pctx.fillStyle = 'rgba(110, 198, 255, 0.22)';
+  for (let i = 0; i < IW * IH; i++) {
+    if (pixN[i] < thrN || selMask[i]) continue;
+    pctx.fillRect(PX(pixG[i]) - 1, PY(pixS[i]) - 1, 2, 2);
+  }
+  pctx.fillStyle = 'rgba(255, 107, 214, 0.55)';
+  for (let i = 0; i < IW * IH; i++) {
+    if (!selMask[i]) continue;
+    pctx.fillRect(PX(pixG[i]) - 1, PY(pixS[i]) - 1, 2, 2);
   }
 
-  // 兩成分與弦
-  pctx.strokeStyle = C.ref;
-  pctx.lineWidth = 1.5;
-  pctx.setLineDash([5, 4]);
-  pctx.beginPath();
-  pctx.moveTo(PX(st.p1.g), PY(st.p1.s)); pctx.lineTo(PX(st.p2.g), PY(st.p2.s));
-  pctx.stroke();
+  // 理想成分與弦
+  pctx.strokeStyle = C.ref; pctx.lineWidth = 1.5; pctx.setLineDash([5, 4]);
+  pctx.beginPath(); pctx.moveTo(PX(st.p1.g), PY(st.p1.s)); pctx.lineTo(PX(st.p2.g), PY(st.p2.s)); pctx.stroke();
   pctx.setLineDash([]);
   pctx.fillStyle = C.ref;
   for (const [p, lab] of [[st.p1, 'τ₁'], [st.p2, 'τ₂']]) {
-    pctx.beginPath();
-    pctx.arc(PX(p.g), PY(p.s), 4.5, 0, 2 * Math.PI);
-    pctx.fill();
+    pctx.beginPath(); pctx.arc(PX(p.g), PY(p.s), 4.5, 0, 2 * Math.PI); pctx.fill();
     pctx.fillText(lab, PX(p.g) - 6, PY(p.s) - 10);
   }
 
-  // 相位／調變輔助線 + 混合點
-  pctx.strokeStyle = C.muted;
-  pctx.setLineDash([3, 4]);
-  pctx.beginPath();
-  pctx.moveTo(PX(0), PY(0)); pctx.lineTo(PX(st.mix.g), PY(st.mix.s));
-  pctx.stroke();
+  // 無雜訊的 A、B 群中心（校正後），以及校正前的 A（空心）
+  const A = st.types[1], B = st.types[2];
+  pctx.strokeStyle = C.muted; pctx.setLineDash([3, 4]);
+  pctx.beginPath(); pctx.moveTo(PX(0), PY(0)); pctx.lineTo(PX(A.cal.g), PY(A.cal.s)); pctx.stroke();
   pctx.setLineDash([]);
+  if (st.cal && (Math.abs(A.raw.g - A.cal.g) > 1e-3 || Math.abs(A.raw.s - A.cal.s) > 1e-3)) {
+    pctx.strokeStyle = C.accent; pctx.lineWidth = 1.5;
+    pctx.beginPath(); pctx.arc(PX(A.raw.g), PY(A.raw.s), 6, 0, 2 * Math.PI); pctx.stroke();
+    pctx.fillStyle = C.muted; pctx.fillText('A 校正前', PX(A.raw.g) + 9, PY(A.raw.s) + 4);
+    pctx.setLineDash([2, 3]); pctx.strokeStyle = C.muted;
+    pctx.beginPath(); pctx.moveTo(PX(A.raw.g), PY(A.raw.s)); pctx.lineTo(PX(A.cal.g), PY(A.cal.s)); pctx.stroke();
+    pctx.setLineDash([]);
+  }
   pctx.fillStyle = C.accent;
-  pctx.beginPath();
-  pctx.arc(PX(st.mix.g), PY(st.mix.s), 6, 0, 2 * Math.PI);
-  pctx.fill();
+  pctx.beginPath(); pctx.arc(PX(A.cal.g), PY(A.cal.s), 6, 0, 2 * Math.PI); pctx.fill();
+  pctx.beginPath(); pctx.arc(PX(B.cal.g), PY(B.cal.s), 4.5, 0, 2 * Math.PI); pctx.fill();
   pctx.fillStyle = C.ink;
-  pctx.fillText('混合', PX(st.mix.g) + 9, PY(st.mix.s) + 4);
+  pctx.fillText('A', PX(A.cal.g) + 9, PY(A.cal.s) + 4);
+  pctx.fillText('B', PX(B.cal.g) + 8, PY(B.cal.s) + 4);
+
+  // 游標
+  if (cursor) {
+    pctx.strokeStyle = C.sel; pctx.lineWidth = 1.5;
+    pctx.beginPath(); pctx.arc(PX(cursor.g), PY(cursor.s), cursor.r * scaleP(), 0, 2 * Math.PI); pctx.stroke();
+  }
 }
 
-function drawDecay(st) {
+// ---------- 衰減圖 ----------
+function drawDecay(st, selH) {
   const w = dc.width, h = dc.height, mL = 46, mR = 16, mT = 20, mB = 34;
-  const pw = w - mL - mR, pht = h - mT - mB, T = 15;
+  const pw = w - mL - mR, pht = h - mT - mB, T = st.T, dt = T / NB;
   dctx.clearRect(0, 0, w, h);
-  dctx.font = '11px sans-serif';
-  dctx.lineWidth = 1;
+  dctx.font = '11px sans-serif'; dctx.lineWidth = 1;
 
   const X = t => mL + pw * t / T;
-  const Y = y => mT + pht - pht * y;
+  const yMin = 1e-3;
+  const Y = y => st.logy
+    ? mT + pht - pht * (Math.log10(Math.max(y, yMin)) - Math.log10(yMin)) / (-Math.log10(yMin))
+    : mT + pht - pht * y;
 
-  dctx.strokeStyle = C.grid;
-  dctx.fillStyle = C.muted;
-  for (let i = 0; i <= 4; i++) {
-    const y = Y(i / 4);
+  dctx.strokeStyle = C.grid; dctx.fillStyle = C.muted;
+  const yt = st.logy ? [[1e-3, '10⁻³'], [1e-2, '10⁻²'], [1e-1, '10⁻¹'], [1, '1']]
+                     : [[0, '0.00'], [0.25, '0.25'], [0.5, '0.50'], [0.75, '0.75'], [1, '1.00']];
+  for (const [v, lab] of yt) {
+    const y = Y(v);
     dctx.beginPath(); dctx.moveTo(mL, y); dctx.lineTo(w - mR, y); dctx.stroke();
-    dctx.fillText((i / 4).toFixed(2), 10, y + 4);
+    dctx.fillText(lab, 10, y + 4);
   }
-  for (let t = 0; t <= T; t += 3) {
+  const step = T > 20 ? 5 : T > 10 ? 2 : 1;
+  for (let t = 0; t <= T; t += step) {
     dctx.beginPath(); dctx.moveTo(X(t), mT); dctx.lineTo(X(t), mT + pht); dctx.stroke();
     dctx.fillText(t + '', X(t) - 4, h - mB + 16);
   }
-  dctx.fillStyle = C.ink;
-  dctx.fillText('時間 t（ns）', w / 2 - 30, h - 10);
-  dctx.save();
-  dctx.translate(14, h / 2 + 34); dctx.rotate(-Math.PI / 2);
-  dctx.fillText('歸一化強度 I(t)', 0, 0);
-  dctx.restore();
-
-  const trace = (fn, color, lw, dashed) => {
-    dctx.strokeStyle = color; dctx.lineWidth = lw;
-    if (dashed) dctx.setLineDash([4, 4]);
-    dctx.beginPath();
-    for (let i = 0; i <= 300; i++) {
-      const t = T * i / 300;
-      const x = X(t), y = Y(fn(t));
-      i ? dctx.lineTo(x, y) : dctx.moveTo(x, y);
-    }
-    dctx.stroke();
-    dctx.setLineDash([]);
-  };
-  trace(t => Math.exp(-t / st.t1), C.ref, 1.3, true);
-  trace(t => Math.exp(-t / st.t2), C.ref, 1.3, true);
-  trace(t => st.a1 * Math.exp(-t / st.t1) + (1 - st.a1) * Math.exp(-t / st.t2), C.accent, 2.5, false);
-
+  // 週期線
+  dctx.strokeStyle = C.ref; dctx.setLineDash([2, 3]);
+  dctx.beginPath(); dctx.moveTo(X(T), mT); dctx.lineTo(X(T), mT + pht); dctx.stroke();
+  dctx.setLineDash([]);
   dctx.fillStyle = C.ref;
-  dctx.fillText('純成分 e^(−t/τ₁)、e^(−t/τ₂)', mL + 8, mT + 14);
-  dctx.fillStyle = C.accent;
-  dctx.fillText('混合衰減 α₁·e^(−t/τ₁) + (1−α₁)·e^(−t/τ₂)', mL + 8, mT + 30);
+  dctx.textAlign = 'right';
+  dctx.fillText(`T = 1/f = ${T.toFixed(2)} ns，尾巴接回 t = 0`, X(T) - 4, mT + 92);
+  dctx.textAlign = 'left';
+
+  dctx.fillStyle = C.ink;
+  dctx.fillText('時間 t（ns）', w / 2 - 30, h - 8);
+  dctx.save(); dctx.translate(14, h / 2 + 40); dctx.rotate(-Math.PI / 2);
+  dctx.fillText(st.logy ? '峰值歸一化 I(t)（log）' : '峰值歸一化 I(t)', 0, 0); dctx.restore();
+
+  const traceArr = (arr, color, lw, dash) => {
+    let mx = 0; for (let k = 0; k < NB; k++) mx = Math.max(mx, arr[k]);
+    dctx.strokeStyle = color; dctx.lineWidth = lw; dctx.setLineDash(dash || []);
+    dctx.beginPath();
+    for (let k = 0; k < NB; k++) {
+      const x = X((k + 0.5) * dt), y = Y(arr[k] / mx);
+      k ? dctx.lineTo(x, y) : dctx.moveTo(x, y);
+    }
+    dctx.stroke(); dctx.setLineDash([]);
+  };
+
+  // IRF（填色）
+  {
+    let mx = 0; for (let k = 0; k < NB; k++) mx = Math.max(mx, st.irf[k]);
+    dctx.fillStyle = 'rgba(154,160,174,0.18)';
+    dctx.beginPath(); dctx.moveTo(X(0), Y(0));
+    for (let k = 0; k < NB; k++) dctx.lineTo(X((k + 0.5) * dt), Y(st.irf[k] / mx));
+    dctx.lineTo(X(T), Y(0)); dctx.closePath(); dctx.fill();
+  }
+  traceArr(st.E1, C.ref, 1.2, [4, 4]);
+  traceArr(st.E2, C.ref, 1.2, [4, 4]);
+  traceArr(st.types[2].H, C.accent, 1.2, [1, 3]);
+  traceArr(st.types[1].H, C.accent, 2.4);
+  if (selH) traceArr(selH, C.sel, 2);
+
+  let ly = mT + 14;
+  const lx = mL + pw * 0.22;
+  const legend = (txt, color) => { dctx.fillStyle = color; dctx.fillText(txt, lx, ly); ly += 15; };
+  legend('灰底：IRF', C.muted);
+  legend('虛線：理想週期化單指數 e^(−t/τ₁)、e^(−t/τ₂)', C.ref);
+  legend('實線：A 群量到的直方圖（IRF 摺積＋背景）；點線：B 群', C.accent);
+  if (selH) legend('桃紅：游標圈到的像素合計直方圖', C.sel);
 }
 
-function readState() {
-  const f = parseFloat($('freq').value);
-  const w = omegaOf(f);
-  const t1 = parseFloat($('t1').value);
-  const t2 = parseFloat($('t2').value);
-  const a1 = parseFloat($('frac').value);
-  const N = photonsOf(parseFloat($('phot').value));
-  // 振幅分率 α → 光子數（強度）分率 f：各成分積分光子數 ∝ α·τ
-  const i1 = a1 * t1, i2 = (1 - a1) * t2;
-  const f1 = i1 + i2 > 0 ? i1 / (i1 + i2) : 0;
-  const p1 = phasorOf(t1, w), p2 = phasorOf(t2, w);
-  const mix = { g: f1 * p1.g + (1 - f1) * p2.g, s: f1 * p1.s + (1 - f1) * p2.s };
-  return { f, w, t1, t2, a1, f1, N, p1, p2, mix };
+// ---------- 影像 ----------
+const off = document.createElement('canvas'); off.width = IW; off.height = IH;
+const octx = off.getContext('2d');
+const idata = octx.createImageData(IW, IH);
+const TAU_MAX = 4;
+function hsv(hh, s, v) {
+  const i = Math.floor(hh * 6), f = hh * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const m = i % 6;
+  const r = [v, q, p, p, t, v][m], g = [t, v, v, q, p, p][m], b = [p, p, t, v, v, q][m];
+  return [r * 255, g * 255, b * 255];
+}
+function tauHue(tau) { return 0.66 * Math.min(1, Math.max(0, tau / TAU_MAX)); } // 紅（短）→ 藍（長）
+
+function drawImage(st) {
+  const d = idata.data;
+  for (let i = 0; i < IW * IH; i++) {
+    const br = Math.min(1, pixN[i] / (1.1 * st.N));
+    let r, g, b;
+    if (selMask[i]) { r = 255; g = 90; b = 220; }
+    else if (st.colorTau) {
+      const tphi = Math.atan2(pixS[i], pixG[i]) / st.w;
+      [r, g, b] = hsv(tauHue(tphi), 0.9, 0.15 + 0.85 * br);
+    } else { r = g = b = 255 * (0.08 + 0.92 * br); }
+    d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255;
+  }
+  octx.putImageData(idata, 0, 0);
+  ictx.clearRect(0, 0, im.width, im.height);
+  ictx.imageSmoothingEnabled = false;
+  ictx.drawImage(off, 0, 0, IW, IH, 0, 0, 288, 288);
+  // 色條
+  ictx.font = '11px sans-serif';
+  if (st.colorTau) {
+    for (let x = 0; x < 200; x++) {
+      const [r, g, b] = hsv(tauHue(TAU_MAX * x / 200), 0.9, 1);
+      ictx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+      ictx.fillRect(44 + x, 300, 1, 10);
+    }
+    ictx.fillStyle = C.muted;
+    ictx.fillText('τ_φ 0', 8, 309); ictx.fillText(TAU_MAX + ' ns', 250, 309);
+  } else {
+    ictx.fillStyle = C.muted;
+    ictx.fillText('灰階 = 光子數；桃紅 = 游標圈到的像素', 8, 309);
+  }
 }
 
-function makeCloud(st) {
-  const sigma = 0.5 / Math.sqrt(st.N);
-  const pts = [];
-  for (let i = 0; i < 300; i++) pts.push([st.mix.g + sigma * gauss(), st.mix.s + sigma * gauss()]);
-  return pts;
+// ---------- 統計 ----------
+function lifetimes(P, w) {
+  const phi = Math.atan2(P.s, P.g), M = Math.hypot(P.g, P.s);
+  const tPhi = Math.tan(phi) / w;
+  const tMod = M > 0 && M < 1 ? Math.sqrt(1 / (M * M) - 1) / w : 0;
+  return { phi, M, tPhi, tMod };
 }
 
-function stats(st) {
-  const { g, s } = st.mix;
-  const phi = Math.atan2(s, g);
-  const M = Math.sqrt(g * g + s * s);
-  const tPhi = Math.tan(phi) / st.w;
-  const tMod = M > 0 && M < 1 ? Math.sqrt(1 / (M * M) - 1) / st.w : 0;
-  const gap = Math.abs(tPhi - tMod);
+function stats(st, selCnt) {
+  const A = st.types[1];
+  const L = lifetimes(A.cal, st.w);
+  const gap = Math.abs(L.tPhi - L.tMod);
+  const single = Math.abs(st.t1 - st.t2) < 0.02 || st.a1 === 0 || st.a1 === 1;
   const verdict = gap < 0.02
-    ? 'τ_φ ≈ τ_m ⇒ 看起來就是單指數'
-    : 'τ_φ ≠ τ_m ⇒ 多指數的經典指紋';
-  $('stats').innerHTML =
-    `振幅分率 α₁：<b>${st.a1.toFixed(2)}</b> → 強度分率 f₁：<b>${st.f1.toFixed(2)}</b><br>` +
-    `相量座標：<b>g = ${g.toFixed(4)}</b>，<b>s = ${s.toFixed(4)}</b><br>` +
-    `相位 φ：<b>${(phi * 180 / Math.PI).toFixed(2)}°</b>　調變度 M：<b>${M.toFixed(4)}</b><br>` +
-    `相位壽命 τ_φ = tan φ / ω：<b>${tPhi.toFixed(3)} ns</b><br>` +
-    `調變壽命 τ_m = √(1/M²−1)/ω：<b>${tMod.toFixed(3)} ns</b><br>` +
-    `<b>${verdict}</b>（差 ${gap.toFixed(3)} ns）<br>` +
-    `點雲擴散 σ ≈ 0.5/√N：<b>${(0.5 / Math.sqrt(st.N)).toFixed(4)}</b>`;
+    ? 'τ_φ ≈ τ_m ⇒ 看起來像單指數'
+    : (single && st.bg > 0 ? 'τ_φ ≠ τ_m，但樣品是單指數 ⇒ 這是背景造成的' : 'τ_φ ≠ τ_m ⇒ 多指數（或背景）的指紋');
+  const tAmp = st.a1 * st.t1 + (1 - st.a1) * st.t2;
+  const tInt = (st.a1 * st.t1 * st.t1 + (1 - st.a1) * st.t2 * st.t2) / Math.max(1e-9, st.a1 * st.t1 + (1 - st.a1) * st.t2);
+  const arc = Math.hypot(st.p1.g - st.p2.g, st.p1.s - st.p2.s);
+  const sigA = A.L.a / Math.sqrt(st.N), sigS = Math.hypot(A.L.b, A.L.c) / Math.sqrt(st.N);
+  let html =
+    `A 群：α₁ <b>${st.a1.toFixed(2)}</b> → 光子分率 f₁ <b>${st.f1.toFixed(2)}</b>；B 群：α₁ <b>${st.a1B.toFixed(2)}</b> → f₁ <b>${st.f1B.toFixed(2)}</b><br>` +
+    `A 相量（${st.cal ? '校正後' : '未校正'}）：<b>g = ${A.cal.g.toFixed(4)}</b>，<b>s = ${A.cal.s.toFixed(4)}</b><br>`;
+  if (st.cal && st.irfW > 0) html += `A 校正前：g = ${A.raw.g.toFixed(4)}，s = ${A.raw.s.toFixed(4)}<br>`;
+  html +=
+    `φ <b>${(L.phi * 180 / Math.PI).toFixed(2)}°</b>　M <b>${L.M.toFixed(4)}</b><br>` +
+    `τ_φ = tan φ / ω：<b>${L.tPhi.toFixed(3)} ns</b>　τ_m = √(1/M²−1)/ω：<b>${L.tMod.toFixed(3)} ns</b><br>` +
+    `amplitude-weighted ⟨τ⟩_α：<b>${tAmp.toFixed(3)} ns</b>　intensity-weighted ⟨τ⟩_I：<b>${tInt.toFixed(3)} ns</b><br>` +
+    `<b>${verdict}</b>（τ_φ − τ_m 差 ${gap.toFixed(3)} ns）<br>` +
+    `τ₁、τ₂ 弧距（分辨力）：<b>${arc.toFixed(3)}</b>；A 群亮像素 σ_g ≈ <b>${sigA.toFixed(4)}</b>、σ_s ≈ <b>${sigS.toFixed(4)}</b><br>`;
+  if (cursor) {
+    const Lc = lifetimes(cursor, st.w);
+    html += `<span class="sel">游標 (${cursor.g.toFixed(3)}, ${cursor.s.toFixed(3)})：τ_φ ${Lc.tPhi.toFixed(2)} ns、τ_m ${Lc.tMod.toFixed(2)} ns，圈到 <b>${selCnt}</b> 個像素</span>`;
+  } else {
+    html += `<span class="sel">在 phasor 圖上按住拖曳放游標，滾輪改大小</span>`;
+  }
+  $('stats').innerHTML = html;
 }
 
-let state = null, cloud = null, raf = null, lastDraw = 0;
+// ---------- 主流程 ----------
+let state = null, raf = null, lastDraw = 0;
+
+function selectedHist(st) {
+  if (!cursor) return null;
+  const H = new Float64Array(NB); let any = false;
+  const wts = [0, 0, 0];
+  for (let i = 0; i < IW * IH; i++) if (selMask[i]) { wts[pixType[i]] += pixN[i]; any = true; }
+  if (!any) return null;
+  for (let ty = 0; ty < 3; ty++) if (wts[ty] > 0) { const h = st.types[ty].H; for (let k = 0; k < NB; k++) H[k] += wts[ty] * h[k]; }
+  return H;
+}
+
+function redrawViews() {
+  const cnt = applyCursor(state);
+  drawPhasor(state);
+  drawImage(state);
+  drawDecay(state, selectedHist(state));
+  stats(state, cnt);
+}
 
 function render() {
   state = readState();
@@ -318,29 +640,67 @@ function render() {
   $('t1Out').textContent = state.t1.toFixed(2) + ' ns';
   $('t2Out').textContent = state.t2.toFixed(2) + ' ns';
   $('fracOut').textContent = state.a1.toFixed(2);
+  const dA = parseFloat($('dfrac').value);
+  $('dfracOut').textContent = (dA >= 0 ? '+' : '') + dA.toFixed(2);
   $('photOut').textContent = state.N.toLocaleString('en-US');
-  cloud = $('noise').checked ? makeCloud(state) : null;
-  drawPhasor(state, cloud);
-  drawDecay(state);
-  stats(state);
+  $('irfOut').textContent = state.irfW.toFixed(2) + ' ns';
+  $('bgOut').textContent = state.bg.toFixed(2);
+  samplePixels(state);
+  redrawViews();
 }
 
 function tick(now) {
   if (!$('noise').checked) { raf = null; return; }
-  if (now - lastDraw > 250) {
+  if (now - lastDraw > 300) {
     lastDraw = now;
-    cloud = makeCloud(state);
-    drawPhasor(state, cloud);
+    samplePixels(state);
+    redrawViews();
   }
   raf = requestAnimationFrame(tick);
 }
 
-for (const id of ['freq', 't1', 't2', 'frac', 'phot']) $(id).addEventListener('input', render);
+for (const id of ['freq', 't1', 't2', 'frac', 'dfrac', 'phot', 'irf', 'bg']) $(id).addEventListener('input', render);
+for (const id of ['cal', 'thr', 'harm2', 'logy', 'colorTau']) $(id).addEventListener('change', render);
 $('noise').addEventListener('change', () => {
-  render();
   if ($('noise').checked && raf === null) raf = requestAnimationFrame(tick);
 });
+$('clearCur').addEventListener('click', () => { cursor = null; redrawViews(); });
 
+// 游標互動
+let dragging = false;
+function canvasPos(ev) {
+  const r = ph.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) * ph.width / r.width, y: (ev.clientY - r.top) * ph.height / r.height };
+}
+ph.addEventListener('pointerdown', ev => {
+  const p = canvasPos(ev);
+  const g = gOf(p.x), s = sOf(p.y);
+  if (g < -0.05 || g > 1.1 || s < -0.05 || s > 0.78) return;
+  dragging = true; ph.setPointerCapture(ev.pointerId);
+  cursor = { g, s, r: cursor ? cursor.r : 0.04 };
+  redrawViews();
+});
+ph.addEventListener('pointermove', ev => {
+  if (!dragging || !cursor) return;
+  const p = canvasPos(ev);
+  cursor.g = gOf(p.x); cursor.s = sOf(p.y);
+  redrawViews();
+});
+const stopDrag = () => { dragging = false; };
+ph.addEventListener('pointerup', stopDrag);
+ph.addEventListener('pointercancel', stopDrag);
+ph.addEventListener('wheel', ev => {
+  if (!cursor) return;
+  ev.preventDefault();
+  cursor.r = Math.min(0.2, Math.max(0.01, cursor.r * (ev.deltaY > 0 ? 1.12 : 1 / 1.12)));
+  redrawViews();
+}, { passive: false });
+
+// ?cursor=g,s[,r] 可預放游標（分享用）
+{
+  const q = new URLSearchParams(location.search).get('cursor');
+  if (q) { const [g, s, r] = q.split(',').map(parseFloat); if (isFinite(g) && isFinite(s)) cursor = { g, s, r: isFinite(r) ? r : 0.04 }; }
+}
 render();
 raf = requestAnimationFrame(tick);
 </script>
