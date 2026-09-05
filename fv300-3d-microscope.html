@@ -182,6 +182,8 @@
         <button class="btn" data-view="path"><b>光路追跡</b><span>外殼透明化</span></button>
         <button class="btn" data-view="lasers"><b>雷射模組</b><span>雷射與光纖</span></button>
         <button class="btn" data-view="pc"><b>電腦螢幕</b><span>看即時掃描影像</span></button>
+        <button class="btn" data-view="front"><b>掃描頭前面板</b><span>旋鈕與滑軌把手</span></button>
+        <button class="btn" data-view="operator"><b>操作者視角</b><span>坐在顯微鏡前</span></button>
       </div>
     </div>
 
@@ -196,19 +198,19 @@
         <label>Pinhole 段位（CONFOCAL APERTURE）<output id="pinOut">3</output></label>
         <input type="range" id="pinSlider" min="1" max="5" step="1" value="3">
       </div>
-      <h3>偵測分光鏡（滑軌）</h3>
+      <h3>偵測分光鏡滑軌（SDM）</h3>
       <div class="chips" id="dmChips">
         <button data-dm="mirror">Mirror</button>
         <button data-dm="DM570" class="on">DM570</button>
         <button data-dm="DM630">DM630</button>
       </div>
-      <h3>CH1 Barrier Filter</h3>
+      <h3>CH1 Barrier Filter（滑軌）</h3>
       <div class="chips" id="ch1Chips">
         <button data-f="BA505-525" class="on">BA505-525</button>
         <button data-f="BA510-550">BA510-550</button>
         <button data-f="none">無</button>
       </div>
-      <h3>CH2 Barrier Filter</h3>
+      <h3>CH2 Barrier Filter（滑軌）</h3>
       <div class="chips" id="ch2Chips">
         <button data-f="BA560-600" class="on">BA560-600</button>
         <button data-f="BA660IF">BA660IF</button>
@@ -376,39 +378,42 @@ const state = {
 const INFO = {
   ix71: { kind: '顯微鏡本體', zh: 'IX71 倒立式研究級顯微鏡', en: 'Olympus IX71 Inverted Microscope',
     desc: '倒立式構型：物鏡在樣品下方，適合培養皿／載玻片活細胞觀察。採 UIS2 無限遠校正光學，管鏡焦距 180 mm。左側埠接 FV300 掃描頭，把顯微鏡變成共軛焦系統。',
-    specs: [['光學系統', 'UIS2 無限遠校正'], ['管鏡焦距', '180 mm'], ['光路切換', '目鏡 / 側埠 / 底埠'], ['調焦', '粗調 + 微調同軸旋鈕']] },
-  base: { kind: 'IX71', zh: '底座', en: 'Base', desc: '承載整台顯微鏡，內含管鏡與光路切換稜鏡；物鏡出來的無限遠光束在這裡被管鏡聚焦，再由反射鏡轉向側面埠送進掃描頭。', specs: [['內含', '管鏡 (f = 180 mm)、光路切換稜鏡']] },
-  column: { kind: 'IX71', zh: '立柱（照明支柱）', en: 'Illumination Pillar', desc: '後方立柱撐起透射光照明系統：鹵素燈室、聚光鏡與視野光圈。共軛焦掃描時通常不點亮。', specs: [['照明', '柯勒照明 (Köhler)'], ['燈源', '12 V 100 W 鹵素燈（由 LG-PS2 供電）']] },
-  stage: { kind: 'IX71', zh: '載物台', en: 'Stage', desc: '放置載玻片或培養皿。XY 同軸旋鈕移動樣品；中央開口讓下方的物鏡靠近樣品。', specs: [['行程', '約 120 × 80 mm'], ['操作', 'XY 同軸旋鈕']] },
-  stageKnob: { kind: 'IX71', zh: '載物台 XY 旋鈕', en: 'Stage XY Knobs', desc: '同軸雙旋鈕：上層移 Y、下層移 X，把要看的區域移到物鏡上方。', specs: [] },
-  turret: { kind: 'IX71', zh: '物鏡轉盤', en: 'Objective Nosepiece', desc: '六孔旋轉轉盤，把要用的物鏡轉到光軸上。UI 切換物鏡時轉盤會跟著轉。', specs: [['孔位', '6'], ['已裝', 'UPLSAPO 10X、UPLAPO 20X、UPLAPO 40X、UPLSAPO 60X Oil']] },
+    specs: [['光學系統', 'UIS2 無限遠校正'], ['管鏡焦距', '180 mm'], ['光路切換', '目鏡 / 左側埠'], ['調焦', '粗調 + 微調同軸旋鈕']] },
+  base: { kind: 'IX71', zh: '底座與本體', en: 'Base & Frame', desc: '承載整台顯微鏡的鑄件本體。下半段裡藏著管鏡與光路切換稜鏡；上半段留出物鏡轉盤的空腔（從前方伸手換物鏡），頂面撐著載物台。左側開側面埠、右側有光路選擇桿、前面掛雙目鏡筒。', specs: [['內含', '管鏡 (f = 180 mm)、光路切換稜鏡'], ['側埠', '左側 100%（接 FV300）']] },
+  tubeLens: { kind: 'IX71', zh: '管鏡', en: 'Tube Lens', desc: '在物鏡轉盤正下方的垂直光路上、稜鏡上方。與掃描頭的瞳孔投影鏡組成中繼系統：振鏡的擺角 → 物鏡瞳孔上的角度變化；側埠處則是中間像面。', specs: [['焦距', '180 mm'], ['位置', '轉盤下方、稜鏡上方（本體內）']] },
+  prism: { kind: 'IX71', zh: '光路切換稜鏡', en: 'Light Path Selector Prism', desc: '本體底部、與側埠同高的 45° 反射面。選擇桿決定光走向：往前到雙目鏡筒做寬場觀察，或轉 90° 往左側埠進入 FV300。掃描時必須切到側埠 100%。', specs: [['位置', '目鏡 / 左側埠'], ['掃描時', '左側埠 100%']] },
+  lever: { kind: 'IX71', zh: '光路選擇桿', en: 'Light Path Selector', desc: '本體右側的拉桿，切換裡面的稜鏡把光送到目鏡或側埠。用目鏡找好細胞後拉到側埠，再開始掃描。', specs: [] },
+  column: { kind: 'IX71', zh: '立柱（照明支柱）', en: 'Illumination Pillar', desc: '本體後方向上的立柱撐起透射光照明系統：頂端向後伸出鹵素燈室，向前伸的臂掛著聚光鏡、正對物鏡光軸。共軛焦掃描時通常不點亮。', specs: [['照明', '柯勒照明 (Köhler)'], ['燈源', '12 V 100 W 鹵素燈（由 LG-PS2 供電）']] },
+  stage: { kind: 'IX71', zh: '載物台', en: 'Stage', desc: '坐在本體頂面上。放置載玻片或培養皿；XY 同軸旋鈕移動樣品；中央開口讓下方的物鏡靠近樣品。', specs: [['行程', '約 120 × 80 mm'], ['操作', 'XY 同軸旋鈕']] },
+  stageKnob: { kind: 'IX71', zh: '載物台 XY 旋鈕', en: 'Stage XY Knobs', desc: '載物台右前方向下垂的同軸雙旋鈕：上層移 Y、下層移 X，把要看的區域移到物鏡上方。', specs: [] },
+  turret: { kind: 'IX71', zh: '物鏡轉盤', en: 'Objective Nosepiece', desc: '載物台下方本體空腔裡的六孔旋轉轉盤，把要用的物鏡轉到光軸上；調焦時整個轉盤上下移動。UI 切換物鏡時轉盤會跟著轉。', specs: [['孔位', '6'], ['已裝', 'UPLSAPO 10X、UPLAPO 20X、UPLAPO 40X、UPLSAPO 60X Oil']] },
   objective: { kind: 'IX71', zh: '物鏡', en: 'Objective', desc: '把掃描光束聚成繞射極限的焦點，並收集同一點發出的螢光。NA 決定解析度與收光效率，WD 決定能看多深。', specs: [] },
-  focusKnob: { kind: 'IX71', zh: '粗／微調焦旋鈕', en: 'Coarse / Fine Focus Knobs', desc: '左右各一組同軸旋鈕：外圈粗調（每轉約數 mm）、內圈微調（每格 1 μm）。倒立式是移動物鏡轉盤，而不是載物台。', specs: [['微調刻度', '1 μm / 格'], ['移動件', '物鏡轉盤（Z）']] },
-  eyepiece: { kind: 'IX71', zh: '目鏡筒（雙目觀察筒）', en: 'Binocular Eyepiece Tube', desc: '一般寬場觀察與找樣品用。切到掃描頭模式後光路改走側埠，目鏡看不到共軛焦影像。', specs: [['目鏡', 'WHN10X (FN 22)'], ['傾角', '30°']] },
-  sidePort: { kind: 'IX71', zh: '側面埠', en: 'Side Port', desc: '無限遠空間（或中間像面）的出口，經轉接筒接到 FV300 掃描頭。掃描光束由這裡進入顯微鏡，螢光也從這裡回到掃描頭。', specs: [['光路切換', '100% 至側埠（掃描時）']] },
-  condenser: { kind: 'IX71', zh: '聚光鏡', en: 'Condenser', desc: '透射光照明：把鹵素燈光均勻聚到樣品上，用來做寬場明視野／相位差找細胞。', specs: [['NA', '0.55 (LWD)']] },
-  lamp: { kind: 'IX71', zh: '鹵素燈室', en: 'Halogen Lamp House', desc: '12 V 100 W 鹵素燈，透射光照明的光源，電源來自 LG-PS2。', specs: [['燈泡', '12 V 100 W 鹵素']] },
+  focusKnob: { kind: 'IX71', zh: '粗／微調焦旋鈕', en: 'Coarse / Fine Focus Knobs', desc: '本體下半段左右兩側各一組同軸旋鈕：外圈粗調（每轉約數 mm）、內圈微調（每格 1 μm）。倒立式是移動物鏡轉盤，而不是載物台。', specs: [['微調刻度', '1 μm / 格'], ['移動件', '物鏡轉盤（Z）']] },
+  eyepiece: { kind: 'IX71', zh: '目鏡筒（雙目觀察筒）', en: 'Binocular Eyepiece Tube', desc: '掛在本體前方、載物台下緣，向上傾 30°。寬場觀察與找樣品用；切到側埠後光路不再往前走，目鏡看不到共軛焦影像。', specs: [['目鏡', 'WHN10X (FN 22)'], ['傾角', '30°']] },
+  sidePort: { kind: 'IX71', zh: '側面埠', en: 'Side Port', desc: '本體左側、與稜鏡同高的出口，經轉接筒直接接到 FV300 掃描頭的右側壁。這裡是中間像面：掃描光束由此進入顯微鏡，螢光也從此回到掃描頭。', specs: [['光路切換', '100% 至側埠（掃描時）']] },
+  condenser: { kind: 'IX71', zh: '聚光鏡', en: 'Condenser', desc: '掛在照明臂下、貼近樣品上方的長工作距離聚光鏡。把鹵素燈光均勻聚到樣品上，用來做寬場明視野／相位差找細胞。', specs: [['NA', '0.55 (LWD)']] },
+  lamp: { kind: 'IX71', zh: '鹵素燈室', en: 'Halogen Lamp House', desc: '立柱頂端向後伸出的鹵素燈室（12 V 100 W）。光經臂內的反射鏡向下、穿過視野光圈與聚光鏡照到樣品。電源來自 LG-PS2。', specs: [['燈泡', '12 V 100 W 鹵素']] },
   sample: { kind: '樣品', zh: '樣品（載玻片 / 培養皿）', en: 'Specimen', desc: '合成樣品：DAPI 染細胞核（405 激發）、Alexa 488 染細胞骨架（488 激發）、TRITC 粒線體（需 543）、Cy5 細胞膜（需 633）。點「物鏡焦點」視角看掃描光斑在樣品上掃過。', specs: [] },
   focus: { kind: '光路', zh: '物鏡焦點（掃描光斑）', en: 'Focal Spot', desc: '雷射被物鏡聚成繞射極限光斑，振鏡讓它在樣品上一行行掃過（模型中把掃描範圍放大了很多倍好看）。只有這一點發出的螢光能對準 pinhole。', specs: [] },
 
-  scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 側埠的雷射掃描共軛焦單元。內含 XY 振鏡、激發分光鏡、共軛焦 pinhole、偵測分光鏡與兩支 PMT。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕'], ['偵測器', '2 × PMT（側窗型）']] },
-  lid: { kind: '掃描單元', zh: '掃描頭外殼', en: 'Scan Unit Cover', desc: '遮光外殼。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [] },
-  fiberPort: { kind: '掃描單元', zh: '光纖入口 / 準直鏡', en: 'Fiber Port & Collimator', desc: '單模光纖送來的雷射從這裡進入，準直鏡把發散光變成平行光束後射向激發分光鏡。', specs: [['光纖', '單模，偏振保持'], ['準直後光束', '約 0.7–0.8 mm']] },
-  exDM: { kind: '掃描單元', zh: '激發分光鏡（45°）', en: 'Excitation Dichroic Mirror', desc: '反射短波長的雷射到振鏡與樣品；讓長波長的螢光穿透到偵測端。是激發與偵測光路分開的關鍵。', specs: [['角度', '45°'], ['型式', 'DM405/488 雙波段（依雷射組合更換）'], ['選項', 'DM488 / DM488/543 / DM488/543/633']] },
-  galvoX: { kind: '掃描單元', zh: '振鏡 X（快軸）', en: 'Galvanometer Mirror X', desc: '高速擺動的反射鏡，負責影像的水平（行）掃描。掃描頻率數百 Hz，決定每行的時間。', specs: [['頻率', '數百 Hz（行）'], ['光學掃描角', '約 ±6°'], ['驅動', '閉迴路電流計']] },
-  galvoY: { kind: '掃描單元', zh: '振鏡 Y（慢軸）', en: 'Galvanometer Mirror Y', desc: '較慢的擺動鏡，每掃完一行往下走一步，決定幀率。X 與 Y 一快一慢合成光柵掃描。', specs: [['速度', '每幀一個鋸齒'], ['幀率', '約 0.3–3 fps（依像素數）']] },
-  scanLens: { kind: '掃描單元', zh: '掃描透鏡', en: 'Scan Lens', desc: '把振鏡的角度掃描轉成中間像面的位置掃描，並與顯微鏡管鏡組成中繼系統，讓光束樞軸落在物鏡後焦面。', specs: [['焦距', '約 50 mm（示意）']] },
-  tubeLens: { kind: 'IX71', zh: '管鏡', en: 'Tube Lens', desc: '在顯微鏡本體內。與掃描透鏡合成中繼光學，把振鏡的擺角轉成物鏡瞳孔上的角度變化。', specs: [['焦距', '180 mm']] },
-  glassA: { kind: '掃描單元', zh: '調整平面玻璃 A', en: 'Alignment Plate A', desc: '兩片可微傾的平面玻璃之一。傾斜時光束平移（不改變角度），用來把螢光回程光路精準對到 pinhole 中心。', specs: [['作用', '光束橫向平移'], ['配合', '玻璃 B（正交方向）']] },
-  glassB: { kind: '掃描單元', zh: '調整平面玻璃 B', en: 'Alignment Plate B', desc: '與 A 正交的第二片平板玻璃，負責另一個方向的平移。兩片合起來可把光斑對準 pinhole。', specs: [['作用', '光束橫向平移']] },
-  confocalLens: { kind: '掃描單元', zh: '共軛焦透鏡', en: 'Confocal Lens', desc: '把回程的平行螢光聚焦到 pinhole 平面。焦點處的螢光成一個 Airy 光斑，離焦的則是一團模糊大光斑。', specs: [] },
-  pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五段）', en: 'Confocal Aperture', desc: '只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。五段旋鈕選孔徑；CH1/CH2 共用同一個 pinhole。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm']] },
-  pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '外殼上的五段旋鈕，轉動即切換 pinhole 孔徑。', specs: [] },
-  detDM: { kind: '掃描單元', zh: '偵測分光鏡（滑軌）', en: 'Detection Dichroic Slider', desc: '把螢光依波長分成 CH1（反射）與 CH2（穿透）。滑軌上有 Mirror、DM570、DM630 三片可換。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
-  ba1: { kind: '掃描單元', zh: 'CH1 Barrier Filter 插槽', en: 'CH1 Emission Filter', desc: 'PMT 前方的發射濾片，只放行螢光波段、擋掉殘餘雷射與其他通道的光。', specs: [['可插', 'BA505-525 / BA510-550']] },
-  ba2: { kind: '掃描單元', zh: 'CH2 Barrier Filter 插槽', en: 'CH2 Emission Filter', desc: 'CH2 的發射濾片插槽。', specs: [['可插', 'BA560-600 / BA660IF / BA610IF']] },
-  pmt1: { kind: '掃描單元', zh: 'CH1 光電倍增管', en: 'CH1 Photomultiplier Tube', desc: '把每個像素時間內收到的螢光子放大成電流。高壓（HV）調增益、Offset 調背景。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 反射端（短波側）']] },
-  pmt2: { kind: '掃描單元', zh: 'CH2 光電倍增管', en: 'CH2 Photomultiplier Tube', desc: '第二通道 PMT，接偵測 DM 穿透端（長波側）。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 穿透端（長波側）']] },
+  scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 左側埠、坐在支架上的雷射掃描單元。所有光學元件都在同一個水平面上：右端接顯微鏡，雷射從後壁的光纖進來，兩支 PMT 並排躺在左端。前面板有 SDM 與兩片 BA 濾片滑軌的把手，以及 CONFOCAL APERTURE 旋鈕。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕'], ['偵測器', '2 × PMT（側窗型）']] },
+  headStand: { kind: '掃描單元', zh: '掃描頭支架', en: 'Scan Unit Stand', desc: '把掃描頭撐到與側埠同高並鎖在光學桌上，讓側埠與掃描頭的光軸對準、不會相對位移。', specs: [] },
+  lid: { kind: '掃描單元', zh: '掃描頭外殼', en: 'Scan Unit Cover', desc: '遮光上蓋。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [] },
+  fiberPort: { kind: '掃描單元', zh: '光纖入口 / 準直鏡', en: 'Fiber Port & Collimator', desc: '單模光纖從後壁進來，準直鏡把發散光變成平行光束後向前射向激發分光鏡。', specs: [['光纖', '單模，偏振保持'], ['準直後光束', '約 0.7–0.8 mm']] },
+  exDM: { kind: '掃描單元', zh: '激發分光鏡（45°）', en: 'Excitation Dichroic Mirror', desc: '45° 放置。反射從準直鏡來的短波長雷射到振鏡；讓由振鏡回來、波長較長的螢光穿透往偵測端。掀蓋後可整片更換，依雷射組合選用。', specs: [['角度', '45°'], ['型式', 'DM405/488 雙波段（依雷射組合更換）'], ['選項', 'DM488 / DM488/543 / DM488/543/633']] },
+  galvoX: { kind: '掃描單元', zh: '振鏡 X（快軸）', en: 'Galvanometer Mirror X', desc: '高速擺動的反射鏡，繞垂直軸轉、馬達在下方，負責影像的水平（行）掃描。與振鏡 Y 緊鄰成一組（close-coupled）。', specs: [['頻率', '數百 Hz（行）'], ['光學掃描角', '約 ±6°'], ['驅動', '閉迴路電流計']] },
+  galvoY: { kind: '掃描單元', zh: '振鏡 Y（慢軸）', en: 'Galvanometer Mirror Y', desc: '較慢的擺動鏡，繞水平軸轉、馬達橫放，每掃完一行往下走一步，決定幀率。X 與 Y 一快一慢合成光柵掃描。', specs: [['速度', '每幀一個鋸齒'], ['幀率', '約 0.3–3 fps（依像素數）']] },
+  scanLens: { kind: '掃描單元', zh: '瞳孔投影鏡（掃描透鏡）', en: 'Pupil Projection Lens', desc: '掃描頭最靠側埠的一片透鏡。把振鏡的角度掃描轉成側埠中間像面上的位置掃描，並與 IX71 管鏡組成中繼系統，使光束樞軸落在物鏡後焦面（瞳孔）。', specs: [['焦距', '約 50 mm（示意）']] },
+  confocalLens: { kind: '掃描單元', zh: '共軛焦透鏡', en: 'Confocal Lens', desc: '把穿過激發 DM 回來的平行螢光聚焦到 pinhole 平面。焦點處的螢光成一個 Airy 光斑，離焦的則是一團模糊大光斑。', specs: [] },
+  pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五孔轉盤）', en: 'Confocal Aperture', desc: '五個孔徑的轉盤，轉到光軸上的那一孔就是目前的 pinhole。只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。CH1/CH2 共用同一個 pinhole。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm']] },
+  pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '前面板上的五段旋鈕，透過傳動軸帶動裡面的 pinhole 轉盤。', specs: [] },
+  collLens: { kind: '掃描單元', zh: '準直透鏡（pinhole 後）', en: 'Collimating Lens', desc: '把穿過 pinhole 後發散的螢光重新整成平行光，後面的偵測 DM 與 BA 濾片才能在設計的 45°／0° 入射角下工作。', specs: [] },
+  detDM: { kind: '掃描單元', zh: '偵測分光鏡滑軌（SDM）', en: 'Detection Dichroic Slider', desc: '滑軌上三片 45° 鏡：Mirror、DM570、DM630，把手在前面板。反射（短波）側轉 90° 往後走到 CH1，穿透（長波）側直走到 CH2。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
+  foldMirror: { kind: '掃描單元', zh: 'CH1 折返鏡', en: 'CH1 Fold Mirror', desc: '固定的 45° 反射鏡，把偵測 DM 反射出來的 CH1 光再轉 90°，使它與 CH2 平行——兩支 PMT 才能並排躺在左端。', specs: [] },
+  ba1: { kind: '掃描單元', zh: 'CH1 Barrier Filter 滑軌', en: 'CH1 Emission Filter Slider', desc: 'CH1 PMT 前的兩格滑軌：一格插 BA 濾片、一格空。把手在前面板；選「無」就是把空格推到光軸上，換濾片是換插在滑軌上的那一片。', specs: [['可插', 'BA505-525 / BA510-550']] },
+  ba2: { kind: '掃描單元', zh: 'CH2 Barrier Filter 滑軌', en: 'CH2 Emission Filter Slider', desc: 'CH2 PMT 前的兩格滑軌，構造同 CH1。', specs: [['可插', 'BA560-600 / BA660IF / BA610IF']] },
+  pmt1: { kind: '掃描單元', zh: 'CH1 光電倍增管', en: 'CH1 Photomultiplier Tube', desc: '橫躺在左端、窗口朝右的側窗 PMT，接收偵測 DM 反射端（短波側）經折返鏡來的光。把每個像素時間內收到的螢光子放大成電流；高壓（HV）調增益、Offset 調背景。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 反射端（短波側）']] },
+  pmt2: { kind: '掃描單元', zh: 'CH2 光電倍增管', en: 'CH2 Photomultiplier Tube', desc: '與 CH1 並排的第二支 PMT，接偵測 DM 穿透端（長波側）。', specs: [['型式', '側窗型 PMT'], ['接收', '偵測 DM 穿透端（長波側）']] },
 
   laser405: { kind: '雷射', zh: 'LD 405 nm 半導體雷射', en: '405 nm Diode Laser', desc: '藍紫光半導體雷射，激發 DAPI / Hoechst / Alexa 405。體積小、開機即可用。Class 3B——切勿直視。',
     specs: [['波長', '405 nm'], ['等級', 'Class 3B'], ['激發', 'DAPI / Hoechst / Alexa 405 / CFP'], ['熱機', '不需要（半導體）']] },
@@ -419,7 +424,7 @@ const INFO = {
   laser633: { kind: '雷射（預留）', zh: 'HeNe 633 nm 氦氖雷射', en: 'Red HeNe Laser 633 nm', desc: '紅光氣體雷射，激發 Cy5 / Alexa 633 / 647 / TO-PRO-3。目前尚未安裝，預留位置。',
     specs: [['波長', '633 nm'], ['等級', 'Class 3B'], ['激發', 'Cy5 / Alexa 633 / 647 / TO-PRO-3'], ['熱機', '10–15 分鐘']] },
   combiner: { kind: '雷射', zh: '雷射合束器 / 光纖耦合器', en: 'Laser Combiner & Fiber Launch', desc: '把各支雷射用分光鏡合成同一束，經 ND 濾片與快門控制強度後耦合進單模光纖送到掃描頭。', specs: [['強度控制', 'ND 濾片 + 機械快門（AOTF 選配）'], ['輸出', '單模光纖']] },
-  fiber: { kind: '雷射', zh: '單模光纖', en: 'Single-mode Optical Fiber', desc: '把雷射從光學桌送進掃描頭，同時當空間濾波器把光束整成乾淨的高斯模。彎折半徑不能太小。', specs: [['型式', '單模、偏振保持'], ['最小彎折半徑', '> 3 cm']] },
+  fiber: { kind: '雷射', zh: '單模光纖', en: 'Single-mode Optical Fiber', desc: '把雷射從光學桌送進掃描頭後壁，同時當空間濾波器把光束整成乾淨的高斯模。彎折半徑不能太小。', specs: [['型式', '單模、偏振保持'], ['最小彎折半徑', '> 3 cm']] },
 
   psu: { kind: '周邊', zh: 'FV5-PSU 電源供應器', en: 'FV5-PSU Power Supply Unit', desc: '供應掃描頭的振鏡驅動、PMT 高壓與控制電子。前面板有電源、雷射與掃描狀態指示燈。', specs: [['供應', '振鏡驅動 / PMT HV / 控制板'], ['指示燈', 'POWER · LASER · SCAN']] },
   lgps2: { kind: '周邊', zh: 'LG-PS2 透射光源電源', en: 'LG-PS2 Lamp Power Supply', desc: '供 IX71 鹵素燈的穩壓電源，旋鈕調亮度。做寬場觀察找細胞用，掃共軛焦時關掉避免雜光進 PMT。', specs: [['輸出', '12 V 100 W'], ['調光', '手動旋鈕']] },
@@ -610,42 +615,67 @@ function group(parent, x = 0, y = 0, z = 0) { const g = new THREE.Group(); g.pos
 
 // ============================================================
 //  IX71 倒立式顯微鏡
+//  座標：1 單位 ≈ 1 cm；物鏡光軸在 (AXIS.x, AXIS.z) 垂直向上；操作者在 +z 側
 // ============================================================
 const ix = new THREE.Group(); scene.add(ix);
 const AXIS = { x: 0, z: 2 };          // 物鏡光軸 (x,z)
-const PORT_Y = 12;                   // 側面埠 / 掃描頭光軸高度
+const PORT_Y = 12;                   // 稜鏡 / 側面埠 / 掃描頭光軸高度
+const TUBE_Y = 16;                   // 管鏡高度（轉盤下方、稜鏡上方）
 const bodyMat = HOUSING(M.body(0xb9bec7));
 const trimMat = HOUSING(M.dark(0x33373f));
 {
-  // 底座
+  // 底座板 + 本體下半段（y 3–17；內含管鏡與稜鏡，左側埠、右側選擇桿、前方目鏡筒都掛在這一段）
   const base = group(ix);
-  base.add(mesh(box(34, 9, 40), bodyMat, 0, 4.5, 2));
-  base.add(mesh(box(34.4, 1.2, 40.4), trimMat, 0, 0.6, 2));
-  base.add(mesh(box(30, 2.5, 3), trimMat, 0, 7, 22.6));               // 前面板飾條
-  base.add(mesh(cyl(0.8, 0.8, 0.6), M.emissive(0x7ee787, 2), -12, 5.5, 22.2, { rx: Math.PI / 2 })); // 電源燈
-  tag(base, 'base'); anchor(base, 'IX71 倒立顯微鏡', [0, 64, -10]);
+  base.add(mesh(box(36, 3, 46), bodyMat, 0, 1.5, -4));
+  base.add(mesh(box(36.4, 0.8, 46.4), trimMat, 0, 0.4, -4));
+  base.add(mesh(box(26, 14, 30), bodyMat, 0, 10, -6));                 // 本體下半 x ±13, z -21..9
+  base.add(mesh(box(26.4, 1.2, 30.4), trimMat, 0, 3.6, -6));
+  base.add(mesh(box(22, 2.2, 0.3), trimMat, 0, 6, 9.15));              // 前面板飾條
+  base.add(mesh(cyl(0.8, 0.8, 0.6), M.emissive(0x7ee787, 2), -9, 6, 9.3, { rx: Math.PI / 2 })); // 電源燈
+  // 本體上半段（y 17–25）：後牆 + 兩側立板，中央是物鏡轉盤的空腔，前方開口
+  base.add(mesh(box(26, 8, 8), bodyMat, 0, 21, -17));
+  for (const sx of [-1, 1]) base.add(mesh(box(4, 8, 22), bodyMat, sx * 11, 21, -2));
+  // 載物台底板（挖孔，物鏡從中央穿過）
+  base.add(mesh(box(6.5, 1.2, 30), trimMat, -9.75, 24.6, -6));
+  base.add(mesh(box(6.5, 1.2, 30), trimMat, 9.75, 24.6, -6));
+  base.add(mesh(box(26, 1.2, 8), trimMat, 0, 24.6, -17));
+  base.add(mesh(box(13, 1.2, 4), trimMat, 0, 24.6, 7));
+  tag(base, 'base'); anchor(base, 'IX71 倒立顯微鏡', [0, 68, -16]);
 
-  // 內部：管鏡 + 轉向鏡（透明化時可見）
-  const tube = mesh(cyl(2.4, 2.4, 0.8), M.glass(0xbfe6ff, 0.55), -8, PORT_Y, AXIS.z, { rz: Math.PI / 2 });
+  // 內部：管鏡（垂直光路）+ 光路切換稜鏡（透明化時可見）
+  const tube = mesh(cyl(2.4, 2.4, 0.8), M.glass(0xbfe6ff, 0.55), AXIS.x, TUBE_Y, AXIS.z);
   ix.add(tag(tube, 'tubeLens'));
-  const turnMirror = mesh(box(0.3, 4.5, 4.5), M.mirror(), AXIS.x, PORT_Y, AXIS.z);
-  turnMirror.rotation.z = Math.PI / 4;  // 把 -x 的光轉成 +y
-  ix.add(tag(turnMirror, 'base'));
+  ix.add(tag(mesh(cyl(2.9, 2.9, 1.4, 32), M.dark(0x3a3f4a), AXIS.x, TUBE_Y, AXIS.z), 'tubeLens'));
+  anchor(tube, '管鏡', [3, 1, 0], { interior: true });
+  const prism = mesh(box(0.3, 4.5, 4.5), M.mirror(), AXIS.x, PORT_Y, AXIS.z);
+  prism.rotation.z = -Math.PI / 4;  // 向下 (-y) 的光 → -x 往左側埠（反之亦然）
+  ix.add(tag(prism, 'prism'));
+  ix.add(tag(mesh(box(4.8, 4.8, 4.8), M.glass(0xd8f0ff, 0.12), AXIS.x, PORT_Y, AXIS.z), 'prism'));
+  anchor(prism, '光路切換稜鏡', [3, -3, 0], { interior: true });
 
-  // 立柱（照明支柱）
+  // 光路選擇桿（右側面）
+  const lever = group(ix, 13.3, PORT_Y, AXIS.z - 6);
+  lever.add(mesh(cyl(1.3, 1.3, 1.0), M.black(), 0.5, 0, 0, { rz: Math.PI / 2 }));
+  lever.add(mesh(box(0.6, 0.6, 5), M.metal(), 0.9, 0, 2.6));
+  lever.add(mesh(cyl(0.6, 0.6, 1.4), M.black(), 0.9, 0, 5.2, { rx: Math.PI / 2 }));
+  tag(lever, 'lever'); anchor(lever, '光路選擇桿', [2, 3, 3]);
+
+  // 立柱（透射光照明）：本體後方向上；頂端的臂前伸掛聚光鏡、向後伸出鹵素燈室
   const col = group(ix);
-  col.add(mesh(box(18, 46, 16), bodyMat, 0, 32, -14));
-  col.add(mesh(box(18.4, 2, 16.4), trimMat, 0, 10, -14));
-  col.add(mesh(box(8, 6, 28), bodyMat, 0, 58, -3));                    // 上臂
-  col.add(mesh(cyl(1.2, 1.2, 12), M.metal(), AXIS.x, 49, AXIS.z));      // 聚光鏡吊桿
+  col.add(mesh(box(14, 32, 12), bodyMat, 0, 41, -17));                 // 立柱 y 25–57，z -23..-11
+  col.add(mesh(box(14.4, 1.5, 12.4), trimMat, 0, 25.75, -17));
+  col.add(mesh(box(8, 6, 28), bodyMat, 0, 60, -8));                    // 上臂 z -22..6
+  col.add(mesh(box(8, 3, 1), trimMat, 0, 60, 6.5));                    // 臂前端（視野光圈罩）
   tag(col, 'column');
-  const cond = mesh(cyl(3.6, 3.0, 7), M.dark(0x3a3f4a), AXIS.x, 40.5, AXIS.z); ix.add(tag(cond, 'condenser'));
-  const condLens = mesh(cyl(2.4, 2.4, 0.6), M.glass(), AXIS.x, 36.8, AXIS.z); ix.add(condLens);
-  const lamp = mesh(cyl(4.5, 4.5, 12), M.dark(0x3a3f4a), 0, 58, -24, { rx: Math.PI / 2 }); ix.add(tag(lamp, 'lamp'));
-  const lampFins = mesh(box(11, 11, 1.2), M.dark(0x2a2e37), 0, 58, -31); ix.add(tag(lampFins, 'lamp'));
+  const condRod = mesh(cyl(1.2, 1.2, 22.5), M.metal(), AXIS.x, 45.75, AXIS.z); ix.add(tag(condRod, 'condenser'));   // 34.5–57
+  const cond = mesh(cyl(3.6, 3.0, 5), M.dark(0x3a3f4a), AXIS.x, 32, AXIS.z); ix.add(tag(cond, 'condenser'));       // 29.5–34.5
+  const condLens = mesh(cyl(2.4, 2.4, 0.6), M.glass(), AXIS.x, 29.7, AXIS.z); ix.add(tag(condLens, 'condenser'));
+  anchor(cond, '聚光鏡', [0, 3.5, 3]);
+  const lamp = mesh(cyl(4.5, 4.5, 12), M.dark(0x3a3f4a), 0, 60, -29, { rx: Math.PI / 2 }); ix.add(tag(lamp, 'lamp'));
+  const lampFins = mesh(box(11, 11, 1.2), M.dark(0x2a2e37), 0, 60, -35.6); ix.add(tag(lampFins, 'lamp'));
   anchor(lamp, '鹵素燈室', [0, 7, 0]);
 
-  // 載物台（框架 + 中央開口）
+  // 載物台（框架 + 中央開口），坐在本體頂面
   const stage = group(ix, 0, 26, 2);
   const stMat = HOUSING(M.dark(0x3b404b));
   stage.add(mesh(box(5, 1.6, 26), stMat, -12.5, 0, 0));
@@ -653,7 +683,7 @@ const trimMat = HOUSING(M.dark(0x33373f));
   stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, -10));
   stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, 10));
   tag(stage, 'stage');
-  const knob = group(ix, 17, 21, 12);
+  const knob = group(ix, 15, 21, 12);                                   // XY 旋鈕：右前方向下垂
   knob.add(mesh(cyl(0.6, 0.6, 6), M.metal(), 0, 2.5, 0));
   knob.add(mesh(cyl(2.2, 2.2, 1.4), M.black(), 0, -0.5, 0));
   knob.add(mesh(cyl(1.5, 1.5, 1.4), M.black(), 0, -2.0, 0));
@@ -664,19 +694,19 @@ const trimMat = HOUSING(M.dark(0x33373f));
   const specimen = mesh(cyl(0.95, 0.95, 0.14), new THREE.MeshStandardMaterial({ color: 0xff9bd0, transparent: true, opacity: 0.55, roughness: 0.3, emissive: 0x552244, emissiveIntensity: 0.3 }), AXIS.x, 27.03, AXIS.z);
   ix.add(tag(specimen, 'sample')); anchor(specimen, '樣品', [0, 2.4, 0]);
 
-  // 目鏡筒
-  const eye = group(ix, 0, 21, 16);
-  eye.add(mesh(box(12, 7, 8), bodyMat, 0, 0, 0));
-  eye.add(mesh(box(8, 3, 6), trimMat, 0, 2.5, 5));
+  // 雙目鏡筒：掛在本體前面、載物台下緣，向上傾 30°
+  const eye = group(ix, 0, 17, 13.5);
+  eye.add(mesh(box(12, 7, 9), bodyMat, 0, 0, 0));                     // y 13.5–20.5，z 9–18
+  eye.add(mesh(box(8, 3, 6), trimMat, 0, 3, 5));
   for (const sx of [-1, 1]) {
     const tubeE = mesh(cyl(1.4, 1.6, 9), trimMat, sx * 3.2, 5.5, 8.5); tubeE.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(tubeE);
     const cup = mesh(cyl(1.9, 1.7, 1.2), M.black(), sx * 3.2, 9.4, 10.7); cup.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(cup);
   }
-  tag(eye, 'eyepiece'); anchor(eye, '目鏡筒', [0, 13, 4]);
+  tag(eye, 'eyepiece'); anchor(eye, '目鏡筒', [0, 13, 6]);
 
-  // 粗／微調焦旋鈕（雙側）
+  // 粗／微調焦旋鈕（本體下半段左右兩側）
   for (const sx of [-1, 1]) {
-    const k = group(ix, sx * 17.6, 6, 14);
+    const k = group(ix, sx * 13.6, 9, 4);
     k.add(mesh(cyl(3.2, 3.2, 1.6), M.black(), sx * 0.8, 0, 0, { rz: Math.PI / 2 }));
     k.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 2.4, 0, 0, { rz: Math.PI / 2 }));
     k.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 3.3, 0, 0, { rz: Math.PI / 2 }));
@@ -684,15 +714,15 @@ const trimMat = HOUSING(M.dark(0x33373f));
     if (sx > 0) anchor(k, '粗／微調焦', [2, 4.5, 0]);
   }
 
-  // 側面埠 + 轉接筒（-x 側）
-  const port = group(ix, -17, PORT_Y, AXIS.z);
+  // 側面埠 + 轉接筒（-x 側，直接接到掃描頭右側壁）
+  const port = group(ix, -13, PORT_Y, AXIS.z);
   port.add(mesh(cyl(3.4, 3.4, 1.6), M.dark(0x3a3f4a), -0.8, 0, 0, { rz: Math.PI / 2 }));
-  port.add(mesh(cyl(2.6, 2.6, 4.2), M.metal(0x7f8896), -3.5, 0, 0, { rz: Math.PI / 2 }));
-  tag(port, 'sidePort'); anchor(port, '側面埠', [-2, 5, 0]);
+  port.add(mesh(cyl(2.6, 2.6, 6.4), M.metal(0x7f8896), -4.8, 0, 0, { rz: Math.PI / 2 }));    // x -14.6 .. -21
+  tag(port, 'sidePort'); anchor(port, '側面埠', [-3, 5, 0]);
 }
 
-// 物鏡轉盤：轉盤中心在光軸後方 7 cm，第 i 支物鏡轉到 +z 位置就是在光軸上
-const TURRET_C = { x: AXIS.x, y: 19.0, z: AXIS.z - 7, r: 7 };
+// 物鏡轉盤：在載物台下方的本體空腔裡；中心在光軸後方 7 cm，第 i 支物鏡轉到 +z 位置就是在光軸上
+const TURRET_C = { x: AXIS.x, y: 21.0, z: AXIS.z - 7, r: 7 };
 const turret = new THREE.Group(); turret.position.set(TURRET_C.x, TURRET_C.y, TURRET_C.z); ix.add(turret);
 const objectiveMeshes = {};
 {
@@ -719,150 +749,187 @@ const objectiveMeshes = {};
   }
   anchor(turret, '物鏡轉盤', [-8, 3, 4]);
 }
-const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y
+const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y（距載玻片約 0.5）
 const OBJ_BACK_Y = TURRET_C.y + 0.75;        // 物鏡後端 y
 const FOCUS_Y = 27.0;                        // 樣品面
 function turretAngleFor(objKey) { return -OBJ_ORDER.indexOf(objKey) * (Math.PI * 2 / 6); }
 turret.rotation.y = turretAngleFor(state.objective);
 
 // ============================================================
-//  FV300 掃描頭（接在側面埠，-x 側）
+//  FV300 掃描頭（接在左側埠，-x 側；坐在支架上）
+//  局部座標：光束平面 y=0；+x 朝顯微鏡；z=0 是側埠光軸，z=OPT.AX 是激發／回程主光軸
+//  光路（俯視）：光纖(後壁) → 準直鏡 ─+z→ 激發DM ─+x→ 振鏡X ─-z→ 振鏡Y ─+x→ 瞳孔投影鏡 → 側埠
+//            回程：… 激發DM 穿透 ─-x→ 共軛焦透鏡 → pinhole → 準直透鏡 → SDM ┬ 穿透 -x → BA2 → PMT2
+//                                                                          └ 反射 -z → 折返鏡 ─-x→ BA1 → PMT1
 // ============================================================
-const HEAD_POS = new THREE.Vector3(-43, PORT_Y, AXIS.z);
+const HEAD_POS = new THREE.Vector3(-42, PORT_Y, AXIS.z);
 const head = new THREE.Group(); head.position.copy(HEAD_POS); scene.add(head);
 const H = (x, y, z) => new THREE.Vector3(x, y, z).add(HEAD_POS);   // 掃描頭局部 → 世界
 const headMat = HOUSING(M.body(0xbfc4cc));
 const wallMats = [];
 const lidPivot = new THREE.Group();
 const galvoX = new THREE.Group(), galvoY = new THREE.Group();
-const pinWheel = new THREE.Group(), pinKnob = new THREE.Group(), dmSlider = new THREE.Group();
+const pinWheel = new THREE.Group(), pinKnob = new THREE.Group();
+const sdmSlider = new THREE.Group(), ba1Slider = new THREE.Group(), ba2Slider = new THREE.Group();
 let ba1Mesh, ba2Mesh, dmPlates = [];
+const OPT = {                 // 光學元件位置（局部座標）
+  AX: 6,                      // 激發／回程主光軸 z
+  scanLens: 16, galvo: 9, exDM: 1, coll: -5,
+  cLens: -4, pinhole: -9, collLens: -13, sdm: -16, fold: -16,
+  ch1z: -4.2, ba1: -19.2, ba2: -22.2, pmt1: -22.5, pmt2: -23.5,
+  slot: 3.6,                  // 滑軌格距
+};
+const PIN_KX = OPT.pinhole - 0.9;   // pinhole 傳動軸 / 旋鈕的 x
 {
-  const HW = { x0: -27, x1: 21, z0: -10, z1: 17, y0: -7.5, y1: 7.5, t: 0.6 };
+  const HW = { x0: -32, x1: 21, z0: -10, z1: 17, y0: -7.5, y1: 7.5, t: 0.6 };
   const cx = (HW.x0 + HW.x1) / 2, cz = (HW.z0 + HW.z1) / 2, w = HW.x1 - HW.x0, d = HW.z1 - HW.z0, h = HW.y1 - HW.y0;
   const shell = group(head);
   // 底板
-  shell.add(mesh(box(w, 1, d), M.dark(0x2f333c), cx, HW.y0 + 0.5, cz));
+  shell.add(mesh(box(w - 1.4, 1, d - 1.4), M.dark(0x2f333c), cx, HW.y0 + 0.5, cz));
   // 四面牆（可透明）
   const wall = (gw, gh, gd, x, y, z) => { const m = M.body(0xbfc4cc); m.userData.baseOpacity = 1; wallMats.push(m); housingMats.push(m); const mm = mesh(box(gw, gh, gd), m, x, y, z); shell.add(mm); return mm; };
   wall(w, h, HW.t, cx, 0, HW.z0 + HW.t / 2);                 // 後牆
   wall(w, h, HW.t, cx, 0, HW.z1 - HW.t / 2);                 // 前牆
   wall(HW.t, h, d, HW.x0 + HW.t / 2, 0, cz);                 // 左牆
   wall(HW.t, h, d, HW.x1 - HW.t / 2, 0, cz);                 // 右牆（接顯微鏡）
-  // 前面板細節：Class 3B 警示貼紙 + 型號牌
-  shell.add(mesh(box(6, 2.2, 0.1), M.emissive(0xffb84d, 0.5), -20, 4.5, HW.z1 + 0.05, { shadow: false }));
+  // 前面板：Class 3B 警示貼紙、型號牌、三個滑軌出口、CONFOCAL APERTURE 銘牌與刻度
+  shell.add(mesh(box(6, 2.2, 0.1), M.emissive(0xffb84d, 0.5), -27, 4.5, HW.z1 + 0.05, { shadow: false }));
   shell.add(mesh(box(9, 1.6, 0.1), M.dark(0x1a1d24), 12, -5, HW.z1 + 0.05, { shadow: false }));
-  shell.add(mesh(box(4, 0.1, 27), M.dark(0x33373f), HW.x1 - 2, HW.y0 + 1.01, cz));  // 導軌
-  // 接顯微鏡的埠圈
+  for (const x of [OPT.sdm, OPT.ba1, OPT.ba2]) shell.add(mesh(box(1.8, 1.0, 0.1), M.black(), x, -2.6, HW.z1 + 0.05, { shadow: false }));
+  shell.add(mesh(box(6.5, 0.9, 0.05), M.dark(0x1a1d24), PIN_KX, 6.4, HW.z1 + 0.06, { shadow: false }));
+  for (let i = 0; i < 5; i++) {
+    const a = Math.PI / 2 - (i - 2) * 0.45;   // 順時針遞增：1 在左上、5 在右上
+    shell.add(mesh(box(0.25, 0.6, 0.05), M.emissive(0xd0d4dc, 0.6), PIN_KX + Math.cos(a) * 2.6, 3.1 + Math.sin(a) * 2.6, HW.z1 + 0.06, { rz: a - Math.PI / 2, shadow: false }));
+  }
+  // 接顯微鏡的埠圈（右牆，z=0）
   shell.add(mesh(cyl(3.0, 3.0, 3), M.dark(0x3a3f4a), HW.x1 - 1, 0, 0, { rz: Math.PI / 2 }));
   tag(shell, 'scanhead'); anchor(shell, 'FV300 掃描頭', [cx, 12, cz]);
+
+  // 支架：把掃描頭撐到側埠高度，底板鎖在光學桌上
+  const stand = group(head);
+  stand.add(mesh(box(w - 8, 4.5, d - 8), M.dark(0x262a33), cx, HW.y0 - 2.25, cz));
+  stand.add(mesh(box(w - 2, 0.8, d - 2), M.dark(0x1e222a), cx, HW.y0 - 4.1, cz));
+  tag(stand, 'headStand');
 
   // 上蓋（可掀開，樞軸在後緣）
   lidPivot.position.set(0, HW.y1, HW.z0); head.add(lidPivot);
   const lid = mesh(box(w, HW.t, d), headMat, cx, -HW.t / 2, d / 2);
   lidPivot.add(lid);
   lidPivot.add(mesh(box(w - 6, 0.3, d - 6), M.dark(0x3a3f4a), cx, 0.15, d / 2));  // 頂部飾板
-  // CONFOCAL APERTURE 旋鈕在上蓋上（pinhole 上方）
-  pinKnob.position.set(-11, 0.3, 7 - HW.z0); lidPivot.add(pinKnob);
-  pinKnob.add(mesh(cyl(1.8, 1.9, 1.6), M.black(), 0, 0.8, 0));
-  pinKnob.add(mesh(box(0.3, 0.3, 1.6), M.emissive(0xffffff, 0.4), 0, 1.65, -0.8, { shadow: false }));
-  for (let i = 0; i < 5; i++) {   // 五段刻度
-    const a = (i - 2) * 0.45 - Math.PI / 2;
-    pinKnob.add(mesh(box(0.25, 0.05, 0.5), M.emissive(0xd0d4dc, 0.6), Math.cos(a) * 2.5, 0.02, Math.sin(a) * 2.5, { ry: -a, shadow: false }));
-  }
-  tag(pinKnob, 'pinholeKnob', { force: true });
   tag(lid, 'lid');
+
+  // CONFOCAL APERTURE 旋鈕：在前面板上（不在上蓋），經傳動軸帶動裡面的 pinhole 轉盤
+  pinKnob.position.set(PIN_KX, 3.1, HW.z1); head.add(pinKnob);
+  pinKnob.add(mesh(cyl(1.8, 1.9, 1.6), M.black(), 0, 0, 0.8, { rx: Math.PI / 2 }));
+  pinKnob.add(mesh(box(0.3, 1.5, 0.3), M.emissive(0xffffff, 0.5), 0, 0.95, 1.65, { shadow: false }));   // 指針（朝上 = 第 3 段）
+  tag(pinKnob, 'pinholeKnob', { force: true });
 
   // ---------- 內部光學元件（局部座標，光束高度 y=0）----------
   const inner = group(head);
+  const AX = OPT.AX;
   const post = (x, z, hgt = 6.5) => inner.add(mesh(cyl(0.35, 0.35, hgt), M.metal(0x8a93a3), x, HW.y0 + 1 + hgt / 2, z));
   const holder = (x, z, ry = 0, sz = 4.4) => { const m = mesh(box(0.6, sz, sz), M.dark(0x3a3f4a), x, 0, z, { ry }); inner.add(m); return m; };
+  const lensMount = (x, z, r, part) => { inner.add(tag(mesh(cyl(r, r, 1.2, 32), M.dark(0x3a3f4a), x, 0, z, { rz: Math.PI / 2 }), part)); post(x, z); };
 
-  // 掃描透鏡（靠埠）
-  const scanLens = mesh(cyl(2.4, 2.4, 0.7), M.glass(0xbfe6ff, 0.5), 17, 0, 0, { rz: Math.PI / 2 });
-  inner.add(scanLens); inner.add(tag(mesh(cyl(2.9, 2.9, 1.2, 32), M.dark(0x3a3f4a), 17, 0, 0, { rz: Math.PI / 2 }), 'scanLens')); post(17, 0);
-  tag(scanLens, 'scanLens');
+  // 瞳孔投影鏡（掃描透鏡）：最靠側埠，在側埠光軸 z=0 上
+  const scanLens = mesh(cyl(2.4, 2.4, 0.7), M.glass(0xbfe6ff, 0.5), OPT.scanLens, 0, 0, { rz: Math.PI / 2 });
+  inner.add(tag(scanLens, 'scanLens')); lensMount(OPT.scanLens, 0, 2.9, 'scanLens');
+  anchor(scanLens, '瞳孔投影鏡', [0, 4, 0], { interior: true });
 
-  // 振鏡 Y（慢軸）：鏡面 45°，水平軸擺動；馬達橫放
-  galvoY.position.set(9, 0, 0); galvoY.rotation.order = 'YZX'; galvoY.rotation.y = -Math.PI / 4; inner.add(galvoY);
+  // 振鏡 Y（慢軸）：鏡面 45°，繞水平軸擺動；馬達橫放在鏡面平面內、朝側埠側避開光束
+  galvoY.position.set(OPT.galvo, 0, 0); galvoY.rotation.order = 'YZX'; galvoY.rotation.y = -Math.PI / 4; inner.add(galvoY);
   galvoY.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
   galvoY.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
-  const motY = mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), -0.6, 0, 4.4, { rx: Math.PI / 2 }); galvoY.add(motY);
-  tag(galvoY, 'galvoY'); post(9, 0, 6.5); anchor(galvoY, '振鏡 Y', [0, 4, 0], { interior: true });
+  galvoY.add(mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), -0.6, 0, -4.4, { rx: Math.PI / 2 }));
+  tag(galvoY, 'galvoY'); post(OPT.galvo, 0, 6.5); anchor(galvoY, '振鏡 Y', [0, 4, 0], { interior: true });
 
-  // 振鏡 X（快軸）：鏡面 45°，垂直軸擺動；馬達在下
-  galvoX.position.set(9, 0, 7); galvoX.rotation.y = -Math.PI / 4; inner.add(galvoX);
+  // 振鏡 X（快軸）：鏡面 45°，繞垂直軸擺動；馬達在下
+  galvoX.position.set(OPT.galvo, 0, AX); galvoX.rotation.y = -Math.PI / 4; inner.add(galvoX);
   galvoX.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
   galvoX.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
   galvoX.add(mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), 0, -4.3, 0));
   tag(galvoX, 'galvoX'); anchor(galvoX, '振鏡 X', [0, 4, 0], { interior: true });
 
-  // 激發分光鏡（45°）：反射 +z 來的雷射成 +x，讓 -x 走的螢光穿透
-  const exDM = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.6, side: THREE.DoubleSide }), 1, 0, 7, { ry: Math.PI / 4 });
-  inner.add(exDM); tag(holder(1, 7, Math.PI / 4), 'exDM'); post(1, 7);
+  // 激發分光鏡（45°）：反射 +z 來的雷射成 +x 往振鏡 X；讓 -x 回來的螢光穿透
+  const exDM = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.6, side: THREE.DoubleSide }), OPT.exDM, 0, AX, { ry: Math.PI / 4 });
+  inner.add(exDM); tag(holder(OPT.exDM, AX, Math.PI / 4), 'exDM'); post(OPT.exDM, AX);
   tag(exDM, 'exDM'); anchor(exDM, '激發 DM', [0, 4, 0], { interior: true });
 
-  // 光纖入口 + 準直鏡（後牆）
-  const coll = group(inner, 1, 0, -6);
+  // 光纖入口 + 準直鏡（後壁，朝 +z 射向激發 DM）
+  const coll = group(inner, OPT.exDM, 0, OPT.coll);
   coll.add(mesh(cyl(0.9, 0.9, 3.5), M.metal(0x8a93a3), 0, 0, 0, { rx: Math.PI / 2 }));
   coll.add(mesh(cyl(0.6, 0.6, 3.0), M.dark(0x3a3f4a), 0, 0, -2.8, { rx: Math.PI / 2 }));
   coll.add(mesh(box(2.4, 1, 1.6), M.dark(0x3a3f4a), 0, -1.2, 0));
-  tag(coll, 'fiberPort'); post(1, -6, 5.5);
-
-  // 調整平面玻璃 ×2
-  const glassA = mesh(box(0.35, 3.4, 3.4), M.glass(0xd8f0ff, 0.5), -3, 0, 7, { ry: 0.22 }); inner.add(glassA); tag(glassA, 'glassA'); post(-3, 7);
-  const glassB = mesh(box(0.35, 3.4, 3.4), M.glass(0xd8f0ff, 0.5), -5.5, 0, 7, { rz: 0.22 }); inner.add(glassB); tag(glassB, 'glassB'); post(-5.5, 7);
-  inner.add(tag(mesh(box(0.4, 0.5, 3.8), M.dark(0x3a3f4a), -3, -2.1, 7), 'glassA'));
-  inner.add(tag(mesh(box(0.4, 0.5, 3.8), M.dark(0x3a3f4a), -5.5, -2.1, 7), 'glassB'));
-  anchor(glassA, '調整玻璃', [-1.2, 3.5, 0], { interior: true });
+  tag(coll, 'fiberPort'); post(OPT.exDM, OPT.coll, 5.5);
 
   // 共軛焦透鏡
-  const cLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), -8, 0, 7, { rz: Math.PI / 2 }); inner.add(cLens); tag(cLens, 'confocalLens'); post(-8, 7);
-  inner.add(tag(mesh(cyl(2.2, 2.2, 1.0), M.dark(0x3a3f4a), -8, 0, 7, { rz: Math.PI / 2 }), 'confocalLens'));
+  const cLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), OPT.cLens, 0, AX, { rz: Math.PI / 2 }); inner.add(tag(cLens, 'confocalLens'));
+  lensMount(OPT.cLens, AX, 2.2, 'confocalLens');
+  anchor(cLens, '共軛焦透鏡', [0, 3.6, 0], { interior: true });
 
-  // Pinhole 轉盤：五個孔，轉到底部就在光軸上
-  pinWheel.position.set(-11, 3.1, 7); inner.add(pinWheel);
+  // Pinhole 轉盤：五個孔，轉到最下方的那一孔在光軸上；軸座兼傘齒輪箱，傳動軸通到前面板旋鈕
+  pinWheel.position.set(OPT.pinhole, 3.1, AX); inner.add(pinWheel);
   pinWheel.add(mesh(cyl(3.2, 3.2, 0.35, 48), M.metal(0xb8bfcc), 0, 0, 0, { rz: Math.PI / 2 }));
   const holeR = [0.16, 0.24, 0.32, 0.40, 0.52];
   for (let s = 0; s < 5; s++) {
     const a = s * Math.PI * 2 / 5;
     pinWheel.add(mesh(cyl(holeR[s], holeR[s], 0.4, 20), M.black(), 0, -3.1 * Math.cos(a), 3.1 * Math.sin(a), { rz: Math.PI / 2 }));
   }
-  tag(pinWheel, 'pinhole'); post(-11, 7, 5.5);
-  inner.add(tag(mesh(box(1.2, 2.4, 2.4), M.dark(0x3a3f4a), -11.9, 3.1, 7), 'pinhole'));  // 轉盤軸座
+  tag(pinWheel, 'pinhole'); post(OPT.pinhole, AX, 5.5);
+  inner.add(tag(mesh(box(1.4, 2.4, 2.4), M.dark(0x3a3f4a), PIN_KX, 3.1, AX), 'pinhole'));                       // 軸座 / 齒輪箱
+  inner.add(tag(mesh(cyl(0.3, 0.3, HW.z1 - AX - 1.2), M.metal(0x8a93a3), PIN_KX, 3.1, (AX + 1.2 + HW.z1) / 2, { rx: Math.PI / 2 }), 'pinholeKnob'));   // 傳動軸
   anchor(pinWheel, 'Pinhole', [0, 3.8, 0], { interior: true });
 
-  // 偵測分光鏡滑軌：三片 45° 分光鏡（反射向上 +y 到 CH1，穿透 -x 到 CH2）
-  dmSlider.position.set(-14, 0, 0); inner.add(dmSlider);
-  dmSlider.add(mesh(box(1.2, 0.5, 16), M.dark(0x3a3f4a), 0, -2.6, 13));      // 滑桿（穿出前牆）
-  dmSlider.add(mesh(box(2.2, 2.2, 1.2), M.black(), 0, -2.6, 21.2));           // 把手
+  // 準直透鏡（pinhole 後）
+  const kLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), OPT.collLens, 0, AX, { rz: Math.PI / 2 }); inner.add(tag(kLens, 'collLens'));
+  lensMount(OPT.collLens, AX, 2.2, 'collLens');
+
+  // 滑軌通用件：底桿在光束下方 (y=-2.6) 沿 z 伸出前牆成把手；第 i 格在 z0 + i*slot，上下各一條夾框
+  const sliderRail = (grp, z0, n, ry = 0) => {
+    const zEnd = HW.z1 + 4.0;
+    grp.add(mesh(box(1.2, 0.5, zEnd - z0 + 1.7), M.dark(0x3a3f4a), 0, -2.6, (z0 - 1.7 + zEnd) / 2));
+    grp.add(mesh(box(1.8, 2.0, 1.2), M.black(), 0, -2.6, zEnd + 0.6));
+    for (let i = 0; i < n; i++) {
+      grp.add(mesh(box(0.5, 0.4, 3.4), M.dark(0x3a3f4a), 0, -2.05, z0 + i * OPT.slot, { ry }));
+      grp.add(mesh(box(0.5, 0.4, 3.4), M.dark(0x3a3f4a), 0, 2.05, z0 + i * OPT.slot, { ry }));
+    }
+    grp.add(mesh(box(0.5, 4.5, 0.4), M.dark(0x3a3f4a), 0, -0.35, z0 + (n - 1) * OPT.slot + 1.9));   // 前端立柱把夾框連到底桿
+  };
+
+  // 偵測分光鏡滑軌（SDM）：三片 45° 鏡；反射 -z 往折返鏡 → CH1，穿透 -x → CH2
+  sdmSlider.position.set(OPT.sdm, 0, 0); inner.add(sdmSlider);
+  sliderRail(sdmSlider, AX, 3, Math.PI / 4);
   DM_ORDER.forEach((k, i) => {
-    const z = 7 + 4 * i;
-    const plate = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: DMS[k].color, transparent: k !== 'mirror', opacity: k === 'mirror' ? 1 : 0.7, roughness: 0.05, metalness: k === 'mirror' ? 1 : 0.5, side: THREE.DoubleSide }), 0, 0, z, { rz: Math.PI / 4 });
-    dmSlider.add(plate); dmPlates.push(plate);
-    dmSlider.add(mesh(box(0.5, 1.2, 3.8), M.dark(0x3a3f4a), 0, -2.0, z));
+    const plate = mesh(box(0.25, 3.2, 3.2), new THREE.MeshPhysicalMaterial({ color: DMS[k].color, transparent: k !== 'mirror', opacity: k === 'mirror' ? 1 : 0.7, roughness: 0.05, metalness: k === 'mirror' ? 1 : 0.5, side: THREE.DoubleSide }), 0, 0, AX + OPT.slot * i, { ry: Math.PI / 4 });
+    sdmSlider.add(plate); dmPlates.push(plate);
   });
-  tag(dmSlider, 'detDM'); anchor(dmSlider, '偵測 DM', [0, 3.6, 7], { interior: true });
+  tag(sdmSlider, 'detDM'); anchor(sdmSlider, '偵測 DM (SDM)', [0, 3.6, AX], { interior: true });
 
-  // CH1：向上 → barrier filter → PMT（穿出上蓋）
-  ba1Mesh = mesh(box(3.4, 0.3, 3.4), new THREE.MeshStandardMaterial({ color: 0x44ff88, transparent: true, opacity: 0.6, roughness: 0.1 }), -14, 3.4, 7); inner.add(ba1Mesh); tag(ba1Mesh, 'ba1');
-  inner.add(tag(mesh(box(4.4, 0.8, 4.4), M.dark(0x3a3f4a), -14, 3.4, 7), 'ba1'));
-  const pmt1 = group(inner, -14, 0, 7);
-  pmt1.add(mesh(cyl(1.8, 1.8, 6.5), M.dark(0x33373f), 0, 8.0, 0));
-  pmt1.add(mesh(cyl(2.4, 2.4, 0.6), M.metal(0x8a93a3), 0, 7.5, 0));
-  pmt1.add(mesh(cyl(1.4, 1.4, 1.2), M.black(), 0, 11.6, 0));
-  pmt1.add(mesh(cyl(0.5, 0.5, 2), M.dark(0x1a1d24), 0, 13, 0));
-  tag(pmt1, 'pmt1'); anchor(pmt1, 'PMT CH1', [0, 15.5, 0], { interior: true });
+  // CH1 折返鏡（固定 45°）：-z → -x，讓 CH1 與 CH2 平行
+  const fold = mesh(box(0.25, 3.6, 3.6), M.mirror(), OPT.fold, 0, OPT.ch1z, { ry: Math.PI / 4 });
+  inner.add(tag(fold, 'foldMirror')); tag(holder(OPT.fold, OPT.ch1z, Math.PI / 4), 'foldMirror'); post(OPT.fold, OPT.ch1z);
+  anchor(fold, '折返鏡', [0, 3.6, 0], { interior: true });
 
-  // CH2：穿透 -x → barrier filter → PMT
-  ba2Mesh = mesh(box(0.3, 3.4, 3.4), new THREE.MeshStandardMaterial({ color: 0xff8844, transparent: true, opacity: 0.6, roughness: 0.1 }), -17.5, 0, 7); inner.add(ba2Mesh); tag(ba2Mesh, 'ba2');
-  inner.add(tag(mesh(box(0.8, 4.4, 4.4), M.dark(0x3a3f4a), -17.5, 0, 7), 'ba2')); post(-17.5, 7);
-  const pmt2 = group(inner, -19, 0, 7);
-  pmt2.add(mesh(cyl(1.8, 1.8, 5.5), M.dark(0x33373f), -2.75, 0, 0, { rz: Math.PI / 2 }));
-  pmt2.add(mesh(cyl(2.3, 2.3, 0.6), M.metal(0x8a93a3), -0.3, 0, 0, { rz: Math.PI / 2 }));
-  pmt2.add(mesh(box(2, 3.6, 3.6), M.black(), -6.3, 0, 0));
-  pmt2.add(mesh(box(4, 1.4, 3), M.dark(0x3a3f4a), -3, -2.6, 0));
-  tag(pmt2, 'pmt2'); anchor(pmt2, 'PMT CH2', [-3, 4.5, 0], { interior: true });
+  // CH1 / CH2 Barrier filter 滑軌：兩格（濾片 + 空格）
+  ba1Slider.position.set(OPT.ba1, 0, 0); inner.add(ba1Slider); sliderRail(ba1Slider, OPT.ch1z, 2);
+  ba1Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0x44ff88, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, OPT.ch1z); ba1Slider.add(ba1Mesh);
+  tag(ba1Slider, 'ba1'); anchor(ba1Slider, 'BA1', [0, 3.4, OPT.ch1z], { interior: true });
+  ba2Slider.position.set(OPT.ba2, 0, 0); inner.add(ba2Slider); sliderRail(ba2Slider, AX, 2);
+  ba2Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0xff8844, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, AX); ba2Slider.add(ba2Mesh);
+  tag(ba2Slider, 'ba2'); anchor(ba2Slider, 'BA2', [0, 3.4, AX], { interior: true });
+
+  // 兩支側窗 PMT：橫躺、窗口朝 +x、並排在左端
+  const pmt = (x, z, part, label) => {
+    const g = group(inner, x, 0, z);
+    g.add(mesh(cyl(1.8, 1.8, 5), M.dark(0x33373f), -2.8, 0, 0, { rz: Math.PI / 2 }));      // 管身 x -5.3..-0.3
+    g.add(mesh(cyl(2.3, 2.3, 0.6), M.metal(0x8a93a3), -0.3, 0, 0, { rz: Math.PI / 2 }));    // 窗口法蘭
+    g.add(mesh(box(1.8, 3.6, 3.6), M.black(), -6.2, 0, 0));                                  // 插座
+    g.add(mesh(box(5, 1.2, 3), M.dark(0x3a3f4a), -3.3, -2.7, 0));                            // 座
+    tag(g, part); anchor(g, label, [-3, 4.5, 0], { interior: true });
+    return g;
+  };
+  pmt(OPT.pmt1, OPT.ch1z, 'pmt1', 'PMT CH1');
+  pmt(OPT.pmt2, AX, 'pmt2', 'PMT CH2');
 }
 
 // ============================================================
@@ -985,8 +1052,8 @@ function cable(points, r = 0.5, color = 0x3a3f4a) {
   const m = new THREE.Mesh(new THREE.TubeGeometry(c, 48, r, 8, false), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
   m.castShadow = true; scene.add(m); return m;
 }
-cable([[-100, 7, 13], [-98, 2, 0], [-84, 1.2, -4], [-72, 3, 2], [-70.2, 6, 4]], 0.55);
-cable([[32, 6, -55], [26, 14, -60], [12, 40, -58], [2, 58, -42], [0, 58, -31.5]], 0.35);
+cable([[-100, 7, 13], [-98, 2, 0], [-86, 1.2, -4], [-78, 3, 0], [-74.2, 8, 0]], 0.55);
+cable([[32, 6, -55], [26, 14, -62], [12, 40, -62], [2, 60, -48], [0, 60, -36]], 0.35);
 cable([[105, 21, -12], [90, 6, -35], [30, 1.2, -60], [-60, 1.2, -68], [-100, 4, -20], [-100, 7, 13]], 0.45, 0x2a2e37);
 
 // ============================================================
@@ -1078,28 +1145,31 @@ function buildPaths() {
   const ex = [];
   ex.push(new THREE.Vector3(lg.x, lg.y, lg.z), new THREE.Vector3(COMBINER_X, lg.y, lg.z));
   for (const p of fiberPts) ex.push(p);
-  // 掃描頭內部
-  const coll = H(1, 0, -4.2), exDM = H(1, 0, 7);
-  const P1 = H(9, 0, 7);                                       // 振鏡 X 中心
+  // 掃描頭內部：準直鏡 → 激發 DM → 振鏡 X → 振鏡 Y → 瞳孔投影鏡
+  const AX = OPT.AX;
+  const coll = H(OPT.exDM, 0, OPT.coll + 1.8), exDM = H(OPT.exDM, 0, AX);
+  const P1 = H(OPT.galvo, 0, AX);                              // 振鏡 X 中心
   const thX = -Math.PI / 4 + scan.ax;
   const nX = new THREE.Vector3(Math.cos(thX), 0, -Math.sin(thX));
-  const d1 = reflect(new THREE.Vector3(1, 0, 0), nX);          // 往振鏡 Y
+  const d1 = reflect(new THREE.Vector3(1, 0, 0), nX);          // 往振鏡 Y (-z)
   const c = Math.cos(scan.ay), s = Math.sin(scan.ay);
   const nY = new THREE.Vector3(c / Math.SQRT2, s, c / Math.SQRT2);
-  const Q2 = planeHit(P1, d1, H(9, 0, 0), nY);
-  const d2 = reflect(d1, nY);                                  // 往掃描透鏡 (+x)
-  const Q3 = planeHit(Q2, d2, H(17, 0, 0), new THREE.Vector3(1, 0, 0));
+  const Q2 = planeHit(P1, d1, H(OPT.galvo, 0, 0), nY);
+  const d2 = reflect(d1, nY);                                  // 往瞳孔投影鏡 (+x)
+  const Q3 = planeHit(Q2, d2, H(OPT.scanLens, 0, 0), new THREE.Vector3(1, 0, 0));
   paths.Q3.copy(Q3);
-  const tube = new THREE.Vector3(-8, PORT_Y, AXIS.z), turn = new THREE.Vector3(AXIS.x, PORT_Y, AXIS.z);
+  // IX71：側埠 → 稜鏡（轉向上）→ 管鏡 → 物鏡 → 焦點
+  const prism = new THREE.Vector3(AXIS.x, PORT_Y, AXIS.z), tube = new THREE.Vector3(AXIS.x, TUBE_Y, AXIS.z);
   const objBack = new THREE.Vector3(AXIS.x, OBJ_BACK_Y, AXIS.z), objFront = new THREE.Vector3(AXIS.x, OBJ_TOP_Y, AXIS.z);
   const F = new THREE.Vector3(AXIS.x + scan.sx * 0.6, FOCUS_Y, AXIS.z + scan.sy * 0.6);
   paths.F.copy(F);
-  ex.push(coll, exDM, P1, Q2, Q3, tube, turn, objBack, objFront, F);
+  ex.push(coll, exDM, P1, Q2, Q3, prism, tube, objBack, objFront, F);
   paths.ex = ex; paths.exFree = ex.slice(0, 2); paths.exHead = ex.slice(-10);
-  // 螢光回程：焦點 → … → 激發 DM 穿透 → 調整玻璃 → 共軛焦透鏡 → pinhole → 偵測 DM
-  paths.em = [F, objFront, objBack, turn, tube, Q3, Q2, P1, exDM, H(-3, 0, 7), H(-5.5, 0, 7), H(-8, 0, 7), H(-11, 0, 7), H(-14, 0, 7)];
-  paths.ch1 = [H(-14, 0, 7), H(-14, 3.4, 7), H(-14, 5.2, 7)];
-  paths.ch2 = [H(-14, 0, 7), H(-17.5, 0, 7), H(-19.2, 0, 7)];
+  // 螢光回程：焦點 → … → 激發 DM 穿透 → 共軛焦透鏡 → pinhole → 準直透鏡 → SDM
+  paths.em = [F, objFront, objBack, tube, prism, Q3, Q2, P1, exDM, H(OPT.cLens, 0, AX), H(OPT.pinhole, 0, AX), H(OPT.collLens, 0, AX), H(OPT.sdm, 0, AX)];
+  // CH1：SDM 反射 -z → 折返鏡 → -x → BA1 → PMT1；CH2：SDM 穿透 -x → BA2 → PMT2
+  paths.ch1 = [H(OPT.sdm, 0, AX), H(OPT.fold, 0, OPT.ch1z), H(OPT.ba1, 0, OPT.ch1z), H(OPT.pmt1 - 0.3, 0, OPT.ch1z)];
+  paths.ch2 = [H(OPT.sdm, 0, AX), H(OPT.ba2, 0, AX), H(OPT.pmt2 - 0.3, 0, AX)];
 }
 
 // ============================================================
@@ -1227,8 +1297,8 @@ function syncUI() {
   emPhotonMat.color.set(L.fluorColor).multiplyScalar(2.2); emSpot.material.color.set(L.fluorColor); pinSpot.material.color.set(L.fluorColor);
   ch1Mat.color.set(L.fluorColor).multiplyScalar(1.4); ch2Mat.color.set(L.fluorColor).multiplyScalar(1.4);
   ch1Mat.opacity = Math.min(0.85, r.ch1Frac / 0.9 * 0.85); ch2Mat.opacity = Math.min(0.85, r.ch2Frac / 0.9 * 0.85);
-  ba1Mesh.material.color.setHex(FILTERS[state.ch1Filter].color); ba1Mesh.material.opacity = state.ch1Filter === 'none' ? 0.15 : 0.6;
-  ba2Mesh.material.color.setHex(FILTERS[state.ch2Filter].color); ba2Mesh.material.opacity = state.ch2Filter === 'none' ? 0.15 : 0.6;
+  if (state.ch1Filter !== 'none') ba1Mesh.material.color.setHex(FILTERS[state.ch1Filter].color);
+  if (state.ch2Filter !== 'none') ba2Mesh.material.color.setHex(FILTERS[state.ch2Filter].color);
   leds.laser.material.color.set(L.color); leds.laser.material.emissive.set(L.color);
   // chips
   document.querySelectorAll('#laserChips button').forEach(b => b.classList.toggle('on', +b.dataset.laser === state.laser));
@@ -1263,11 +1333,13 @@ $('labelBtn').addEventListener('click', () => { state.labels = !state.labels; sy
 // ============================================================
 const VIEWS = {
   overview: { pos: [70, 115, 165], tgt: [-20, 8, -12] },
-  head:     { pos: [-38, 62, 62], tgt: [-46, 12, 5], lid: true },
+  head:     { pos: [-40, 64, 62], tgt: [-48, 12, 4], lid: true },
   focus:    { pos: [15, 41, 30], tgt: [0, 25, 2] },
-  path:     { pos: [-20, 105, 75], tgt: [-25, 14, 0], lid: true, xray: true },
+  path:     { pos: [-22, 105, 78], tgt: [-26, 14, 0], lid: true, xray: true },
   lasers:   { pos: [-10, 42, -105], tgt: [-42, 6, -45] },
   pc:       { pos: [75, 30, 40], tgt: [75, 24, -14] },
+  front:    { pos: [-36, 26, 62], tgt: [-46, 10, 12] },
+  operator: { pos: [4, 44, 78], tgt: [0, 22, -2] },
 };
 const fly = { active: false, t: 0, dur: 1.2, p0: new THREE.Vector3(), p1: new THREE.Vector3(), t0: new THREE.Vector3(), t1: new THREE.Vector3() };
 function flyTo(pos, tgt, dur = 1.2) {
@@ -1307,9 +1379,9 @@ function liveRows(part, objKey) {
   switch (part) {
     case 'objective': { const o = OBJECTIVES[objKey || state.objective]; rows.push(['型號', o.label], ['NA', o.na], ['工作距離 WD', o.wd + ' mm'], ['瞳孔直徑', o.pupil + ' mm'], ['浸液', o.oil ? '油 (n=1.515)' : '空氣']); if ((objKey || state.objective) === state.objective) rows.push(['焦點光斑半徑', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break; }
     case 'focus': case 'sample': rows.push(['雷射', L.name], ['有效 NA', fmt(r.effectiveNA)], ['光斑半徑 (1/e²)', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['主要染料', L.dye]); break;
-    case 'pinhole': case 'pinholeKnob': case 'confocalLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break;
+    case 'pinhole': case 'pinholeKnob': case 'confocalLens': case 'collLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break;
     case 'detDM': rows.push(['目前', DMS[state.detDM].label], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['→ CH1', Math.round(r.ch1Frac / 0.9 * 100) + ' %（含 BA）'], ['→ CH2', Math.round(r.ch2Frac / 0.9 * 100) + ' %（含 BA）']); break;
-    case 'ba1': case 'pmt1': rows.push(['目前濾片', FILTERS[state.ch1Filter].label], ['通帶', FILTERS[state.ch1Filter].type === 'open' ? '全開' : FILTERS[state.ch1Filter].type === 'lp' ? `> ${FILTERS[state.ch1Filter].lo} nm` : `${FILTERS[state.ch1Filter].lo}–${FILTERS[state.ch1Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH1 訊號', Math.round(r.ch1Signal * 100) + ' %']); break;
+    case 'ba1': case 'pmt1': case 'foldMirror': rows.push(['目前濾片', FILTERS[state.ch1Filter].label], ['通帶', FILTERS[state.ch1Filter].type === 'open' ? '全開' : FILTERS[state.ch1Filter].type === 'lp' ? `> ${FILTERS[state.ch1Filter].lo} nm` : `${FILTERS[state.ch1Filter].lo}–${FILTERS[state.ch1Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH1 訊號', Math.round(r.ch1Signal * 100) + ' %']); break;
     case 'ba2': case 'pmt2': rows.push(['目前濾片', FILTERS[state.ch2Filter].label], ['通帶', FILTERS[state.ch2Filter].type === 'open' ? '全開' : FILTERS[state.ch2Filter].type === 'lp' ? `> ${FILTERS[state.ch2Filter].lo} nm` : `${FILTERS[state.ch2Filter].lo}–${FILTERS[state.ch2Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH2 訊號', Math.round(r.ch2Signal * 100) + ' %']); break;
     case 'exDM': case 'fiber': case 'fiberPort': case 'combiner': rows.push(['目前雷射', L.name], ['激發', L.dyes], ['功率', state.power + ' %'], ['瞳孔填充率', Math.round(r.fillFactor * 100) + ' %']); break;
     case 'galvoX': case 'galvoY': rows.push(['掃描', state.scanning ? '進行中' : '停止'], ['影像', `${N} × ${N} px（示意）`], ['行時間', (1000 / scan.linesPerSec).toFixed(0) + ' ms'], ['幀時間', (N / scan.linesPerSec).toFixed(1) + ' s']); break;
@@ -1380,7 +1452,8 @@ function updateLabels() {
 //  動畫主迴圈
 // ============================================================
 const clock = new THREE.Clock();
-let lidAngle = 0, wallOpacity = 1, xrayMix = 0, turretAngle = turret.rotation.y, wheelAngle = 0, sliderZ = 0;
+let lidAngle = 0, wallOpacity = 1, xrayMix = 0, turretAngle = turret.rotation.y, wheelAngle = (state.pinhole - 1) * Math.PI * 2 / 5;
+let sdmZ = -OPT.slot * DM_ORDER.indexOf(state.detDM), ba1Z = 0, ba2Z = 0;
 const lerp = (a, b, t) => a + (b - a) * t;
 function angleLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; }
 let lastLine = 0;
@@ -1411,8 +1484,11 @@ function animate() {
 
   // 轉盤 / pinhole / DM 滑軌
   turretAngle = angleLerp(turretAngle, turretAngleFor(state.objective), k); turret.rotation.y = turretAngle;
-  wheelAngle = angleLerp(wheelAngle, (state.pinhole - 1) * Math.PI * 2 / 5, k); pinWheel.rotation.x = wheelAngle; pinKnob.rotation.y = -((state.pinhole - 3) * 0.45) * 1 + (wheelAngle - (state.pinhole - 1) * Math.PI * 2 / 5) * 0.3;
-  sliderZ = lerp(sliderZ, -4 * DM_ORDER.indexOf(state.detDM), k); dmSlider.position.z = sliderZ;
+  wheelAngle = angleLerp(wheelAngle, (state.pinhole - 1) * Math.PI * 2 / 5, k); pinWheel.rotation.x = wheelAngle;
+  pinKnob.rotation.z = lerp(pinKnob.rotation.z, -(state.pinhole - 3) * 0.45, k);
+  sdmZ = lerp(sdmZ, -OPT.slot * DM_ORDER.indexOf(state.detDM), k); sdmSlider.position.z = sdmZ;
+  ba1Z = lerp(ba1Z, state.ch1Filter === 'none' ? -OPT.slot : 0, k); ba1Slider.position.z = ba1Z;
+  ba2Z = lerp(ba2Z, state.ch2Filter === 'none' ? -OPT.slot : 0, k); ba2Slider.position.z = ba2Z;
 
   // 掃描：光柵位置 → 振鏡角度 → 光路
   if (state.scanning) {
@@ -1437,7 +1513,7 @@ function animate() {
   const pulse = 0.85 + 0.15 * Math.sin(t * 9);
   focusSpot.visible = exOn; focusSpot.position.copy(paths.F); focusSpot.scale.setScalar(2.2 * pulse * (0.6 + 0.4 * state.power / 100));
   emSpot.visible = emOn; emSpot.position.copy(paths.F); emSpot.scale.setScalar(4.2 * pulse);
-  pinSpot.visible = emOn; pinSpot.position.copy(H(-11, 0, 7)); pinSpot.scale.setScalar(1.4 + 0.6 * (state.pinhole - 1) / 4);
+  pinSpot.visible = emOn; pinSpot.position.copy(H(OPT.pinhole, 0, OPT.AX)); pinSpot.scale.setScalar(1.4 + 0.6 * (state.pinhole - 1) / 4);
 
   // 光子
   if (state.photons) {
