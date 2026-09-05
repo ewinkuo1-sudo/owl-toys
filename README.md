@@ -8,7 +8,7 @@
 
 | 玩具 | 說明 |
 |---|---|
-| [FLIM Phasor 遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/flim-phasor-playground.html) | 螢光壽命 phasor 圖：單指數在半圓上、混合在弦上、光子數決定點雲；g/s = IQ 解調分量 |
+| [FLIM Phasor 遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/flim-phasor-playground.html) | 從 TCSPC 直方圖取諧波算 phasor：半圓、弦、IRF 校正、背景、二次諧波、非圓形雜訊點雲；合成 FLIM 影像＋游標圈選反查像素與其衰減 |
 | [反卷積互動實驗台](https://ewinkuo1-sudo.github.io/owl-toys/deconvolution-playground.html) | Richardson-Lucy 迭代滑桿看 semi-convergence：迭代過頭雜訊放大成 ringing |
 | [共軛焦 Pinhole 模擬](https://ewinkuo1-sudo.github.io/owl-toys/pinhole-playground.html) | FV300 五段 CONFOCAL APERTURE 旋鈕換算 AU → 切片厚度 vs 收光量；反射式硬幣實測對照：最小針孔＝等高線儀，掃 z、z-stack 重建高度圖 |
 | [桌面反射梳狀濾波模擬](https://ewinkuo1-sudo.github.io/owl-toys/desk-comb-filter.html) | 桌面反射幾何 → 梳狀濾波頻響，為什麼 EQ 修不了 600 Hz 梳齒 |
