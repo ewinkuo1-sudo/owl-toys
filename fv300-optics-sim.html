@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FV300 光路模擬器 🦉</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --line: #262b36;
+    --ink: #e8e9ee;
+    --muted: #98a0b0;
+    --faint: #5c6474;
+    --accent: #6ec6ff;
+    --accent-dim: rgba(110,198,255,0.14);
+    --green: #7ee787;
+    --green-dim: rgba(126,231,135,0.18);
+    --red: #ff7b72;
+    --red-dim: rgba(255,123,114,0.18);
+    --amber: #ffb86c;
+    --purple: #d2a8ff;
+    --cyan: #79c0ff;
+    --radius: 14px;
+    --laser-488: #00bbff;
+    --laser-543: #8aff5a;
+    --laser-633: #ff4444;
+    --fluor-green: #44ff88;
+    --fluor-red: #ff8844;
+    --fluor-far-red: #ff4466;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0; padding: 28px 20px 48px;
+    background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+  .hero { display: flex; flex-direction: column; gap: 6px; padding: 4px 4px 2px; }
+  .eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
+  h1 { font-size: 1.55rem; margin: 0; font-weight: 650; letter-spacing: 0.01em; }
+  .hero p { margin: 0; color: var(--muted); max-width: 820px; font-size: 0.92rem; }
+  .hero b { color: var(--ink); font-weight: 600; }
+
+  h2 { font-size: 1.05rem; margin: 0 0 12px; font-weight: 650; display: flex; align-items: baseline; gap: 10px; }
+  h2 small { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+  h3 { font-size: 0.8rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .grid { display: grid; gap: 18px; }
+  .main-grid { grid-template-columns: 1fr; }
+  .ctrl-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .result-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button {
+    padding: 6px 11px; cursor: pointer; font: inherit; font-size: 0.8rem;
+    background: var(--panel2); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; transition: all .12s;
+  }
+  .chips button:hover { color: var(--ink); border-color: var(--faint); }
+  .chips button.on { background: var(--accent); color: #0c1219; border-color: var(--accent); font-weight: 600; }
+  .chips button.laser-488.on { background: var(--laser-488); border-color: var(--laser-488); }
+  .chips button.laser-543.on { background: var(--laser-543); border-color: var(--laser-543); color: #0c1219; }
+  .chips button.laser-633.on { background: var(--laser-633); border-color: var(--laser-633); }
+
+  .ctl label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; margin-bottom: 4px; color: var(--muted); }
+  .ctl output { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
+  .note { font-size: 0.76rem; color: var(--faint); line-height: 1.5; }
+
+  .stat-box { text-align: center; padding: 14px; }
+  .stat-box .val { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat-box .lbl { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+  canvas { display: block; width: 100%; border-radius: 8px; background: #0a0c10; }
+
+  .tag { display: inline-block; padding: 2px 8px; font-size: 0.72rem; border-radius: 999px; font-weight: 600; }
+  .tag.pass { background: var(--green-dim); color: var(--green); }
+  .tag.block { background: var(--red-dim); color: var(--red); }
+
+  @media (max-width: 860px) {
+    .ctrl-grid { grid-template-columns: 1fr; }
+    body { padding: 16px 12px 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <div class="eyebrow">Owl Toys — Optics</div>
+    <h1>FV300 光路模擬器</h1>
+    <p>互動式模擬 <b>Olympus FluoView FV300 / IX71</b> 共軛焦顯微鏡的完整光路。
+       調整入射光發散度、振鏡角度、針孔大小、濾片組合，觀察光線追跡與成像效果。</p>
+  </div>
+
+  <!-- ===== 控制面板 ===== -->
+  <div class="grid ctrl-grid">
+    <div class="card stack">
+      <h2>雷射光源 <small>Laser Source</small></h2>
+      <h3>選擇雷射</h3>
+      <div class="chips" id="laserChips">
+        <button class="laser-488" data-laser="488" onclick="setLaser(488)">Ar 488 nm</button>
+        <button class="laser-543 on" data-laser="543" onclick="setLaser(543)">HeNe 543 nm</button>
+        <button class="laser-633" data-laser="633" onclick="setLaser(633)">HeNe 633 nm</button>
+      </div>
+      <div class="ctl">
+        <label>光束發散半角 <output id="divOut">0.5</output> mrad</label>
+        <input type="range" id="divSlider" min="0.1" max="5" step="0.1" value="0.5"
+               oninput="state.divergence=+this.value; divOut.textContent=this.value; update()">
+      </div>
+      <div class="ctl">
+        <label>雷射功率 <output id="powerOut">10</output> %</label>
+        <input type="range" id="powerSlider" min="1" max="100" step="1" value="10"
+               oninput="state.power=+this.value; powerOut.textContent=this.value; update()">
+      </div>
+      <div class="note">發散角越大 → 光束到物鏡時越粗 → 不完全填充瞳孔時解析度下降</div>
+    </div>
+
+    <div class="card stack">
+      <h2>掃描頭 <small>Scan Unit</small></h2>
+      <div class="ctl">
+        <label>振鏡 X 角度 <output id="galvoXOut">0.0</output>°</label>
+        <input type="range" id="galvoX" min="-12" max="12" step="0.5" value="0"
+               oninput="state.galvoX=+this.value; galvoXOut.textContent=(+this.value).toFixed(1); update()">
+      </div>
+      <div class="ctl">
+        <label>振鏡 Y 角度 <output id="galvoYOut">0.0</output>°</label>
+        <input type="range" id="galvoY" min="-12" max="12" step="0.5" value="0"
+               oninput="state.galvoY=+this.value; galvoYOut.textContent=(+this.value).toFixed(1); update()">
+      </div>
+      <div class="ctl">
+        <label>Pinhole 段位 <output id="pinOut">3</output></label>
+        <input type="range" id="pinSlider" min="1" max="5" step="1" value="3"
+               oninput="state.pinhole=+this.value; pinOut.textContent=this.value; update()">
+      </div>
+      <div class="note">Pinhole 1 = 最小（~60 μm）→ 最薄光學切片；5 = 最大（~300 μm）→ 最亮</div>
+    </div>
+
+    <div class="card stack">
+      <h2>偵測光路 <small>Detection Path</small></h2>
+      <h3>偵測分光鏡</h3>
+      <div class="chips" id="dmChips">
+        <button onclick="setDM('mirror')">Mirror</button>
+        <button class="on" onclick="setDM('DM570')">DM570</button>
+        <button onclick="setDM('DM630')">DM630</button>
+      </div>
+      <h3>CH1 Barrier Filter</h3>
+      <div class="chips" id="ch1Chips">
+        <button class="on" onclick="setCH1('BA505-525')">BA505-525</button>
+        <button onclick="setCH1('BA510-550')">BA510-550</button>
+        <button onclick="setCH1('none')">無</button>
+      </div>
+      <h3>CH2 Barrier Filter</h3>
+      <div class="chips" id="ch2Chips">
+        <button class="on" onclick="setCH2('BA560-600')">BA560-600</button>
+        <button onclick="setCH2('BA660IF')">BA660IF</button>
+        <button onclick="setCH2('BA610IF')">BA610IF</button>
+        <button onclick="setCH2('none')">無</button>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <h2>物鏡 / 樣品 <small>Objective & Sample</small></h2>
+      <h3>物鏡選擇</h3>
+      <div class="chips" id="objChips">
+        <button onclick="setObj('10x')">UPLSAPO 10X</button>
+        <button class="on" onclick="setObj('20x')">UPLAPO 20X</button>
+        <button onclick="setObj('40x')">UPLAPO 40X</button>
+        <button onclick="setObj('60x')">UPLSAPO 60X Oil</button>
+      </div>
+      <div class="ctl">
+        <label>樣品焦面深度 <output id="zOut">0</output> μm</label>
+        <input type="range" id="zSlider" min="-50" max="50" step="1" value="0"
+               oninput="state.zOffset=+this.value; zOut.textContent=this.value; update()">
+      </div>
+      <div class="note">離焦時焦外螢光被 pinhole 擋住 → 影像亮度下降、切片效果顯現</div>
+    </div>
+  </div>
+
+  <!-- ===== 光路圖 ===== -->
+  <div class="card">
+    <h2>光路追跡 <small>Ray Trace — 側視圖 (XZ 平面)</small></h2>
+    <canvas id="pathCanvas" height="520"></canvas>
+  </div>
+
+  <!-- ===== 數值結果 ===== -->
+  <div class="grid result-grid">
+    <div class="card stat-box">
+      <div class="val" id="spotVal">--</div>
+      <div class="lbl">物鏡焦點光斑 (μm)</div>
+    </div>
+    <div class="card stat-box">
+      <div class="val" id="airyVal">--</div>
+      <div class="lbl">Airy disk 半徑 (μm)</div>
+    </div>
+    <div class="card stat-box">
+      <div class="val" id="sliceVal">--</div>
+      <div class="lbl">光學切片厚度 (μm)</div>
+    </div>
+    <div class="card stat-box">
+      <div class="val" id="pinholeEffVal">--</div>
+      <div class="lbl">Pinhole 效率</div>
+    </div>
+    <div class="card stat-box">
+      <div class="val" id="ch1Val">--</div>
+      <div class="lbl">CH1 PMT 訊號</div>
+    </div>
+    <div class="card stat-box">
+      <div class="val" id="ch2Val">--</div>
+      <div class="lbl">CH2 PMT 訊號</div>
+    </div>
+  </div>
+
+  <!-- ===== 濾片光譜圖 ===== -->
+  <div class="card">
+    <h2>濾片透射光譜 <small>Filter Transmission Spectra</small></h2>
+    <canvas id="specCanvas" height="280"></canvas>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+//  FV300 Optics Simulator — Core Engine
+// ============================================================
+
+// --- State ---
+const state = {
+  laser: 543,
+  divergence: 0.5,   // mrad half-angle
+  power: 10,          // %
+  galvoX: 0,          // degrees
+  galvoY: 0,
+  pinhole: 3,         // 1-5
+  detDM: 'DM570',
+  ch1Filter: 'BA505-525',
+  ch2Filter: 'BA560-600',
+  objective: '20x',
+  zOffset: 0,         // μm defocus
+};
+
+// --- Optical database ---
+const LASERS = {
+  488: { wl: 488, color: '#00bbff', name: 'Ar 488 nm', beamDia: 0.7 },
+  543: { wl: 543, color: '#8aff5a', name: 'HeNe 543 nm', beamDia: 0.8 },
+  633: { wl: 633, color: '#ff4444', name: 'HeNe 633 nm', beamDia: 0.8 },
+};
+
+const OBJECTIVES = {
+  '10x': { mag: 10, na: 0.40, fl: 18.0, wd: 3.1,  label: 'UPLSAPO 10X',    pupil: 14.4 },
+  '20x': { mag: 20, na: 0.75, fl: 9.0,  wd: 0.6,  label: 'UPLAPO 20X',     pupil: 13.5 },
+  '40x': { mag: 40, na: 0.85, fl: 4.5,  wd: 0.2,  label: 'UPLAPO 40X',     pupil: 7.65 },
+  '60x': { mag: 60, na: 1.35, fl: 3.0,  wd: 0.15, label: 'UPLSAPO 60X Oil', pupil: 8.1, oil: true },
+};
+
+const PINHOLE_DIAMETERS = { 1: 60, 2: 100, 3: 150, 4: 200, 5: 300 }; // μm
+
+const FILTERS = {
+  'BA505-525': { type: 'bp', lo: 505, hi: 525, label: 'BA505-525', color: '#44ff88' },
+  'BA510-550': { type: 'bp', lo: 510, hi: 550, label: 'BA510-550', color: '#66ff99' },
+  'BA560-600': { type: 'bp', lo: 560, hi: 600, label: 'BA560-600', color: '#ff8844' },
+  'BA660IF':   { type: 'lp', lo: 660, hi: 900, label: 'BA660IF',   color: '#ff4466' },
+  'BA610IF':   { type: 'lp', lo: 610, hi: 900, label: 'BA610IF',   color: '#ff6644' },
+  'none':      { type: 'open', lo: 400, hi: 900, label: '無', color: '#888' },
+};
+
+const DMS = {
+  'mirror':  { cutoff: null, label: 'Mirror (全反射至 CH1)' },
+  'DM570':   { cutoff: 570,  label: 'DM570 (570 nm 分割)' },
+  'DM630':   { cutoff: 630,  label: 'DM630 (630 nm 分割)' },
+};
+
+// Common fluorophore emission peaks for reference
+const FLUOROPHORES = {
+  'FITC':      { exPeak: 495, emPeak: 519, emRange: [500, 600], color: '#44ff88' },
+  'GFP':       { exPeak: 488, emPeak: 507, emRange: [495, 580], color: '#55ff77' },
+  'TRITC':     { exPeak: 550, emPeak: 573, emRange: [555, 650], color: '#ff8844' },
+  'Cy3':       { exPeak: 550, emPeak: 570, emRange: [555, 640], color: '#ff9944' },
+  'Cy5':       { exPeak: 649, emPeak: 670, emRange: [655, 750], color: '#ff4466' },
+  'Alexa 546': { exPeak: 556, emPeak: 573, emRange: [558, 650], color: '#ff7744' },
+  'Alexa 647': { exPeak: 650, emPeak: 668, emRange: [655, 750], color: '#ff3366' },
+};
+
+// --- UI wiring ---
+function setLaser(wl) {
+  state.laser = wl;
+  document.querySelectorAll('#laserChips button').forEach(b => b.classList.toggle('on', +b.dataset.laser === wl));
+  update();
+}
+function setDM(dm) {
+  state.detDM = dm;
+  document.querySelectorAll('#dmChips button').forEach((b, i) => {
+    const keys = ['mirror','DM570','DM630'];
+    b.classList.toggle('on', keys[i] === dm);
+  });
+  update();
+}
+function setCH1(f) {
+  state.ch1Filter = f;
+  const keys = ['BA505-525','BA510-550','none'];
+  document.querySelectorAll('#ch1Chips button').forEach((b, i) => b.classList.toggle('on', keys[i] === f));
+  update();
+}
+function setCH2(f) {
+  state.ch2Filter = f;
+  const keys = ['BA560-600','BA660IF','BA610IF','none'];
+  document.querySelectorAll('#ch2Chips button').forEach((b, i) => b.classList.toggle('on', keys[i] === f));
+  update();
+}
+function setObj(o) {
+  state.objective = o;
+  const keys = ['10x','20x','40x','60x'];
+  document.querySelectorAll('#objChips button').forEach((b, i) => b.classList.toggle('on', keys[i] === o));
+  update();
+}
+
+// ============================================================
+//  Physics Engine
+// ============================================================
+
+function computeOptics() {
+  const laser = LASERS[state.laser];
+  const obj = OBJECTIVES[state.objective];
+  const wl_um = laser.wl / 1000; // wavelength in μm
+  const n = obj.oil ? 1.515 : 1.0;
+
+  // Beam diameter at objective back aperture
+  // beam expands from fiber output through scan lens and tube lens
+  const scanLensFl = 50;    // mm, scan lens focal length
+  const tubeLensFl = 180;   // mm, Olympus tube lens
+  const fiberToScan = 120;  // mm, fiber output to scan lens
+  const beamAtFiber = laser.beamDia; // mm
+  const divergenceRad = state.divergence / 1000;
+  const beamAtScanLens = beamAtFiber + 2 * fiberToScan * divergenceRad;
+  const magnification_relay = tubeLensFl / scanLensFl;
+  const beamAtPupil = beamAtScanLens * magnification_relay; // mm
+
+  // Fill factor
+  const fillFactor = beamAtPupil / obj.pupil;
+  const effectiveNA = Math.min(obj.na, obj.na * fillFactor);
+
+  // Airy disk radius: r = 0.61 * λ / NA
+  const airyRadius = 0.61 * wl_um / effectiveNA; // μm
+
+  // Spot size (1/e² radius for Gaussian beam)
+  const spotRadius = wl_um / (Math.PI * effectiveNA); // μm
+
+  // Optical section thickness (FWHM) with pinhole
+  const pinholeD = PINHOLE_DIAMETERS[state.pinhole]; // μm
+  const pinholeInSampleSpace = pinholeD / obj.mag; // μm, projected to sample
+  // Axial resolution: dz = (0.88 * λ) / (n - sqrt(n² - NA²))
+  const axialPSF = (0.88 * wl_um) / (n - Math.sqrt(n * n - effectiveNA * effectiveNA));
+  // With pinhole: effective section ~ sqrt(axialPSF² + (pinhole_proj / sqrt(2))²)
+  const pinholeContrib = pinholeInSampleSpace / Math.sqrt(2);
+  const sliceThickness = Math.sqrt(axialPSF * axialPSF + pinholeContrib * pinholeContrib);
+
+  // Pinhole efficiency: ratio of Airy pattern energy within pinhole
+  // Approximate: for pinhole >> Airy, efficiency → 1; for pinhole ~ Airy, ~0.84
+  const airyAtPinhole = airyRadius * obj.mag; // Airy disk at pinhole plane (μm)
+  const pinholeAiryRatio = (pinholeD / 2) / airyAtPinhole;
+  // Encircled energy approximation for Airy pattern
+  const pinholeEff = pinholeAiryRatio >= 3 ? 1.0 :
+    1 - Math.exp(-3.67 * pinholeAiryRatio * pinholeAiryRatio);
+
+  // Defocus effect: when z != 0, the spot at pinhole spreads
+  const defocusSpread = Math.abs(state.zOffset) * effectiveNA * obj.mag; // μm approx
+  const totalSpotAtPinhole = Math.sqrt((airyAtPinhole * 2) ** 2 + defocusSpread ** 2);
+  const defocusPinholeEff = pinholeAiryRatio >= 3 && state.zOffset === 0 ? 1.0 :
+    Math.max(0.01, pinholeEff * Math.exp(-0.5 * (defocusSpread / (pinholeD / 2)) ** 2));
+
+  // Filter transmission estimation
+  const dm = DMS[state.detDM];
+  const ch1f = FILTERS[state.ch1Filter];
+  const ch2f = FILTERS[state.ch2Filter];
+
+  // Simple emission model: assume fluorophore emits a Gaussian centered at emPeak
+  // For now, use a representative fluorophore based on laser
+  let emPeak, emSigma;
+  if (state.laser === 488) { emPeak = 515; emSigma = 25; }
+  else if (state.laser === 543) { emPeak = 575; emSigma = 25; }
+  else { emPeak = 668; emSigma = 25; }
+
+  function filterTransmission(filter, wavelength) {
+    if (filter.type === 'open') return 1.0;
+    if (filter.type === 'bp') {
+      if (wavelength >= filter.lo && wavelength <= filter.hi) return 0.9;
+      const dist = Math.min(Math.abs(wavelength - filter.lo), Math.abs(wavelength - filter.hi));
+      return 0.9 * Math.exp(-0.5 * (dist / 5) ** 2);
+    }
+    if (filter.type === 'lp') {
+      if (wavelength >= filter.lo) return 0.9;
+      return 0.9 * Math.exp(-0.5 * ((filter.lo - wavelength) / 5) ** 2);
+    }
+    return 0;
+  }
+
+  // Integrate emission through DM + filter for each channel
+  let ch1Signal = 0, ch2Signal = 0;
+  for (let wl = 400; wl <= 800; wl += 2) {
+    const emIntensity = Math.exp(-0.5 * ((wl - emPeak) / emSigma) ** 2);
+    let toCH1, toCH2;
+    if (!dm.cutoff) {
+      toCH1 = emIntensity; toCH2 = 0;
+    } else {
+      // DM reflects below cutoff to CH1, transmits above to CH2
+      const sigmoid = 1 / (1 + Math.exp(-0.5 * (wl - dm.cutoff)));
+      toCH1 = emIntensity * (1 - sigmoid);
+      toCH2 = emIntensity * sigmoid;
+    }
+    ch1Signal += toCH1 * filterTransmission(ch1f, wl);
+    ch2Signal += toCH2 * filterTransmission(ch2f, wl);
+  }
+
+  // Normalize and apply power + pinhole efficiency
+  const totalEm = ch1Signal + ch2Signal || 1;
+  ch1Signal = (ch1Signal / totalEm) * defocusPinholeEff * (state.power / 100);
+  ch2Signal = (ch2Signal / totalEm) * defocusPinholeEff * (state.power / 100);
+
+  return {
+    spotRadius, airyRadius, sliceThickness,
+    pinholeEff: defocusPinholeEff,
+    fillFactor, effectiveNA, beamAtPupil,
+    ch1Signal, ch2Signal,
+    emPeak, emSigma,
+    obj, laser, pinholeD,
+    airyAtPinhole, defocusSpread,
+  };
+}
+
+// ============================================================
+//  Canvas Renderer — Optical Path
+// ============================================================
+
+function drawPath(canvas, result) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 520 * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 520;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const laserColor = result.laser.color;
+  const fluorColor = result.emPeak < 550 ? '#44ff88' : result.emPeak < 620 ? '#ff8844' : '#ff4466';
+
+  // Layout positions (horizontal layout)
+  const margin = 40;
+  const sectionW = (W - margin * 2);
+
+  // Component positions along the optical axis (vertical: top = laser, bottom = sample)
+  const comps = {
+    laser:    { x: W * 0.08,  y: 80,  w: 90, h: 40 },
+    fiber:    { x: W * 0.08,  y: 160, w: 90, h: 20 },
+    exDM:     { x: W * 0.22,  y: 160 },
+    galvoX:   { x: W * 0.22,  y: 240 },
+    galvoY:   { x: W * 0.22,  y: 310 },
+    scanLens: { x: W * 0.36,  y: 275 },
+    tubeLens: { x: W * 0.48,  y: 275 },
+    objective:{ x: W * 0.60,  y: 260, w: 50, h: 60 },
+    sample:   { x: W * 0.60,  y: 380, w: 120, h: 14 },
+    pinhole:  { x: W * 0.36,  y: 100 },
+    detDM:    { x: W * 0.50,  y: 100 },
+    ch1PMT:   { x: W * 0.50,  y: 30,  w: 80, h: 36 },
+    ch1Filter:{ x: W * 0.50,  y: 70 },
+    ch2PMT:   { x: W * 0.72,  y: 100, w: 80, h: 36 },
+    ch2Filter:{ x: W * 0.66,  y: 100 },
+    glassA:   { x: W * 0.28,  y: 100 },
+    glassB:   { x: W * 0.32,  y: 100 },
+  };
+
+  // Reorganize to a cleaner vertical layout
+  // Laser → (horizontal) → ExDM → (down) → GalvoX → GalvoY → (right via scan+tube lens) → Objective → Sample
+  // Return path: Sample → Objective → (left) → tube+scan lens → GalvoY → GalvoX → ExDM(transmit up) → Glass plates → Pinhole → DetDM → CH1/CH2
+
+  const cx = W / 2; // center x for main optical axis
+
+  // Vertical layout
+  const ly = {
+    laser: 50,
+    exDM: 120,
+    galvoX: 190,
+    galvoY: 260,
+    objective: 360,
+    sample: 440,
+    pinhole: 120,
+    detDM: 120,
+    pmt: 50,
+  };
+
+  // Horizontal positions
+  const lx = {
+    laser: 80,
+    mainAxis: cx - 60,
+    returnAxis: cx + 100,
+    pinhole: cx + 100,
+    detDM: cx + 200,
+    ch1: cx + 200,
+    ch2: cx + 320,
+    glassPlates: cx + 60,
+  };
+
+  // --- Draw components ---
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  function drawBox(x, y, w, h, label, sublabel, borderColor) {
+    ctx.fillStyle = '#1a1e28';
+    ctx.strokeStyle = borderColor || '#3a4050';
+    ctx.lineWidth = 2;
+    roundRect(ctx, x - w/2, y - h/2, w, h, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e8e9ee';
+    ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
+    ctx.fillText(label, x, sublabel ? y - 7 : y);
+    if (sublabel) {
+      ctx.fillStyle = '#98a0b0';
+      ctx.font = '10px "Noto Sans TC", sans-serif';
+      ctx.fillText(sublabel, x, y + 9);
+    }
+  }
+
+  function drawLens(x, y, h, label) {
+    ctx.strokeStyle = '#6ec6ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y - h/2);
+    ctx.quadraticCurveTo(x + 10, y, x, y + h/2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y - h/2);
+    ctx.quadraticCurveTo(x - 10, y, x, y + h/2);
+    ctx.stroke();
+    if (label) {
+      ctx.fillStyle = '#98a0b0';
+      ctx.font = '9px "Noto Sans TC", sans-serif';
+      ctx.fillText(label, x, y + h/2 + 12);
+    }
+  }
+
+  function drawMirror(x, y, angle, label, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle * Math.PI / 180);
+    ctx.strokeStyle = color || '#d2a8ff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-18, 0);
+    ctx.lineTo(18, 0);
+    ctx.stroke();
+    ctx.restore();
+    if (label) {
+      ctx.fillStyle = '#d2a8ff';
+      ctx.font = '9px "Noto Sans TC", sans-serif';
+      ctx.fillText(label, x + 28, y);
+    }
+  }
+
+  function drawPinhole(x, y, size) {
+    const gap = 3 + size * 2;
+    ctx.strokeStyle = '#ffb86c';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - 20, y); ctx.lineTo(x - gap, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + gap, y); ctx.lineTo(x + 20, y);
+    ctx.stroke();
+    ctx.fillStyle = '#ffb86c';
+    ctx.font = '9px "Noto Sans TC", sans-serif';
+    ctx.fillText(`Pinhole ${state.pinhole}`, x, y - 14);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  // ---- EXCITATION PATH (laser color) ----
+  const axisX = W * 0.35;
+  const retX = W * 0.55;
+
+  // Laser box
+  drawBox(100, 60, 100, 44, LASERS[state.laser].name, `${state.power}%`, laserColor);
+
+  // Laser → ExDM (horizontal)
+  ctx.strokeStyle = laserColor;
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.7 + 0.3 * state.power / 100;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(150, 60);
+  ctx.lineTo(axisX, 60);
+  ctx.lineTo(axisX, 100);
+  ctx.stroke();
+
+  // Excitation Dichroic Mirror
+  drawMirror(axisX, 100, 45, '激發 DM', '#d2a8ff');
+
+  // ExDM → GalvoX
+  ctx.strokeStyle = laserColor;
+  ctx.beginPath();
+  ctx.moveTo(axisX, 118);
+  ctx.lineTo(axisX, 180);
+  ctx.stroke();
+
+  // Galvo X mirror
+  const galvoXAngle = 45 + state.galvoX * 0.5;
+  drawMirror(axisX, 185, galvoXAngle, '', '#79c0ff');
+  ctx.fillStyle = '#79c0ff';
+  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`振鏡 X: ${state.galvoX.toFixed(1)}°`, axisX - 26, 185);
+  ctx.textAlign = 'center';
+
+  // GalvoX → GalvoY
+  const gxDeflect = state.galvoX * 0.8;
+  ctx.strokeStyle = laserColor;
+  ctx.beginPath();
+  ctx.moveTo(axisX + gxDeflect, 200);
+  ctx.lineTo(axisX + gxDeflect, 240);
+  ctx.stroke();
+
+  // Galvo Y mirror
+  const galvoYAngle = 45 + state.galvoY * 0.5;
+  drawMirror(axisX + gxDeflect, 245, galvoYAngle, '', '#79c0ff');
+  ctx.fillStyle = '#79c0ff';
+  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`振鏡 Y: ${state.galvoY.toFixed(1)}°`, axisX + gxDeflect - 26, 245);
+  ctx.textAlign = 'center';
+
+  // GalvoY → Scan Lens
+  const gyDeflect = gxDeflect + state.galvoY * 0.6;
+  ctx.strokeStyle = laserColor;
+  ctx.beginPath();
+  ctx.moveTo(axisX + gxDeflect, 260);
+  ctx.lineTo(axisX + gyDeflect * 0.3, 300);
+  ctx.stroke();
+
+  // Scan Lens
+  drawLens(axisX + gyDeflect * 0.2, 305, 30, '掃描透鏡');
+
+  // Scan Lens → Tube Lens
+  ctx.strokeStyle = laserColor;
+  ctx.beginPath();
+  ctx.moveTo(axisX + gyDeflect * 0.2, 320);
+  ctx.lineTo(axisX + gyDeflect * 0.1, 350);
+  ctx.stroke();
+
+  // Tube Lens
+  drawLens(axisX + gyDeflect * 0.1, 355, 34, '管鏡 f=180mm');
+
+  // Tube Lens → Objective
+  ctx.strokeStyle = laserColor;
+  ctx.beginPath();
+  ctx.moveTo(axisX + gyDeflect * 0.1, 370);
+  ctx.lineTo(axisX, 395);
+  ctx.stroke();
+
+  // Objective
+  const objY = 400;
+  ctx.fillStyle = '#1a1e28';
+  ctx.strokeStyle = '#6ec6ff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(axisX - 22, objY - 15);
+  ctx.lineTo(axisX + 22, objY - 15);
+  ctx.lineTo(axisX + 16, objY + 18);
+  ctx.lineTo(axisX - 16, objY + 18);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8e9ee';
+  ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
+  ctx.fillText(result.obj.label, axisX, objY);
+  ctx.fillStyle = '#98a0b0';
+  ctx.font = '9px sans-serif';
+  ctx.fillText(`NA ${result.obj.na}`, axisX, objY + 12);
+
+  // Focus cone
+  ctx.strokeStyle = laserColor;
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(axisX - 14, objY + 18);
+  ctx.lineTo(axisX, objY + 50);
+  ctx.lineTo(axisX + 14, objY + 18);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Sample plane
+  const sampleY = objY + 55;
+  ctx.strokeStyle = '#7ee787';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(axisX - 70, sampleY);
+  ctx.lineTo(axisX + 70, sampleY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#7ee787';
+  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.fillText('樣品焦面', axisX, sampleY + 14);
+
+  // Focal spot indicator
+  const spotSize = Math.max(2, Math.min(10, result.spotRadius * 3));
+  ctx.fillStyle = laserColor;
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  ctx.arc(axisX, sampleY, spotSize, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // ---- RETURN PATH (fluorescence) ----
+  // Fluorescence goes back up through objective, galvos, through ExDM, to pinhole, detDM, PMTs
+  ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = fluorColor;
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([4, 3]);
+
+  // Sample → Objective → back up through galvos → ExDM → transmit right
+  ctx.beginPath();
+  ctx.moveTo(axisX + 4, sampleY);
+  ctx.lineTo(axisX + 4, objY + 18);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(axisX + 4, objY - 15);
+  ctx.lineTo(axisX + 4, 118);
+  ctx.stroke();
+
+  // ExDM → transmit to pinhole (rightward)
+  ctx.beginPath();
+  ctx.moveTo(axisX + 18, 100);
+  ctx.lineTo(retX - 30, 100);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Glass plates for pinhole alignment
+  ctx.strokeStyle = '#98a0b0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(retX - 28, 88); ctx.lineTo(retX - 24, 112);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(retX - 18, 88); ctx.lineTo(retX - 14, 112);
+  ctx.stroke();
+  ctx.fillStyle = '#5c6474';
+  ctx.font = '8px "Noto Sans TC", sans-serif';
+  ctx.fillText('調整玻璃', retX - 20, 80);
+
+  // Pinhole
+  drawPinhole(retX, 100, state.pinhole);
+
+  // Pinhole → DetDM
+  ctx.strokeStyle = fluorColor;
+  ctx.globalAlpha = Math.max(0.15, result.pinholeEff);
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(retX + 20, 100);
+  ctx.lineTo(retX + 70, 100);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Detection DM
+  const detDMX = retX + 80;
+  drawMirror(detDMX, 100, 45, state.detDM, '#d2a8ff');
+
+  // CH1: reflected upward
+  const ch1X = detDMX;
+  const ch1Signal = result.ch1Signal;
+  ctx.strokeStyle = fluorColor;
+  ctx.globalAlpha = Math.max(0.1, ch1Signal);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(ch1X, 82);
+  ctx.lineTo(ch1X, 55);
+  ctx.stroke();
+
+  // CH1 barrier filter
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = FILTERS[state.ch1Filter].color;
+  ctx.globalAlpha = 0.6;
+  ctx.fillRect(ch1X - 12, 50, 24, 6);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#98a0b0';
+  ctx.font = '8px sans-serif';
+  ctx.fillText(state.ch1Filter, ch1X, 44);
+
+  // CH1 PMT
+  drawBox(ch1X, 28, 70, 28, 'CH1 PMT', null, ch1Signal > 0.05 ? '#7ee787' : '#3a4050');
+
+  // CH2: transmitted rightward
+  const ch2X = detDMX + 90;
+  ctx.strokeStyle = fluorColor;
+  ctx.globalAlpha = Math.max(0.1, result.ch2Signal);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(detDMX + 18, 100);
+  ctx.lineTo(ch2X - 20, 100);
+  ctx.stroke();
+
+  // CH2 barrier filter
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = FILTERS[state.ch2Filter].color;
+  ctx.globalAlpha = 0.6;
+  ctx.fillRect(ch2X - 18, 95, 6, 12);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#98a0b0';
+  ctx.font = '8px sans-serif';
+  ctx.fillText(state.ch2Filter, ch2X - 14, 88);
+
+  // CH2 PMT
+  drawBox(ch2X + 20, 100, 70, 28, 'CH2 PMT', null, result.ch2Signal > 0.05 ? '#7ee787' : '#3a4050');
+
+  // ---- Labels & annotations ----
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#5c6474';
+  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`光束填充率: ${(result.fillFactor * 100).toFixed(0)}%`, 20, H - 40);
+  ctx.fillText(`有效 NA: ${result.effectiveNA.toFixed(3)}`, 20, H - 24);
+  ctx.fillText(`光斑: ${(result.spotRadius * 2).toFixed(2)} μm`, 200, H - 40);
+  ctx.fillText(`切片厚度: ${result.sliceThickness.toFixed(1)} μm`, 200, H - 24);
+
+  // Defocus indicator
+  if (state.zOffset !== 0) {
+    ctx.fillStyle = '#ff7b72';
+    ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
+    ctx.fillText(`離焦 ${state.zOffset} μm → pinhole 效率 ${(result.pinholeEff * 100).toFixed(0)}%`, 400, H - 32);
+  }
+}
+
+// ============================================================
+//  Canvas Renderer — Filter Spectra
+// ============================================================
+
+function drawSpectra(canvas, result) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 280;
+  ctx.clearRect(0, 0, W, H);
+
+  const left = 60, right = W - 30, top = 30, bottom = H - 40;
+  const plotW = right - left, plotH = bottom - top;
+
+  function wlToX(wl) { return left + (wl - 400) / 400 * plotW; }
+  function tToY(t) { return bottom - t * plotH; }
+
+  // Grid
+  ctx.strokeStyle = '#262b36';
+  ctx.lineWidth = 1;
+  for (let wl = 400; wl <= 800; wl += 50) {
+    const x = wlToX(wl);
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+    ctx.fillStyle = '#5c6474';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(wl + ' nm', x, bottom + 16);
+  }
+
+  // Laser line
+  const laserWl = LASERS[state.laser].wl;
+  const lx = wlToX(laserWl);
+  ctx.strokeStyle = LASERS[state.laser].color;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(lx, top); ctx.lineTo(lx, bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = LASERS[state.laser].color;
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText(`${laserWl} nm`, lx, top - 6);
+
+  // Emission curve
+  ctx.strokeStyle = '#888';
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let wl = 400; wl <= 800; wl += 2) {
+    const intensity = Math.exp(-0.5 * ((wl - result.emPeak) / result.emSigma) ** 2);
+    const x = wlToX(wl), y = tToY(intensity);
+    wl === 400 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.lineTo(wlToX(800), tToY(0));
+  ctx.lineTo(wlToX(400), tToY(0));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // DM cutoff
+  const dm = DMS[state.detDM];
+  if (dm.cutoff) {
+    const dmx = wlToX(dm.cutoff);
+    ctx.strokeStyle = '#d2a8ff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(dmx, top); ctx.lineTo(dmx, bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#d2a8ff';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(state.detDM, dmx, top - 6);
+
+    // CH1 region (left of DM)
+    ctx.fillStyle = 'rgba(110,198,255,0.08)';
+    ctx.fillRect(left, top, dmx - left, plotH);
+    ctx.fillStyle = '#6ec6ff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('← CH1', left + 4, top + 14);
+
+    // CH2 region (right of DM)
+    ctx.fillStyle = 'rgba(255,123,114,0.08)';
+    ctx.fillRect(dmx, top, right - dmx, plotH);
+    ctx.fillStyle = '#ff7b72';
+    ctx.textAlign = 'right';
+    ctx.fillText('CH2 →', right - 4, top + 14);
+  } else {
+    ctx.fillStyle = 'rgba(110,198,255,0.08)';
+    ctx.fillRect(left, top, plotW, plotH);
+    ctx.fillStyle = '#6ec6ff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Mirror → 全部至 CH1', left + 4, top + 14);
+  }
+
+  // CH1 filter band
+  const ch1f = FILTERS[state.ch1Filter];
+  if (ch1f.type !== 'open') {
+    ctx.fillStyle = ch1f.color + '33';
+    ctx.strokeStyle = ch1f.color;
+    ctx.lineWidth = 1.5;
+    const x1 = wlToX(ch1f.lo), x2 = wlToX(ch1f.hi);
+    ctx.fillRect(x1, top, x2 - x1, plotH);
+    ctx.strokeRect(x1, top, x2 - x1, plotH);
+    ctx.fillStyle = ch1f.color;
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(ch1f.label, (x1 + x2) / 2, bottom - 6);
+  }
+
+  // CH2 filter band
+  const ch2f = FILTERS[state.ch2Filter];
+  if (ch2f.type !== 'open') {
+    ctx.fillStyle = ch2f.color + '33';
+    ctx.strokeStyle = ch2f.color;
+    ctx.lineWidth = 1.5;
+    const x1 = wlToX(ch2f.lo), x2 = Math.min(wlToX(ch2f.hi), right);
+    ctx.fillRect(x1, top + 2, x2 - x1, plotH - 4);
+    ctx.strokeRect(x1, top + 2, x2 - x1, plotH - 4);
+    ctx.fillStyle = ch2f.color;
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(ch2f.label, (x1 + x2) / 2, bottom - 18);
+  }
+
+  // Y axis
+  ctx.fillStyle = '#5c6474';
+  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('透射率', left - 8, top + 5);
+  ctx.fillText('1.0', left - 8, top + 14);
+  ctx.fillText('0', left - 8, bottom + 4);
+
+  // Emission peak label
+  ctx.fillStyle = '#98a0b0';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`螢光發射峰 ~${result.emPeak} nm`, wlToX(result.emPeak), tToY(1) - 12);
+}
+
+// ============================================================
+//  Update
+// ============================================================
+
+function update() {
+  const result = computeOptics();
+
+  // Stats
+  document.getElementById('spotVal').textContent = (result.spotRadius * 2).toFixed(2);
+  document.getElementById('airyVal').textContent = result.airyRadius.toFixed(3);
+  document.getElementById('sliceVal').textContent = result.sliceThickness.toFixed(1);
+  document.getElementById('pinholeEffVal').textContent = (result.pinholeEff * 100).toFixed(0) + '%';
+  document.getElementById('ch1Val').textContent = (result.ch1Signal * 100).toFixed(1) + '%';
+  document.getElementById('ch2Val').textContent = (result.ch2Signal * 100).toFixed(1) + '%';
+
+  // Color coding for signals
+  document.getElementById('ch1Val').style.color = result.ch1Signal > 0.05 ? '#7ee787' : '#5c6474';
+  document.getElementById('ch2Val').style.color = result.ch2Signal > 0.05 ? '#7ee787' : '#5c6474';
+
+  drawPath(document.getElementById('pathCanvas'), result);
+  drawSpectra(document.getElementById('specCanvas'), result);
+}
+
+// ============================================================
+//  Init
+// ============================================================
+
+window.addEventListener('resize', () => update());
+update();
+</script>
+</body>
+</html>
