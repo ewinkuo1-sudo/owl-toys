@@ -56,7 +56,7 @@
   }
   .side::-webkit-scrollbar { width: 6px; }
   .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-  .viewport { flex: 1; position: relative; min-width: 0; background: var(--bg); }
+  .viewport { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
   #c3d { display: block; width: 100%; height: 100%; touch-action: none; }
 
   /* ---------- cards / controls ---------- */
@@ -408,7 +408,7 @@ const INFO = {
   pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五孔轉盤）', en: 'Confocal Aperture', desc: '五個孔徑的轉盤，轉到光軸上的那一孔就是目前的 pinhole。只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。CH1/CH2 共用同一個 pinhole。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm']] },
   pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '前面板上的五段旋鈕，透過傳動軸帶動裡面的 pinhole 轉盤。', specs: [] },
   collLens: { kind: '掃描單元', zh: '準直透鏡（pinhole 後）', en: 'Collimating Lens', desc: '把穿過 pinhole 後發散的螢光重新整成平行光，後面的偵測 DM 與 BA 濾片才能在設計的 45°／0° 入射角下工作。', specs: [] },
-  detDM: { kind: '掃描單元', zh: '偵測分光鏡滑軌（SDM）', en: 'Detection Dichroic Slider', desc: '滑軌上三片 45° 鏡：Mirror、DM570、DM630，把手在前面板。反射（短波）側轉 90° 往後走到 CH1，穿透（長波）側直走到 CH2。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
+  detDM: { kind: '掃描單元', zh: '偵測分光鏡滑軌（SDM）', en: 'Detection Dichroic Slider', desc: '滑軌上三片 45° 鏡：Mirror、DM570、DM630，把手是前面板的 DETECTION 拉桿。滑軌沿鏡面平面斜向移動，所以未選用的鏡片會偏到光路之外，不會擋到往 CH1 的反射光。反射（短波）側轉 90° 往後走到 CH1，穿透（長波）側直走到 CH2。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
   foldMirror: { kind: '掃描單元', zh: 'CH1 折返鏡', en: 'CH1 Fold Mirror', desc: '固定的 45° 反射鏡，把偵測 DM 反射出來的 CH1 光再轉 90°，使它與 CH2 平行——兩支 PMT 才能並排躺在左端。', specs: [] },
   ba1: { kind: '掃描單元', zh: 'CH1 Barrier Filter 滑軌', en: 'CH1 Emission Filter Slider', desc: 'CH1 PMT 前的兩格滑軌：一格插 BA 濾片、一格空。把手在前面板；選「無」就是把空格推到光軸上，換濾片是換插在滑軌上的那一片。', specs: [['可插', 'BA505-525 / BA510-550']] },
   ba2: { kind: '掃描單元', zh: 'CH2 Barrier Filter 滑軌', en: 'CH2 Emission Filter Slider', desc: 'CH2 PMT 前的兩格滑軌，構造同 CH1。', specs: [['可插', 'BA560-600 / BA660IF / BA610IF']] },
@@ -566,7 +566,7 @@ const housingMats = [];        // 可透明化的外殼材質
 const labelAnchors = [];       // 3D 標籤
 
 const M = {
-  body: (c = 0xb4b9c2) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.15 }),
+  body: (c = 0xb4b9c2) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.62, metalness: 0.06 }),   // 烤漆機殼：偏霧面，掠射角不會反白
   dark: (c = 0x2a2e37) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.3 }),
   metal: (c = 0x9aa3b2) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.85 }),
   black: () => new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.5, metalness: 0.4 }),
@@ -600,49 +600,172 @@ function anchor(obj, text, offset = [0, 4, 0], opts = {}) {
 function group(parent, x = 0, y = 0, z = 0) { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; }
 
 // ============================================================
-//  光學桌與地板
+//  光學桌與地板（photo2/photo4：淺灰霧面打孔鋁桌面、黑色側板、氣壓隔震桌腳、暗房黑布幕）
+//  桌面 230×150、頂面 y=0（契約不變）；25 mm 孔距 → 92×60 個 M6 孔
 // ============================================================
 {
-  const top = mesh(box(230, 6, 150), HOUSING(M.dark(0x20242c)), 0, -3, 0);
+  // ---- 打孔面貼圖：一格一孔的 CanvasTexture，用 RepeatWrapping 鋪滿（孔中心離邊 12.5 mm，與真桌一致）----
+  const PITCH = 2.5, NX = Math.round(230 / PITCH), NZ = Math.round(150 / PITCH);
+  const tile = document.createElement('canvas'); tile.width = tile.height = 128;
+  const g = tile.getContext('2d');
+  g.fillStyle = '#c9ccd0'; g.fillRect(0, 0, 128, 128);
+  // 霧面髮絲紋（很淡，避免 2.5 cm 週期被看出來）
+  for (let i = 0; i < 220; i++) {
+    const y = Math.random() * 128, x = Math.random() * 128, len = 4 + Math.random() * 36;
+    g.strokeStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y + 0.5); g.lineTo(x + len, y + 0.5); g.stroke();
+  }
+  // M6 螺絲孔（直徑 6 mm ≈ 0.24 pitch）：倒角亮環 → 陰影環 → 黑洞
+  const dot = (r, c, dx = 0, dy = 0) => { g.beginPath(); g.arc(64 + dx, 64 + dy, r, 0, Math.PI * 2); g.fillStyle = c; g.fill(); };
+  dot(19, '#b0b4b9'); dot(17.5, '#8d9197'); dot(15.5, '#5a5e64'); dot(14.5, '#111316'); dot(10.5, '#1b1e23', 1.5, 1.5);
+  const holeTex = new THREE.CanvasTexture(tile);
+  holeTex.wrapS = holeTex.wrapT = THREE.RepeatWrapping; holeTex.repeat.set(NX, NZ);
+  holeTex.colorSpace = THREE.SRGBColorSpace; holeTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+  // ---- 桌面：頂面用打孔貼圖（淺灰霧面鋁），四個側面與底面是黑色烤漆側板 ----
+  const topMat = HOUSING(new THREE.MeshStandardMaterial({ color: 0xd4d7db, map: holeTex, roughness: 0.66, metalness: 0.34 }));
+  const sideMat = HOUSING(M.dark(0x14161a));
+  const top = mesh(box(230, 6, 150), [sideMat, sideMat, topMat, sideMat, sideMat, sideMat], 0, -3, 0);
   scene.add(tag(top, 'table'));
-  const grid = new THREE.GridHelper(230, 46, 0x2c313c, 0x2c313c);
-  grid.position.set(0, 0.05, 0); grid.material.transparent = true; grid.material.opacity = 0.45; scene.add(grid);
-  const legMat = M.dark(0x1a1d24);
-  for (const [x, z] of [[-100, -60], [100, -60], [-100, 60], [100, 60]]) scene.add(mesh(box(10, 80, 10), legMat, x, -46, z));
+  // 黑色邊框：略大於桌面的黑色鋁框，頂面比桌面低 0.05，從上面看是四周一圈黑邊
+  const rim = mesh(box(232, 1.6, 152), M.dark(0x0f1114), 0, -0.85, 0);
+  scene.add(tag(rim, 'table'));
+  const skirt = mesh(box(231, 2.4, 151), M.dark(0x1c1f24), 0, -5.0, 0);   // 下緣的鋁擠型框
+  scene.add(tag(skirt, 'table'));
+
+  // ---- 桌腳：氣壓隔震腳（圓柱 + 上方橡膠波紋 + 底盤）與橫樑 ----
+  const legMat = M.dark(0x1a1d22), footMat = M.dark(0x0f1114), bellowMat = M.dark(0x111317);
+  const legGeo = cyl(4.3, 4.6, 78, 24), bellowGeo = cyl(5.2, 5.2, 9, 24), collarGeo = cyl(5.6, 5.6, 3, 24), footGeo = cyl(6.8, 7.2, 1.6, 24);
+  for (const [x, z] of [[-100, -60], [100, -60], [-100, 60], [100, 60]]) {
+    scene.add(mesh(legGeo, legMat, x, -45, z));          // y -84 .. -6
+    scene.add(mesh(collarGeo, legMat, x, -7.5, z));      // 貼在桌底的法蘭
+    scene.add(mesh(bellowGeo, bellowMat, x, -15, z));    // 氣囊
+    scene.add(mesh(footGeo, footMat, x, -85.2, z));      // 底盤 y -86 .. -84.4
+  }
+  const barMat = M.dark(0x15171b);
+  for (const z of [-60, 60]) scene.add(mesh(box(200, 4, 4), barMat, 0, -70, z));
+  for (const x of [-100, 100]) scene.add(mesh(box(4, 4, 120), barMat, x, -70, 0));
+
+  // ---- 地板與暗房黑布幕 ----
   const floor = mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x0b0d12, roughness: 0.95 }), 0, -86, 0, { rx: -Math.PI / 2, shadow: false });
   scene.add(floor);
+  // 布幕：垂直褶皺的明暗貼圖（RGB 8–34，接近純黑），後方一幅、左右各一幅
+  const fc = document.createElement('canvas'); fc.width = 1024; fc.height = 8;
+  const fg = fc.getContext('2d');
+  for (let x = 0; x < 1024; x++) {
+    const ph = x / 1024 * Math.PI * 2 * 12 + Math.sin(x * 0.031) * 0.9 + Math.sin(x * 0.007) * 1.4;
+    const v = Math.pow(0.5 + 0.5 * Math.sin(ph), 1.5);
+    const l = Math.round(8 + 26 * v); fg.fillStyle = `rgb(${l},${l},${l + 3})`; fg.fillRect(x, 0, 1, 8);
+  }
+  const foldTex = new THREE.CanvasTexture(fc); foldTex.wrapS = foldTex.wrapT = THREE.RepeatWrapping; foldTex.colorSpace = THREE.SRGBColorSpace;
+  const curtain = (w, h, x, y, z, ry, rep) => {
+    const t = foldTex.clone(); t.needsUpdate = true; t.repeat.set(rep, 1);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: 0xffffff, map: t, roughness: 1, metalness: 0 }));
+    m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = false; m.receiveShadow = false; scene.add(m);
+  };
+  curtain(1200, 320, 0, 74, -175, 0, 9);              // 後方（z = -175）
+  curtain(800, 320, -230, 74, 0, Math.PI / 2, 6);     // 左側（x = -230）
+  curtain(800, 320, 260, 74, 0, -Math.PI / 2, 6);     // 右側（x = +260）
 }
-
+Object.assign(INFO, {
+  table: { ...INFO.table, desc: '氣壓隔震光學桌：淺灰霧面鋁打孔面板（M6 螺絲孔、25 mm 孔距），雷射、反射鏡座、光纖耦合器都用這些孔鎖定，讓所有光學元件的相對位置穩定不受震動影響。四周黑色邊框，暗房用黑布幕圍住。', specs: [['桌面', '打孔鋁面 · M6 · 25 mm 孔距'], ['尺寸', '230 × 150 cm'], ['隔震', '四支氣壓隔震腳']] },
+});
 // ============================================================
-//  IX71 倒立式顯微鏡
+//  IX71 倒立式顯微鏡（依實機照片 photo4 重建）
 //  座標：1 單位 ≈ 1 cm；物鏡光軸在 (AXIS.x, AXIS.z) 垂直向上；操作者在 +z 側
+//  高度配置（世界 y）：
+//    底座 0–2.2 → 本體下半段 2.2–19.5（內含稜鏡 PORT_Y=14、管鏡 TUBE_Y=17.5；左側埠、右側選擇桿、前方斜面板）
+//    → 立臂與物鏡空腔 19.5–28.4（轉盤在裡面，前方開口 z=8）→ 載物台 28.4–30（嵌板 29.9–30.3、嵌環、載玻片 30.38–30.53）
+//    → 立柱 28.3–57.5 → 照明臂 57.5–62.5（鹵素燈室朝 -z，尾端 z=-36 供 LG-PS2 線纜接入）
 // ============================================================
 const ix = new THREE.Group(); scene.add(ix);
 const AXIS = { x: 0, z: 2 };          // 物鏡光軸 (x,z)
-const PORT_Y = 12;                   // 稜鏡 / 側面埠 / 掃描頭光軸高度
-const TUBE_Y = 16;                   // 管鏡高度（轉盤下方、稜鏡上方）
-const bodyMat = HOUSING(M.body(0xb9bec7));
+const PORT_Y = 14;                   // 稜鏡 / 側面埠 / 掃描頭光軸高度
+const TUBE_Y = 17.5;                 // 管鏡高度（轉盤下方、稜鏡上方）
+const bodyMat = HOUSING(M.body(0xe8e6df));   // 米白烤漆機身
 const trimMat = HOUSING(M.dark(0x33373f));
-{
-  // 底座板 + 本體下半段（y 3–17；內含管鏡與稜鏡，左側埠、右側選擇桿、前方目鏡筒都掛在這一段）
-  const base = group(ix);
-  base.add(mesh(box(36, 3, 46), bodyMat, 0, 1.5, -4));
-  base.add(mesh(box(36.4, 0.8, 46.4), trimMat, 0, 0.4, -4));
-  base.add(mesh(box(26, 14, 30), bodyMat, 0, 10, -6));                 // 本體下半 x ±13, z -21..9
-  base.add(mesh(box(26.4, 1.2, 30.4), trimMat, 0, 3.6, -6));
-  base.add(mesh(box(22, 2.2, 0.3), trimMat, 0, 6, 9.15));              // 前面板飾條
-  base.add(mesh(cyl(0.8, 0.8, 0.6), M.emissive(0x7ee787, 2), -9, 6, 9.3, { rx: Math.PI / 2 })); // 電源燈
-  // 本體上半段（y 17–25）：後牆 + 兩側立板，中央是物鏡轉盤的空腔，前方開口
-  base.add(mesh(box(26, 8, 8), bodyMat, 0, 21, -17));
-  for (const sx of [-1, 1]) base.add(mesh(box(4, 8, 22), bodyMat, sx * 11, 21, -2));
-  // 載物台底板（挖孔，物鏡從中央穿過）
-  base.add(mesh(box(6.5, 1.2, 30), trimMat, -9.75, 24.6, -6));
-  base.add(mesh(box(6.5, 1.2, 30), trimMat, 9.75, 24.6, -6));
-  base.add(mesh(box(26, 1.2, 8), trimMat, 0, 24.6, -17));
-  base.add(mesh(box(13, 1.2, 4), trimMat, 0, 24.6, 7));
-  tag(base, 'base'); anchor(base, 'IX71 倒立顯微鏡', [0, 68, -16]);
+// 物鏡轉盤：在載物台下方的本體空腔裡；中心在光軸後方 r，第 i 支物鏡轉到 +z 位置就是在光軸上
+const TURRET_C = { x: AXIS.x, y: 24.5, z: AXIS.z - 6.2, r: 6.2 };
 
-  // 內部：管鏡（垂直光路）+ 光路切換稜鏡（透明化時可見）
+// ---- 區段內小工具（加 ix71 前綴避免撞名）----
+// 文字貼圖：lines 多行置中；o = { bg, fg, size, font, weight, round }
+function ix71Tex(lines, w, h, o = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  if (o.bg) {
+    g.fillStyle = o.bg;
+    if (o.round) { g.beginPath(); g.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2); g.fill(); }
+    else g.fillRect(0, 0, w, h);
+  }
+  const fs = o.size || Math.round(h * 0.5);
+  g.fillStyle = o.fg || '#111'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `${o.weight || 'bold'} ${fs}px ${o.font || 'Arial, Helvetica, sans-serif'}`;
+  const n = lines.length;
+  lines.forEach((t, i) => g.fillText(t, w / 2, h / 2 + (i - (n - 1) / 2) * fs * 1.2));
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return tex;
+}
+function ix71LabelMat(tex, extra = {}) { return new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.6, metalness: 0, ...extra }); }
+// 平面貼牌
+function ix71Label(w, h, tex, x, y, z, rot = {}, extra = {}) {
+  return mesh(new THREE.PlaneGeometry(w, h), ix71LabelMat(tex, extra), x, y, z, { ...rot, shadow: false });
+}
+// 貼在圓柱面上的弧形貼紙／銘牌（開口圓柱片；th0 起始角、dth 弧長，θ=0 朝 +z）
+function ix71Band(r, h, th0, dth, mat, x, y, z, rot = {}) {
+  return mesh(new THREE.CylinderGeometry(r, r, h, 32, 1, true, th0, dth), mat, x, y, z, { ...rot, shadow: false });
+}
+// 帶圓孔的水平板：w 沿 x、d 沿 z、厚 h（從 yb 向上）；holes = [{x, z, r}] 相對板中心
+function ix71Plate(w, d, h, holes, mat, x, yb, z) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -d / 2); s.lineTo(w / 2, -d / 2); s.lineTo(w / 2, d / 2); s.lineTo(-w / 2, d / 2); s.closePath();
+  for (const hh of holes) { const p = new THREE.Path(); p.absarc(hh.x, -hh.z, hh.r, 0, Math.PI * 2, true); s.holes.push(p); }
+  return mesh(new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 40 }), mat, x, yb, z, { rx: -Math.PI / 2 });
+}
+// 環形板（內半徑 ri、外半徑 ro、厚 h，從 yb 向上）
+function ix71Ring(ri, ro, h, mat, x, yb, z) {
+  const s = new THREE.Shape(); s.absarc(0, 0, ro, 0, Math.PI * 2, false);
+  const p = new THREE.Path(); p.absarc(0, 0, ri, 0, Math.PI * 2, true); s.holes.push(p);
+  return mesh(new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 40 }), mat, x, yb, z, { rx: -Math.PI / 2 });
+}
+const ix71Brass = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.9, roughness: 0.35 });
+const ix71Yellow = M.emissive(0xffcc33, 0.18);
+const ix71Blk = M.black();
+const ix71Anod = M.dark(0x1f2227);
+
+{
+  // ---------- 底座 + 本體下半段（y 2.2–21.5；內含管鏡與稜鏡，左側埠、右側選擇桿、前方斜面板都掛在這一段）----------
+  const base = group(ix);
+  base.add(mesh(box(28, 2.2, 38), bodyMat, 0, 1.1, -7.5));                 // 底座 x ±14, z -26.5..11.5
+  base.add(mesh(box(28.4, 0.8, 38.4), trimMat, 0, 0.4, -7.5));
+  base.add(mesh(box(26, 17.3, 34), bodyMat, 0, 10.85, -9));                // 本體下半 x ±13, y 2.2–19.5, z -26..8
+  // 本體上半段（y 19.5–27.2）：後方方塊 + 前方兩根立臂，中間是黑色空腔（物鏡轉盤在裡面，前方開口）；上面坐載物台副板 (27.2–28.4) 與載物台
+  base.add(mesh(box(26, 7.7, 12), bodyMat, 0, 23.35, -20));                // 後方方塊 z -26..-14
+  for (const sx of [-1, 1]) {
+    base.add(mesh(box(5, 7.7, 22), bodyMat, sx * 10.5, 23.35, -3));        // 立臂 x ±(8..13), z -14..8
+    base.add(mesh(cyl(1.5, 1.5, 0.5), bodyMat, sx * 10.5, 27.45, 6.5));    // 立臂頂端白色圓凸帽（露在載物台前緣之前，photo4）
+  }
+  const cavMat = HOUSING(M.dark(0x1a1d22));
+  base.add(ix71Plate(16, 21, 0.7, [{ x: AXIS.x, z: AXIS.z + 2.5, r: 2.6 }], cavMat, 0, 19.5, -2.5));   // 空腔底板 z -13..8（光軸處開孔）
+  base.add(mesh(box(16, 7.7, 1), cavMat, 0, 23.35, -13.5));                // 空腔後壁 z -14..-13
+  base.add(mesh(box(9, 3.6, 7), ix71Anod, 0, 22.0, -9.5));                 // 轉盤下方的調焦滑座（底板 → 轉盤，接到後壁）
+  // 正面下方斜面板（photo4：OPTION 小綠鈕在寬度約 44%、燈鈕 61%、亮度旋鈕 82% 處）
+  const fp = group(base, 2, 5.3, 8.0); fp.rotation.x = -0.45;
+  fp.add(mesh(box(20, 6, 1.6), bodyMat, 0, 0, 0));                                                            // 面板 x -8..12
+  fp.add(mesh(box(19.2, 5.2, 0.1), M.body(0xdedbd2), 0, 0, 0.82, { shadow: false }));
+  fp.add(mesh(cyl(0.6, 0.6, 0.5), M.emissive(0x7ee787, 0.25), -4, 0.5, 1.05, { rx: Math.PI / 2 }));           // OPTION 小綠鈕（約 1 cm）
+  fp.add(ix71Label(3.2, 0.9, ix71Tex(['OPTION'], 256, 72, { fg: '#2c2f36', size: 44 }), -4, -1.35, 0.9));
+  fp.add(mesh(cyl(0.35, 0.35, 0.3), M.emissive(0x7ee787, 1.0), -1, 0.5, 0.95, { rx: Math.PI / 2 }));          // 燈鈕 / 電源燈
+  fp.add(mesh(cyl(2.4, 2.4, 1.4), ix71Blk, 6.5, 0, 1.5, { rx: Math.PI / 2 }));                                // 亮度旋鈕
+  fp.add(mesh(cyl(2.55, 2.55, 0.3), M.dark(0x4a4f5a), 6.5, 0, 0.95, { rx: Math.PI / 2 }));
+  fp.add(mesh(box(0.18, 1.3, 0.08), M.emissive(0xffffff, 0.4), 6.5, 1.3, 2.24, { shadow: false }));            // 旋鈕指示線
+  fp.add(ix71Label(3.2, 0.9, ix71Tex(['LAMP'], 256, 72, { fg: '#2c2f36', size: 44 }), 6.5, -2.55, 0.9));
+  tag(fp, 'frontPanel'); anchor(fp, '前面板', [-5, -4, 0]);
+  // 圓形藍色 OLYMPUS IX71 徽章（正面左側，左立臂下方；直徑約 6 cm）
+  const badge = mesh(new THREE.CircleGeometry(3.0, 48), ix71LabelMat(ix71Tex(['OLYMPUS', 'IX71'], 256, 256, { bg: '#2748b4', fg: '#f4f6ff', size: 54, round: true })), -9.5, 16.5, 8.06, { shadow: false });
+  base.add(badge); tag(badge, 'ix71');
+  tag(base, 'base'); anchor(base, 'IX71 倒立顯微鏡', [18, 34, 12]);   // 標籤放機身右前上方，避開立柱與鹵素燈室的標籤
+
+  // ---------- 內部：管鏡（垂直光路）+ 光路切換稜鏡（透明化時可見）----------
   const tube = mesh(cyl(2.4, 2.4, 0.8), M.glass(0xbfe6ff, 0.55), AXIS.x, TUBE_Y, AXIS.z);
   ix.add(tag(tube, 'tubeLens'));
   ix.add(tag(mesh(cyl(2.9, 2.9, 1.4, 32), M.dark(0x3a3f4a), AXIS.x, TUBE_Y, AXIS.z), 'tubeLens'));
@@ -653,81 +776,133 @@ const trimMat = HOUSING(M.dark(0x33373f));
   ix.add(tag(mesh(box(4.8, 4.8, 4.8), M.glass(0xd8f0ff, 0.12), AXIS.x, PORT_Y, AXIS.z), 'prism'));
   anchor(prism, '光路切換稜鏡', [3, -3, 0], { interior: true });
 
-  // 光路選擇桿（右側面）
-  const lever = group(ix, 13.3, PORT_Y, AXIS.z - 6);
-  lever.add(mesh(cyl(1.3, 1.3, 1.0), M.black(), 0.5, 0, 0, { rz: Math.PI / 2 }));
+  // ---------- 光路選擇桿（右側面，與稜鏡同高）----------
+  const lever = group(ix, 13.0, PORT_Y, AXIS.z - 6);
+  lever.add(mesh(cyl(1.3, 1.3, 1.0), ix71Blk, 0.5, 0, 0, { rz: Math.PI / 2 }));      // 圓座 x 13.0..14.0（貼在機身右側面）
   lever.add(mesh(box(0.6, 0.6, 5), M.metal(), 0.9, 0, 2.6));
-  lever.add(mesh(cyl(0.6, 0.6, 1.4), M.black(), 0.9, 0, 5.2, { rx: Math.PI / 2 }));
+  lever.add(mesh(cyl(0.6, 0.6, 1.4), ix71Blk, 0.9, 0, 5.2, { rx: Math.PI / 2 }));
   tag(lever, 'lever'); anchor(lever, '光路選擇桿', [2, 3, 3]);
 
-  // 立柱（透射光照明）：本體後方向上；頂端的臂前伸掛聚光鏡、向後伸出鹵素燈室
+  // ---------- 立柱（透射光照明）：後方方形白色立柱向上；頂端的臂前伸掛聚光鏡、向後接鹵素燈室 ----------
   const col = group(ix);
-  col.add(mesh(box(14, 32, 12), bodyMat, 0, 41, -17));                 // 立柱 y 25–57，z -23..-11
-  col.add(mesh(box(14.4, 1.5, 12.4), trimMat, 0, 25.75, -17));
-  col.add(mesh(box(8, 6, 28), bodyMat, 0, 60, -8));                    // 上臂 z -22..6
-  col.add(mesh(box(8, 3, 1), trimMat, 0, 60, 6.5));                    // 臂前端（視野光圈罩）
+  col.add(mesh(box(9, 29.2, 9), bodyMat, 0, 42.9, -21));                   // 立柱 y 28.3–57.5, z -25.5..-16.5
+  col.add(mesh(box(9.6, 1.2, 9.6), trimMat, 0, 28.9, -21));                // 柱腳飾框
+  col.add(mesh(box(9, 5, 29.5), bodyMat, 0, 60, -10.75));                  // 照明臂 y 57.5–62.5, z -25.5..4
+  col.add(mesh(cyl(2.8, 2.8, 2.6), ix71Anod, AXIS.x, 56.3, AXIS.z));       // 臂前端向下的視野光圈罩
+  col.add(mesh(cyl(2.0, 2.0, 0.4), M.glass(), AXIS.x, 54.9, AXIS.z));
+  col.add(mesh(box(3, 22, 0.8), ix71Anod, 0, 42, -16.1));                  // 立柱前面的聚光鏡升降導軌 y 31–53
   tag(col, 'column');
-  const condRod = mesh(cyl(1.2, 1.2, 22.5), M.metal(), AXIS.x, 45.75, AXIS.z); ix.add(tag(condRod, 'condenser'));   // 34.5–57
-  const cond = mesh(cyl(3.6, 3.0, 5), M.dark(0x3a3f4a), AXIS.x, 32, AXIS.z); ix.add(tag(cond, 'condenser'));       // 29.5–34.5
-  const condLens = mesh(cyl(2.4, 2.4, 0.6), M.glass(), AXIS.x, 29.7, AXIS.z); ix.add(tag(condLens, 'condenser'));
-  anchor(cond, '聚光鏡', [0, 3.5, 3]);
-  const lamp = mesh(cyl(4.5, 4.5, 12), M.dark(0x3a3f4a), 0, 60, -29, { rx: Math.PI / 2 }); ix.add(tag(lamp, 'lamp'));
-  const lampFins = mesh(box(11, 11, 1.2), M.dark(0x2a2e37), 0, 60, -35.6); ix.add(tag(lampFins, 'lamp'));
-  anchor(lamp, '鹵素燈室', [0, 7, 0]);
+  // 聚光鏡：導軌上的托架前伸到光軸，下面掛相位環轉盤 + 聚光鏡本體（NA 0.55 LWD）
+  const cond = group(ix, 0, 1, 0);                                         // 整組 +1：LWD 聚光鏡鏡筒底離載玻片約 3 cm（WD≈27 mm）
+  cond.add(mesh(box(7, 2.4, 15.7), ix71Anod, 0, 41, -7.85));               // 托架 z -15.7..0（世界 y 41–43.2）
+  cond.add(mesh(cyl(1.1, 1.1, 1.6), ix71Blk, 4.3, 41, -12.5, { rz: Math.PI / 2 }));   // 聚光鏡高度旋鈕
+  cond.add(mesh(cyl(5.0, 5.0, 1.2), ix71Anod, AXIS.x, 41, AXIS.z));        // 托架環 40.4–41.6
+  const phase = mesh(cyl(4.6, 4.6, 2.4), M.dark(0x262a31), AXIS.x, 39.2, AXIS.z); cond.add(phase);   // 相位環轉盤 38–40.4
+  cond.add(ix71Band(4.64, 1.3, -1.25, 2.5, ix71LabelMat(ix71Tex(['DP10      1      2      3      DP40'], 640, 96, { fg: '#e8e8e8', size: 44 })), AXIS.x, 39.2, AXIS.z));
+  cond.add(mesh(cyl(0.6, 0.6, 1.6), ix71Blk, AXIS.x + 5.2, 39.2, AXIS.z, { rz: Math.PI / 2 }));       // 轉盤側旋鈕
+  cond.add(mesh(cyl(4.1, 4.1, 2.0), M.dark(0x262a31), AXIS.x, 37, AXIS.z));                          // 轉盤下緣裙部 36–38（NA 0.55 印在這裡，photo）
+  cond.add(ix71Band(4.14, 0.9, -0.5, 1.0, ix71LabelMat(ix71Tex(['NA 0.55'], 256, 72, { fg: '#eeeeee', size: 44 })), AXIS.x, 37, AXIS.z));
+  cond.add(mesh(cyl(4.1, 2.4, 0.6), M.dark(0x262a31), AXIS.x, 35.7, AXIS.z));                        // 裙部 → 鏡筒的錐形過渡 35.4–36
+  cond.add(mesh(cyl(2.4, 2.4, 2.4), M.dark(0x2a2e37), AXIS.x, 34.2, AXIS.z));                        // 聚光鏡鏡筒 33–35.4（直徑約轉盤的一半）
+  cond.add(mesh(cyl(1.8, 1.8, 0.4), M.glass(), AXIS.x, 32.9, AXIS.z));                                // 前透鏡 32.7–33.1（世界 33.7–34.1）
+  tag(cond, 'condenser'); anchor(phase, '聚光鏡', [0, 3.5, 3]);
+  // 鹵素燈室：立柱頂往後接（圓筒 + 散熱鰭；尾端 z=-36 接 LG-PS2 線纜）
+  const lampG = group(ix);
+  lampG.add(mesh(cyl(4.5, 4.5, 10), M.dark(0x3a3f4a), 0, 60, -30.5, { rx: Math.PI / 2 }));   // z -25.5..-35.5
+  for (let i = 0; i < 4; i++) lampG.add(mesh(cyl(4.9, 4.9, 0.35, 32), M.dark(0x2a2e37), 0, 60, -31.2 - i * 1.2, { rx: Math.PI / 2 }));
+  const lamp = mesh(box(11, 11, 1.2), M.dark(0x2a2e37), 0, 60, -36.1); lampG.add(lamp);
+  tag(lampG, 'lamp'); anchor(lamp, '鹵素燈室', [0, 7, 0]);
 
-  // 載物台（框架 + 中央開口），坐在本體頂面
-  const stage = group(ix, 0, 26, 2);
-  const stMat = HOUSING(M.dark(0x3b404b));
-  stage.add(mesh(box(5, 1.6, 26), stMat, -12.5, 0, 0));
-  stage.add(mesh(box(5, 1.6, 26), stMat, 12.5, 0, 0));
-  stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, -10));
-  stage.add(mesh(box(20, 1.6, 6), stMat, 0, 0, 10));
+  // ---------- 載物台：黑色大矩形（x -18..18, z -16..5, y 28.4–30；寬度接近掃描頭深度，左側懸出機身蓋過側埠法蘭鼓），
+  //            下面一片內縮副板（y 27.2–28.4）坐在兩根立臂與後方方塊上 ----------
+  const stMat = HOUSING(M.dark(0x1f2227));
+  const STG = { x: 0, z: -5.5, w: 36, d: 21 };
+  const stage = group(ix, STG.x, 28.4, STG.z);
+  const stHole = [{ x: TURRET_C.x - STG.x, z: TURRET_C.z - STG.z, r: 8.3 }];                                               // 大開口讓整個轉盤的物鏡通過
+  stage.add(ix71Plate(STG.w, STG.d, 1.6, stHole, stMat, 0, 0, 0));
+  stage.add(ix71Plate(30, 19.5, 1.2, stHole, M.dark(0x2a2e37), 0, -1.2, 0));                                               // 內縮副板 y 27.2–28.4, z -15.25..4.25（同樣開口）
+  // 嵌板（覆蓋大開口 z -12.5..4.1，光軸處開圓孔）+ 亮銀色大嵌環
+  const insMat = HOUSING(M.dark(0x24272e));
+  stage.add(ix71Plate(20, 17, 0.4, [{ x: AXIS.x, z: 6, r: 3.0 }], insMat, AXIS.x - STG.x, 1.5, -4 - STG.z));              // y 29.9–30.3；中心世界 z=-4，孔在光軸 z=2
+  stage.add(ix71Ring(3.0, 6.0, 0.08, M.metal(0xc6cbd3), AXIS.x - STG.x, 1.9, AXIS.z - STG.z));                            // 拉絲鋁嵌環 30.3–30.38
+  stage.add(ix71Ring(5.5, 6.0, 0.16, M.metal(0x9aa2ad), AXIS.x - STG.x, 1.9, AXIS.z - STG.z));
+  // 右前方黃色 AVOID EXPOSURE 貼紙（嵌環右前，photo）
+  const avoidTex = ix71Tex(['AVOID EXPOSURE', 'LASER RADIATION'], 384, 144, { bg: '#f2c21c', fg: '#151515', size: 40 });
+  stage.add(ix71Label(4.6, 1.7, avoidTex, 12, 1.62, 7, { rx: -Math.PI / 2 }, { emissive: 0xffffff, emissiveMap: avoidTex, emissiveIntensity: 0.2 }));
   tag(stage, 'stage');
-  const knob = group(ix, 15, 21, 12);                                   // XY 旋鈕：右前方向下垂
-  knob.add(mesh(cyl(0.6, 0.6, 6), M.metal(), 0, 2.5, 0));
-  knob.add(mesh(cyl(2.2, 2.2, 1.4), M.black(), 0, -0.5, 0));
-  knob.add(mesh(cyl(1.5, 1.5, 1.4), M.black(), 0, -2.0, 0));
+  // XY 同軸旋鈕：右前方從載物台下緣向下垂
+  const knob = group(ix, 16, 28.4, 3);
+  knob.add(mesh(box(2.6, 1.2, 2.6), ix71Anod, 0, -0.55, 0));
+  knob.add(mesh(cyl(0.6, 0.6, 4.2), M.metal(), 0, -3.2, 0));
+  knob.add(mesh(cyl(2.2, 2.2, 1.4), ix71Blk, 0, -3.0, 0));
+  knob.add(mesh(cyl(1.5, 1.5, 1.5), ix71Blk, 0, -5.0, 0));
+  knob.add(mesh(cyl(1.6, 1.6, 0.15), M.dark(0x4a4f5a), 0, -4.2, 0));
   tag(knob, 'stageKnob');
 
-  // 樣品：載玻片 + 樣品滴
-  const slide = mesh(box(7.6, 0.12, 2.6), M.glass(0xd8f0ff, 0.45), AXIS.x, 26.9, AXIS.z); ix.add(tag(slide, 'sample'));
-  const specimen = mesh(cyl(0.95, 0.95, 0.14), new THREE.MeshStandardMaterial({ color: 0xff9bd0, transparent: true, opacity: 0.55, roughness: 0.3, emissive: 0x552244, emissiveIntensity: 0.3 }), AXIS.x, 27.03, AXIS.z);
+  // ---------- 樣品：載玻片（放在嵌環上）+ 壓夾 + 樣品滴 ----------
+  const slide = mesh(box(7.6, 0.15, 2.6), M.glass(0xd8f0ff, 0.45), AXIS.x, 30.455, AXIS.z); ix.add(tag(slide, 'sample'));
+  const clip = group(ix, AXIS.x + 4.6, 30.38, AXIS.z);
+  clip.add(mesh(cyl(0.3, 0.3, 1.0), M.metal(), 0, 0.5, 0));
+  clip.add(mesh(box(1.8, 0.18, 2.8), M.metal(0xb8bfcc), -0.6, 0.62, 0));
+  clip.add(mesh(box(0.5, 0.12, 2.4), ix71Blk, -1.2, 0.58, 0));
+  tag(clip, 'stage');
+  const specimen = mesh(cyl(0.95, 0.95, 0.14), new THREE.MeshStandardMaterial({ color: 0xff9bd0, transparent: true, opacity: 0.55, roughness: 0.3, emissive: 0x552244, emissiveIntensity: 0.3 }), AXIS.x, 30.6, AXIS.z);
   ix.add(tag(specimen, 'sample')); anchor(specimen, '樣品', [0, 2.4, 0]);
 
-  // 雙目鏡筒：掛在本體前面、載物台下緣，向上傾 30°
-  const eye = group(ix, 0, 17, 13.5);
-  eye.add(mesh(box(12, 7, 9), bodyMat, 0, 0, 0));                     // y 13.5–20.5，z 9–18
-  eye.add(mesh(box(8, 3, 6), trimMat, 0, 3, 5));
+  // ---------- 雙目鏡筒：從本體右前方朝 +z 伸出，兩支目鏡筒向上傾 30° ----------
+  const eye = group(ix, 5, 18.5, 8); eye.rotation.y = 0.25;
+  eye.add(mesh(box(8, 6, 4), bodyMat, 0, 0, 0.5));                        // 接座（插進本體正面）
+  eye.add(mesh(box(11, 5, 8), bodyMat, 0, 2.5, 6.5));                     // 觀察筒本體 y 18.5–23.5
+  eye.add(mesh(box(11.4, 0.6, 8.4), trimMat, 0, 0.2, 6.5));
+  eye.add(mesh(box(9, 4, 5), bodyMat, 0, 4.6, 4.8, { rx: -0.5 }));       // 稜鏡室（斜面）
   for (const sx of [-1, 1]) {
-    const tubeE = mesh(cyl(1.4, 1.6, 9), trimMat, sx * 3.2, 5.5, 8.5); tubeE.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(tubeE);
-    const cup = mesh(cyl(1.9, 1.7, 1.2), M.black(), sx * 3.2, 9.4, 10.7); cup.rotation.x = Math.PI / 2 - Math.PI / 6; eye.add(cup);
+    eye.add(mesh(cyl(1.5, 1.7, 9), trimMat, sx * 3.2, 6.75, 10.9, { rx: Math.PI / 3 }));          // 目鏡筒（30° 仰角）
+    eye.add(mesh(cyl(1.9, 1.7, 1.2), ix71Blk, sx * 3.2, 9.3, 15.3, { rx: Math.PI / 3 }));           // 眼罩
+    eye.add(mesh(cyl(1.75, 1.75, 0.4), M.dark(0x4a4f5a), sx * 3.2, 5.3, 8.4, { rx: Math.PI / 3 }));  // 眼距調整環
   }
-  tag(eye, 'eyepiece'); anchor(eye, '目鏡筒', [0, 13, 6]);
+  tag(eye, 'eyepiece'); anchor(eye, '目鏡筒', [0, 12, 8]);
 
-  // 粗／微調焦旋鈕（本體下半段左右兩側）
+  // ---------- 粗／微調焦旋鈕（本體下半段左右兩側，放低避開連接管）；左側套上調焦馬達組 ----------
   for (const sx of [-1, 1]) {
-    const k = group(ix, sx * 13.6, 9, 4);
-    k.add(mesh(cyl(3.2, 3.2, 1.6), M.black(), sx * 0.8, 0, 0, { rz: Math.PI / 2 }));
-    k.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 2.4, 0, 0, { rz: Math.PI / 2 }));
-    k.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 3.3, 0, 0, { rz: Math.PI / 2 }));
+    const k = group(ix, sx * 13.6, 5.5, 0);                                              // y 5.5：讓左側聯軸器頂 (8.9) 落在側埠法蘭鼓底 (9.0) 之下
+    k.add(mesh(cyl(3.2, 3.2, 1.6), ix71Blk, sx * 0.2, 0, 0, { rz: Math.PI / 2 }));       // 粗調：內端面剛好貼機身側面 |x|=13
+    k.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 1.8, 0, 0, { rz: Math.PI / 2 }));
+    k.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 2.7, 0, 0, { rz: Math.PI / 2 }));
     tag(k, 'focusKnob');
     if (sx > 0) anchor(k, '粗／微調焦', [2, 4.5, 0]);
   }
+  const motor = group(ix, -14.2, 5.5, 0);                                                // 整組隨旋鈕內移 0.6，聯軸器仍套住微調鈕（x -20.6..-15.8）
+  motor.add(mesh(cyl(3.4, 3.4, 4.8), ix71Blk, -4.0, 0, 0, { rz: Math.PI / 2 }));         // 聯軸器：套在微調焦旋鈕上 x -15.2..-20
+  motor.add(mesh(cyl(3.5, 3.5, 0.5), M.dark(0x3a3f4a), -6.2, 0, 0, { rz: Math.PI / 2 }));
+  motor.add(mesh(cyl(2.7, 2.7, 7.4), ix71Blk, -4.0, 0, 6.6, { rz: Math.PI / 2 }));       // 馬達本體（並排、在前）x -13.9..-21.3
+  motor.add(mesh(cyl(2.8, 2.8, 0.5), M.dark(0x3a3f4a), -7.5, 0, 6.6, { rz: Math.PI / 2 }));
+  motor.add(mesh(box(6, 3.2, 6.6), ix71Anod, -4.0, 0, 3.3));                              // 支架把兩個圓筒鎖在一起
+  motor.add(mesh(box(1.6, 1.6, 1.6), ix71Blk, -8.5, 0, 6.6));                             // 電纜接頭
+  {
+    const c = new THREE.CatmullRomCurve3([[-23.5, 5.5, 6.6], [-25.4, 4.5, 7.3], [-26.2, 2.5, 8.8], [-24.2, 0.35, 12.5], [-19, 0.35, 18.5]].map(p => new THREE.Vector3(...p)));
+    const cab = new THREE.Mesh(new THREE.TubeGeometry(c, 40, 0.3, 8, false), M.dark(0x15171c)); cab.castShadow = true; ix.add(cab); tag(cab, 'focusMotor');
+  }
+  tag(motor, 'focusMotor'); anchor(motor, '調焦馬達', [-7, -4.5, 6]);    // 標籤落在馬達下前方（不在連接管裡）
 
-  // 側面埠 + 轉接筒（-x 側，直接接到掃描頭右側壁）
+  // ---------- 側面埠 + 黑色連接管（-x 側）：法蘭貼在本體左側面 x=-13，管子一路到掃描頭右牆 x=-27 ----------
   const port = group(ix, -13, PORT_Y, AXIS.z);
-  port.add(mesh(cyl(3.4, 3.4, 1.6), M.dark(0x3a3f4a), -0.8, 0, 0, { rz: Math.PI / 2 }));
-  port.add(mesh(cyl(2.6, 2.6, 6.4), M.metal(0x7f8896), -4.8, 0, 0, { rz: Math.PI / 2 }));    // x -14.6 .. -21
-  tag(port, 'sidePort'); anchor(port, '側面埠', [-3, 5, 0]);
+  port.add(mesh(cyl(5.0, 5.0, 4.5), ix71Anod, -2.25, 0, 0, { rz: Math.PI / 2 }));        // 法蘭鼓 x -13..-17.5（直徑約管徑 1.7 倍、深 4.5，photo）
+  for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; port.add(mesh(cyl(0.3, 0.3, 0.3, 6), M.metal(0x8a93a3), -4.6, Math.sin(a) * 4.3, Math.cos(a) * 4.3, { rz: Math.PI / 2 })); }   // 鼓面一圈 8 顆螺絲
+  port.add(mesh(cyl(3.0, 3.0, 9.5), ix71Blk, -9.75, 0, 0, { rz: Math.PI / 2 }));         // 連接管 x -17.5..-27.0（末端貼掃描頭右牆）
+  port.add(mesh(cyl(3.15, 3.15, 0.6), M.dark(0x3a3f4a), -7.2, 0, 0, { rz: Math.PI / 2 }));   // 管上固定環
+  port.add(ix71Band(3.04, 2.4, 0.3, 1.15, ix71Yellow, -10.5, 0, 0, { rz: Math.PI / 2 }));    // 黃色貼紙（管子左上前方）
+  tag(port, 'sidePort'); anchor(port, '側面埠', [-3, 5.5, 0]);
 }
 
-// 物鏡轉盤：在載物台下方的本體空腔裡；中心在光軸後方 7 cm，第 i 支物鏡轉到 +z 位置就是在光軸上
-const TURRET_C = { x: AXIS.x, y: 21.0, z: AXIS.z - 7, r: 7 };
+// ============================================================
+//  物鏡轉盤（六孔：四支物鏡 + 兩個空孔蓋）
+// ============================================================
 const turret = new THREE.Group(); turret.position.set(TURRET_C.x, TURRET_C.y, TURRET_C.z); ix.add(turret);
 const objectiveMeshes = {};
 {
-  turret.add(mesh(cyl(8, 8.5, 1.5, 48), HOUSING(M.dark(0x3a3f4a)), 0, 0, 0));
-  turret.add(mesh(cyl(2.5, 2.5, 4), M.metal(0x7f8896), 0, -2.5, 0));
+  turret.add(mesh(cyl(7.4, 7.9, 1.5, 48), HOUSING(M.dark(0x3a3f4a)), 0, 0, 0));
+  turret.add(mesh(cyl(6.6, 6.6, 0.25, 48), M.dark(0x2a2e37), 0, 0.85, 0));
+  turret.add(mesh(cyl(2.5, 2.5, 3.8), M.metal(0x7f8896), 0, -2.35, 0));   // 中心轂 y 20.25..24.05：坐在空腔底板 (19.5–20.2) 之上、接調焦滑座
   tag(turret, 'turret');
   OBJ_ORDER.forEach((k, i) => {
     const o = OBJECTIVES[k];
@@ -735,7 +910,7 @@ const objectiveMeshes = {};
     const g = new THREE.Group();
     g.position.set(Math.sin(ang) * TURRET_C.r, 0.75, Math.cos(ang) * TURRET_C.r);
     const len = 4.6;
-    g.add(mesh(cyl(1.55, 1.7, len * 0.7), M.black(), 0, len * 0.35, 0));
+    g.add(mesh(cyl(1.55, 1.7, len * 0.7), ix71Blk, 0, len * 0.35, 0));
     g.add(mesh(cyl(0.9, 1.5, len * 0.3), M.metal(0xb8bfcc), 0, len * 0.85, 0));
     g.add(mesh(cyl(1.75, 1.75, 0.5), new THREE.MeshStandardMaterial({ color: o.ring, roughness: 0.4 }), 0, len * 0.55, 0));
     g.add(mesh(cyl(1.62, 1.62, 0.25), M.body(0xf0f2f5), 0, len * 0.3, 0));
@@ -747,314 +922,1133 @@ const objectiveMeshes = {};
     const ang = i * (Math.PI * 2 / 6);
     turret.add(mesh(cyl(1.6, 1.6, 0.4), M.dark(0x2a2e37), Math.sin(ang) * TURRET_C.r, 0.95, Math.cos(ang) * TURRET_C.r));
   }
-  anchor(turret, '物鏡轉盤', [-8, 3, 4]);
+  anchor(turret, '物鏡轉盤', [-2, 3.5, 8]);
 }
-const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y（距載玻片約 0.5）
-const OBJ_BACK_Y = TURRET_C.y + 0.75;        // 物鏡後端 y
-const FOCUS_Y = 27.0;                        // 樣品面
+const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y = 29.85（載玻片底 30.38，距約 0.5）
+const OBJ_BACK_Y = TURRET_C.y + 0.75;        // 物鏡後端 y = 25.25
+const FOCUS_Y = 30.6;                        // 樣品面（載玻片 30.38–30.53 上的樣品滴）
 function turretAngleFor(objKey) { return -OBJ_ORDER.indexOf(objKey) * (Math.PI * 2 / 6); }
 turret.rotation.y = turretAngleFor(state.objective);
 
+// ---- 本區段新增零件的說明 ----
+Object.assign(INFO, {
+  focusMotor: { kind: 'IX71', zh: '調焦馬達（Z 軸驅動）', en: 'Focus Motor Drive',
+    desc: '套在本體左側微調焦旋鈕上的黑色馬達組：一個圓筒是聯軸器（直接夾住微調焦旋鈕），旁邊並排的圓筒是步進馬達本體，兩者用支架鎖在一起，電纜垂到桌面接控制器。FluoView 做 XYZ／XYZT 序列掃描時由它一步步轉動微調焦，帶動物鏡轉盤沿 Z 移動，逐層取得光學切片。',
+    specs: [['驅動對象', '微調焦旋鈕（經聯軸器）'], ['移動件', '物鏡轉盤（Z）'], ['用途', 'Z 序列（XYZ / XYZT）'], ['步距', '由 FluoView 的 Z Start / Stop / Step 設定']] },
+  frontPanel: { kind: 'IX71', zh: '前面板（OPTION 鍵、照明亮度旋鈕）', en: 'Front Control Panel',
+    desc: '本體正面下方的斜面板：綠色 OPTION 按鈕、電源指示燈，右邊的大圓旋鈕調整透射光（鹵素燈）亮度。共軛焦掃描時把燈光關到最暗，避免雜光進 PMT。',
+    specs: [['旋鈕', '鹵素燈亮度'], ['按鈕', 'OPTION（功能可設定）']] },
+});
 // ============================================================
-//  FV300 掃描頭（接在左側埠，-x 側；坐在支架上）
-//  局部座標：光束平面 y=0；+x 朝顯微鏡；z=0 是側埠光軸，z=OPT.AX 是激發／回程主光軸
+//  FV300 掃描頭（接在 IX71 左側埠、-x 側；米白烤漆箱體直接坐在光學桌上）
+//  局部座標：光束平面 y=0（= PORT_Y）；+x 朝顯微鏡；z=0 是側埠光軸，z=OPT.AX 是激發／回程主光軸
 //  光路（俯視）：光纖(後壁) → 準直鏡 ─+z→ 激發DM ─+x→ 振鏡X ─-z→ 振鏡Y ─+x→ 瞳孔投影鏡 → 側埠
 //            回程：… 激發DM 穿透 ─-x→ 共軛焦透鏡 → pinhole → 準直透鏡 → SDM ┬ 穿透 -x → BA2 → PMT2
 //                                                                          └ 反射 -z → 折返鏡 ─-x→ BA1 → PMT1
+//  機構：CONFOCAL APERTURE 旋鈕 ─傳動軸─ 傘齒輪 90° ─ pinhole 轉盤（1:1）；EX. DM 拉鈕 ─垂直拉桿─ 兩段式 DM 滑座；
+//        SDM 滑軌經橫臂接到前面板右側的小黑旋鈕；BA1 / BA2 滑軌的長金屬滑桿從前面板副面板伸出，都隨 slider.position.z 一起動
 // ============================================================
-const HEAD_POS = new THREE.Vector3(-42, PORT_Y, AXIS.z);
+const HEAD_POS = new THREE.Vector3(-48, PORT_Y, AXIS.z);
 const head = new THREE.Group(); head.position.copy(HEAD_POS); scene.add(head);
 const H = (x, y, z) => new THREE.Vector3(x, y, z).add(HEAD_POS);   // 掃描頭局部 → 世界
-const headMat = HOUSING(M.body(0xbfc4cc));
+const headMat = HOUSING(M.body(0xe8e6df));                          // 上蓋（米白烤漆）
 const wallMats = [];
 const lidPivot = new THREE.Group();
 const galvoX = new THREE.Group(), galvoY = new THREE.Group();
 const pinWheel = new THREE.Group(), pinKnob = new THREE.Group();
 const sdmSlider = new THREE.Group(), ba1Slider = new THREE.Group(), ba2Slider = new THREE.Group();
+const sdmRod = new THREE.Group();          // SDM 把手拉桿（前面板小旋鈕 + 叉槽），07：sdmRod.position.z = sdmSlider.position.z / √2
 let ba1Mesh, ba2Mesh, dmPlates = [];
 const OPT = {                 // 光學元件位置（局部座標）
   AX: 6,                      // 激發／回程主光軸 z
-  scanLens: 16, galvo: 9, exDM: 1, coll: -5,
+  scanLens: 16, galvo: 9, exDM: 1, coll: -9,
   cLens: -4, pinhole: -9, collLens: -13, sdm: -16, fold: -16,
   ch1z: -4.2, ba1: -19.2, ba2: -22.2, pmt1: -22.5, pmt2: -23.5,
   slot: 3.6,                  // 滑軌格距
 };
-const PIN_KX = OPT.pinhole - 0.9;   // pinhole 傳動軸 / 旋鈕的 x
+const PIN_R = 2.7;                        // pinhole 轉盤：五孔環半徑 = 轉盤中心離光軸的距離
+const PIN_KX = OPT.pinhole + 3.4;         // pinhole 傳動軸 / CONFOCAL APERTURE 旋鈕的 x（兩支傘齒輪軸的交點在這條線上；齒輪在轉盤 +x 面，依 photo1）
 {
-  const HW = { x0: -32, x1: 21, z0: -10, z1: 17, y0: -7.5, y1: 7.5, t: 0.6 };
-  const cx = (HW.x0 + HW.x1) / 2, cz = (HW.z0 + HW.z1) / 2, w = HW.x1 - HW.x0, d = HW.z1 - HW.z0, h = HW.y1 - HW.y0;
-  const shell = group(head);
-  // 底板
-  shell.add(mesh(box(w - 1.4, 1, d - 1.4), M.dark(0x2f333c), cx, HW.y0 + 0.5, cz));
-  // 四面牆（可透明）
-  const wall = (gw, gh, gd, x, y, z) => { const m = M.body(0xbfc4cc); m.userData.baseOpacity = 1; wallMats.push(m); housingMats.push(m); const mm = mesh(box(gw, gh, gd), m, x, y, z); shell.add(mm); return mm; };
-  wall(w, h, HW.t, cx, 0, HW.z0 + HW.t / 2);                 // 後牆
-  wall(w, h, HW.t, cx, 0, HW.z1 - HW.t / 2);                 // 前牆
-  wall(HW.t, h, d, HW.x0 + HW.t / 2, 0, cz);                 // 左牆
-  wall(HW.t, h, d, HW.x1 - HW.t / 2, 0, cz);                 // 右牆（接顯微鏡）
-  // 前面板：Class 3B 警示貼紙、型號牌、三個滑軌出口、CONFOCAL APERTURE 銘牌與刻度
-  shell.add(mesh(box(6, 2.2, 0.1), M.emissive(0xffb84d, 0.5), -27, 4.5, HW.z1 + 0.05, { shadow: false }));
-  shell.add(mesh(box(9, 1.6, 0.1), M.dark(0x1a1d24), 12, -5, HW.z1 + 0.05, { shadow: false }));
-  for (const x of [OPT.sdm, OPT.ba1, OPT.ba2]) shell.add(mesh(box(1.8, 1.0, 0.1), M.black(), x, -2.6, HW.z1 + 0.05, { shadow: false }));
-  shell.add(mesh(box(6.5, 0.9, 0.05), M.dark(0x1a1d24), PIN_KX, 6.4, HW.z1 + 0.06, { shadow: false }));
-  for (let i = 0; i < 5; i++) {
-    const a = Math.PI / 2 - (i - 2) * 0.45;   // 順時針遞增：1 在左上、5 在右上
-    shell.add(mesh(box(0.25, 0.6, 0.05), M.emissive(0xd0d4dc, 0.6), PIN_KX + Math.cos(a) * 2.6, 3.1 + Math.sin(a) * 2.6, HW.z1 + 0.06, { rz: a - Math.PI / 2, shadow: false }));
-  }
-  // 接顯微鏡的埠圈（右牆，z=0）
-  shell.add(mesh(cyl(3.0, 3.0, 3), M.dark(0x3a3f4a), HW.x1 - 1, 0, 0, { rz: Math.PI / 2 }));
-  tag(shell, 'scanhead'); anchor(shell, 'FV300 掃描頭', [cx, 12, cz]);
+  const HW = { x0: -33, x1: 21, z0: -14, z1: 22, y0: -14, y1: 11, t: 0.8 };
+  const cx = (HW.x0 + HW.x1) / 2, cz = (HW.z0 + HW.z1) / 2, w = HW.x1 - HW.x0, d = HW.z1 - HW.z0;
+  const FLOOR = HW.y0 + 1;                 // 底板上表面（所有座／立柱都落在這裡）
+  const AX = OPT.AX, R2 = Math.PI / 2;
+  const ZC = AX + PIN_R;                   // pinhole 轉盤中心 z：在光軸正前方、與光軸同高（y=0），孔環經過光軸
+  const BAR_Y = -2.45, RAIL_Y = -2.95;     // 滑軌底桿 / 固定導軌高度（光束下方）
+  // 前面板：幾乎全寬的白色前板（與機殼同色、微內縮 0.15、四角內六角螺絲，上緣離箱頂約 20%，依 photo4）；SDM 小旋鈕在大旋鈕右側偏上
+  const REC = 0.15, SPX0 = HW.x0 + 0.8, SPX1 = HW.x1 - 0.8, SPY0 = HW.y0 + 1.0, SPY1 = HW.y1 - 4.5;
+  const FZ = HW.z1 - REC;                  // 前板表面 z（旋鈕、滑桿出口都裝在這個面上）
+  const SDM_KX = PIN_KX + 9.0, SDM_KY = 1.8;   // DETECTION 小旋鈕（SDM 把手拉桿）位置（photo4：在大旋鈕右側、略高於旋鈕中心）
 
-  // 支架：把掃描頭撐到側埠高度，底板鎖在光學桌上
-  const stand = group(head);
-  stand.add(mesh(box(w - 8, 4.5, d - 8), M.dark(0x262a33), cx, HW.y0 - 2.25, cz));
-  stand.add(mesh(box(w - 2, 0.8, d - 2), M.dark(0x1e222a), cx, HW.y0 - 4.1, cz));
-  tag(stand, 'headStand');
+  // ---------- 共用材質 ----------
+  const mAno = M.dark(0x1f2227), mAno2 = M.dark(0x2b2f36), mBlack = M.black();
+  const mAnoDS = new THREE.MeshStandardMaterial({ color: 0x1f2227, roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide });
+  const mBrass = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.9, roughness: 0.35 });
+  const mSteel = M.metal(0xb9bfc8), mSteelDk = M.metal(0x7d8592);
+  const mRubber = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.9, metalness: 0.05 });
+  const mKnurl = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.55, metalness: 0.4, flatShading: true });
+  const mHole = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1, metalness: 0 });
+  const mLens = new THREE.MeshPhysicalMaterial({ color: 0xbfe4ff, transparent: true, opacity: 0.55, roughness: 0.03, metalness: 0.05, side: THREE.DoubleSide, depthWrite: false, iridescence: 0.5, iridescenceIOR: 1.4 });
+  const mWhite = M.emissive(0xffffff, 0.45);
+  const mCable = new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.8 });
 
-  // 上蓋（可掀開，樞軸在後緣）
-  lidPivot.position.set(0, HW.y1, HW.z0); head.add(lidPivot);
-  const lid = mesh(box(w, HW.t, d), headMat, cx, -HW.t / 2, d / 2);
-  lidPivot.add(lid);
-  lidPivot.add(mesh(box(w - 6, 0.3, d - 6), M.dark(0x3a3f4a), cx, 0.15, d / 2));  // 頂部飾板
-  tag(lid, 'lid');
-
-  // CONFOCAL APERTURE 旋鈕：在前面板上（不在上蓋），經傳動軸帶動裡面的 pinhole 轉盤
-  pinKnob.position.set(PIN_KX, 3.1, HW.z1); head.add(pinKnob);
-  pinKnob.add(mesh(cyl(1.8, 1.9, 1.6), M.black(), 0, 0, 0.8, { rx: Math.PI / 2 }));
-  pinKnob.add(mesh(box(0.3, 1.5, 0.3), M.emissive(0xffffff, 0.5), 0, 0.95, 1.65, { shadow: false }));   // 指針（朝上 = 第 3 段）
-  tag(pinKnob, 'pinholeKnob', { force: true });
-
-  // ---------- 內部光學元件（局部座標，光束高度 y=0）----------
-  const inner = group(head);
-  const AX = OPT.AX;
-  const post = (x, z, hgt = 6.5) => inner.add(mesh(cyl(0.35, 0.35, hgt), M.metal(0x8a93a3), x, HW.y0 + 1 + hgt / 2, z));
-  const holder = (x, z, ry = 0, sz = 4.4) => { const m = mesh(box(0.6, sz, sz), M.dark(0x3a3f4a), x, 0, z, { ry }); inner.add(m); return m; };
-  const lensMount = (x, z, r, part) => { inner.add(tag(mesh(cyl(r, r, 1.2, 32), M.dark(0x3a3f4a), x, 0, z, { rz: Math.PI / 2 }), part)); post(x, z); };
-
-  // 瞳孔投影鏡（掃描透鏡）：最靠側埠，在側埠光軸 z=0 上
-  const scanLens = mesh(cyl(2.4, 2.4, 0.7), M.glass(0xbfe6ff, 0.5), OPT.scanLens, 0, 0, { rz: Math.PI / 2 });
-  inner.add(tag(scanLens, 'scanLens')); lensMount(OPT.scanLens, 0, 2.9, 'scanLens');
-  anchor(scanLens, '瞳孔投影鏡', [0, 4, 0], { interior: true });
-
-  // 振鏡 Y（慢軸）：鏡面 45°，繞水平軸擺動；馬達橫放在鏡面平面內、朝側埠側避開光束
-  galvoY.position.set(OPT.galvo, 0, 0); galvoY.rotation.order = 'YZX'; galvoY.rotation.y = -Math.PI / 4; inner.add(galvoY);
-  galvoY.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
-  galvoY.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
-  galvoY.add(mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), -0.6, 0, -4.4, { rx: Math.PI / 2 }));
-  tag(galvoY, 'galvoY'); post(OPT.galvo, 0, 6.5); anchor(galvoY, '振鏡 Y', [0, 4, 0], { interior: true });
-
-  // 振鏡 X（快軸）：鏡面 45°，繞垂直軸擺動；馬達在下
-  galvoX.position.set(OPT.galvo, 0, AX); galvoX.rotation.y = -Math.PI / 4; inner.add(galvoX);
-  galvoX.add(mesh(box(0.25, 4, 4), M.mirror(), 0, 0, 0));
-  galvoX.add(mesh(box(0.5, 4.4, 4.4), M.dark(0x2a2e37), -0.35, 0, 0));
-  galvoX.add(mesh(cyl(1.1, 1.1, 4.5), M.dark(0x4a4f5a), 0, -4.3, 0));
-  tag(galvoX, 'galvoX'); anchor(galvoX, '振鏡 X', [0, 4, 0], { interior: true });
-
-  // 激發分光鏡（45°）：反射 +z 來的雷射成 +x 往振鏡 X；讓 -x 回來的螢光穿透
-  const exDM = mesh(box(0.25, 3.6, 3.6), new THREE.MeshPhysicalMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.6, side: THREE.DoubleSide }), OPT.exDM, 0, AX, { ry: Math.PI / 4 });
-  inner.add(exDM); tag(holder(OPT.exDM, AX, Math.PI / 4), 'exDM'); post(OPT.exDM, AX);
-  tag(exDM, 'exDM'); anchor(exDM, '激發 DM', [0, 4, 0], { interior: true });
-
-  // 光纖入口 + 準直鏡（後壁，朝 +z 射向激發 DM）
-  const coll = group(inner, OPT.exDM, 0, OPT.coll);
-  coll.add(mesh(cyl(0.9, 0.9, 3.5), M.metal(0x8a93a3), 0, 0, 0, { rx: Math.PI / 2 }));
-  coll.add(mesh(cyl(0.6, 0.6, 3.0), M.dark(0x3a3f4a), 0, 0, -2.8, { rx: Math.PI / 2 }));
-  coll.add(mesh(box(2.4, 1, 1.6), M.dark(0x3a3f4a), 0, -1.2, 0));
-  tag(coll, 'fiberPort'); post(OPT.exDM, OPT.coll, 5.5);
-
-  // 共軛焦透鏡
-  const cLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), OPT.cLens, 0, AX, { rz: Math.PI / 2 }); inner.add(tag(cLens, 'confocalLens'));
-  lensMount(OPT.cLens, AX, 2.2, 'confocalLens');
-  anchor(cLens, '共軛焦透鏡', [0, 3.6, 0], { interior: true });
-
-  // Pinhole 轉盤：五個孔，轉到最下方的那一孔在光軸上；軸座兼傘齒輪箱，傳動軸通到前面板旋鈕
-  pinWheel.position.set(OPT.pinhole, 3.1, AX); inner.add(pinWheel);
-  pinWheel.add(mesh(cyl(3.2, 3.2, 0.35, 48), M.metal(0xb8bfcc), 0, 0, 0, { rz: Math.PI / 2 }));
-  const holeR = [0.16, 0.24, 0.32, 0.40, 0.52];
-  for (let s = 0; s < 5; s++) {
-    const a = s * Math.PI * 2 / 5;
-    pinWheel.add(mesh(cyl(holeR[s], holeR[s], 0.4, 20), M.black(), 0, -3.1 * Math.cos(a), 3.1 * Math.sin(a), { rz: Math.PI / 2 }));
-  }
-  tag(pinWheel, 'pinhole'); post(OPT.pinhole, AX, 5.5);
-  inner.add(tag(mesh(box(1.4, 2.4, 2.4), M.dark(0x3a3f4a), PIN_KX, 3.1, AX), 'pinhole'));                       // 軸座 / 齒輪箱
-  inner.add(tag(mesh(cyl(0.3, 0.3, HW.z1 - AX - 1.2), M.metal(0x8a93a3), PIN_KX, 3.1, (AX + 1.2 + HW.z1) / 2, { rx: Math.PI / 2 }), 'pinholeKnob'));   // 傳動軸
-  anchor(pinWheel, 'Pinhole', [0, 3.8, 0], { interior: true });
-
-  // 準直透鏡（pinhole 後）
-  const kLens = mesh(cyl(1.8, 1.8, 0.6), M.glass(0xbfe6ff, 0.5), OPT.collLens, 0, AX, { rz: Math.PI / 2 }); inner.add(tag(kLens, 'collLens'));
-  lensMount(OPT.collLens, AX, 2.2, 'collLens');
-
-  // 滑軌通用件：底桿在光束下方 (y=-2.6) 沿 z 伸出前牆成把手；第 i 格在 z0 + i*slot，上下各一條夾框
-  const sliderRail = (grp, z0, n, ry = 0) => {
-    const zEnd = HW.z1 + 4.0;
-    grp.add(mesh(box(1.2, 0.5, zEnd - z0 + 1.7), M.dark(0x3a3f4a), 0, -2.6, (z0 - 1.7 + zEnd) / 2));
-    grp.add(mesh(box(1.8, 2.0, 1.2), M.black(), 0, -2.6, zEnd + 0.6));
-    for (let i = 0; i < n; i++) {
-      grp.add(mesh(box(0.5, 0.4, 3.4), M.dark(0x3a3f4a), 0, -2.05, z0 + i * OPT.slot, { ry }));
-      grp.add(mesh(box(0.5, 0.4, 3.4), M.dark(0x3a3f4a), 0, 2.05, z0 + i * OPT.slot, { ry }));
-    }
-    grp.add(mesh(box(0.5, 4.5, 0.4), M.dark(0x3a3f4a), 0, -0.35, z0 + (n - 1) * OPT.slot + 1.9));   // 前端立柱把夾框連到底桿
+  // ---------- 小工具（名稱加 sh 前綴避免撞名）----------
+  const shTex = (W, Hh, draw) => { const c = document.createElement('canvas'); c.width = W; c.height = Hh; const g = c.getContext('2d'); draw(g, W, Hh); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  const shTxt = (g, s, x, y, font, color = '#1c1e22', align = 'center') => { g.font = font; g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle'; g.fillText(s, x, y); };
+  const FONT = 'Arial, Helvetica, sans-serif';
+  const shDecal = (gw, gh, tex, x, y, z, o = {}) => { const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, metalness: 0.05 }); if (o.cut) mat.alphaTest = 0.4; return mesh(new THREE.PlaneGeometry(gw, gh), mat, x, y, z, { rx: o.rx, ry: o.ry, rz: o.rz, shadow: false }); };
+  const shSticker = (W, Hh, title, lines, ts, ls) => shTex(W, Hh, (g) => {
+    g.fillStyle = '#f2c11c'; g.fillRect(0, 0, W, Hh);
+    g.strokeStyle = '#141414'; g.lineWidth = Math.max(3, Hh * 0.03); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, W - g.lineWidth, Hh - g.lineWidth);
+    shTxt(g, title, W / 2, Hh * 0.25, `bold ${ts}px ${FONT}`, '#141414');
+    lines.forEach((s, i) => shTxt(g, s, W / 2, Hh * 0.54 + i * ls * 1.3, `bold ${ls}px ${FONT}`, '#141414'));
+  });
+  const shIcoSlider = (g, x, y, gw, gh, pos, ink) => { g.strokeStyle = ink; g.lineWidth = 2.5; g.strokeRect(x - gw / 2, y - gh / 2, gw, gh); g.fillStyle = ink; g.fillRect(x - gw / 2 + 3 + pos * (gw - gh), y - gh / 2 + 3, gh - 6, gh - 6); };
+  const shRRect = (g, x0, y0, x1, y1, r) => { g.beginPath(); g.moveTo(x0 + r, y0); g.lineTo(x1 - r, y0); g.quadraticCurveTo(x1, y0, x1, y0 + r); g.lineTo(x1, y1 - r); g.quadraticCurveTo(x1, y1, x1 - r, y1); g.lineTo(x0 + r, y1); g.quadraticCurveTo(x0, y1, x0, y1 - r); g.lineTo(x0, y0 + r); g.quadraticCurveTo(x0, y0, x0 + r, y0); g.closePath(); g.stroke(); };
+  const shTube = (parent, pts, r, mat, seg = 32) => { const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))); const m = new THREE.Mesh(new THREE.TubeGeometry(c, seg, r, 8, false), mat); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  const shRing = (ri, ro, len, seg = 40) => new THREE.LatheGeometry([new THREE.Vector2(ri, -len / 2), new THREE.Vector2(ro, -len / 2), new THREE.Vector2(ro, len / 2), new THREE.Vector2(ri, len / 2), new THREE.Vector2(ri, -len / 2)], seg);
+  const capGeo = cyl(0.42, 0.42, 0.24, 18), hexGeo = cyl(0.19, 0.19, 0.1, 6);
+  const shScrew = (parent, x, y, z, axis = 'y', simple = false) => {   // 內六角螺絲（帽 + 六角孔），axis = 帽朝向；simple = 只有帽（省 mesh）
+    const rot = axis === 'x' ? { rz: -R2 } : axis === 'z' ? { rx: R2 } : {};
+    const o1 = axis === 'x' ? [0.12, 0, 0] : axis === 'z' ? [0, 0, 0.12] : [0, 0.12, 0];
+    const o2 = axis === 'x' ? [0.2, 0, 0] : axis === 'z' ? [0, 0, 0.2] : [0, 0.2, 0];
+    parent.add(mesh(capGeo, mSteelDk, x + o1[0], y + o1[1], z + o1[2], rot));
+    if (!simple) parent.add(mesh(hexGeo, mBlack, x + o2[0], y + o2[1], z + o2[2], rot));
   };
 
-  // 偵測分光鏡滑軌（SDM）：三片 45° 鏡；反射 -z 往折返鏡 → CH1，穿透 -x → CH2
-  sdmSlider.position.set(OPT.sdm, 0, 0); inner.add(sdmSlider);
-  sliderRail(sdmSlider, AX, 3, Math.PI / 4);
-  DM_ORDER.forEach((k, i) => {
-    const plate = mesh(box(0.25, 3.2, 3.2), new THREE.MeshPhysicalMaterial({ color: DMS[k].color, transparent: k !== 'mirror', opacity: k === 'mirror' ? 1 : 0.7, roughness: 0.05, metalness: k === 'mirror' ? 1 : 0.5, side: THREE.DoubleSide }), 0, 0, AX + OPT.slot * i, { ry: Math.PI / 4 });
-    sdmSlider.add(plate); dmPlates.push(plate);
+  // ============================================================
+  //  外箱：四面牆（可透明）+ 底板 + 頂面後緣固定條；箱底直接坐桌面
+  //  前牆由四片圍住一塊「內縮」的淺色副面板（副面板表面在 z = FZ，比牆面凹 REC）
+  // ============================================================
+  const shell = group(head);
+  const wall = (gw, gh, gd, x, y, z, c = 0xe8e6df) => { const m = M.body(c); m.userData.baseOpacity = 1; wallMats.push(m); housingMats.push(m); const mm = mesh(box(gw, gh, gd), m, x, y, z); shell.add(mm); return mm; };
+  const wTop = HW.y1 - HW.t, wh = wTop - HW.y0, wy = HW.y0 + wh / 2;      // 牆：箱底 → 上蓋下緣
+  wall(w, wh, HW.t, cx, wy, HW.z0 + HW.t / 2);                  // 後牆
+  wall(HW.t, wh, d, HW.x0 + HW.t / 2, wy, cz);                  // 左牆
+  wall(HW.t, wh, d, HW.x1 - HW.t / 2, wy, cz);                  // 右牆（接顯微鏡）
+  wall(w, HW.t, 3.2, cx, HW.y1 - HW.t / 2, HW.z0 + 1.6);        // 頂面後緣固定條（接頭裝在這裡，不隨上蓋掀起）
+  const fzc = HW.z1 - HW.t / 2;
+  wall(w, wTop - SPY1, HW.t, cx, (wTop + SPY1) / 2, fzc);                                   // 前牆：副面板上方
+  wall(w, SPY0 - HW.y0, HW.t, cx, (SPY0 + HW.y0) / 2, fzc);                                 // 前牆：下緣
+  wall(SPX0 - HW.x0, SPY1 - SPY0, HW.t, (SPX0 + HW.x0) / 2, (SPY0 + SPY1) / 2, fzc);        // 前牆：副面板左側
+  wall(HW.x1 - SPX1, SPY1 - SPY0, HW.t, (SPX1 + HW.x1) / 2, (SPY0 + SPY1) / 2, fzc);        // 前牆：副面板右側
+  const subPanel = wall(SPX1 - SPX0, SPY1 - SPY0, HW.t - REC, (SPX0 + SPX1) / 2, (SPY0 + SPY1) / 2, HW.z1 - HW.t + (HW.t - REC) / 2, 0xe8e6df);   // 白色前板（微內縮）
+  for (const sx of [SPX0 + 1.0, SPX1 - 1.0]) for (const sy of [SPY0 + 1.0, SPY1 - 1.0]) shScrew(shell, sx, sy, FZ, 'z', true);        // 前板四角內六角螺絲
+  shell.add(mesh(box(w - 1.6, 1, d - 1.6), M.dark(0x2f333c), cx, HW.y0 + 0.5, cz));   // 底板（光學件都鎖在上面）
+  shell.add(mesh(box(w + 0.3, 0.5, d + 0.3), mAno2, cx, HW.y0 + 0.25, cz));            // 底緣飾條
+
+  // ---- 副面板印字（一張 CanvasTexture 貼在副面板上）：濾片匣輪廓、CH2 / CH1、BARRIER FILTER、旋鈕刻度 1–5、DETECTION 圖示 ----
+  const PX = 28, OX = SPX0, OY = SPY1, OW = SPX1 - SPX0, OH = SPY1 - SPY0;   // 28 px / cm
+  const fx = (u) => (u - OX) * PX, fy = (v) => (OY - v) * PX;
+  const subTex = shTex(Math.round(OW * PX), Math.round(OH * PX), (g, W, Hh) => {
+    g.clearRect(0, 0, W, Hh);
+    const ink = '#1c1e22';
+    g.strokeStyle = ink; g.lineWidth = 2.5;
+    for (const rx of [OPT.ba2, OPT.ba1]) shRRect(g, fx(rx - 0.8), fy(2.2), fx(rx + 1.8), fy(-3.0), 10);   // 濾片匣（cartridge）輪廓
+    shTxt(g, 'CH2', fx(OPT.ba2 + 0.55), fy(1.15), `bold 22px ${FONT}`, ink);
+    shTxt(g, 'CH1', fx(OPT.ba1 + 0.55), fy(1.15), `bold 22px ${FONT}`, ink);
+    const bm = (OPT.ba2 + OPT.ba1) / 2 + 0.5;
+    shTxt(g, 'BARRIER FILTER', fx(bm), fy(-3.75), `bold 19px ${FONT}`, ink);
+    shIcoSlider(g, fx(bm - 0.75), fy(-4.55), 30, 14, 0, ink); shTxt(g, 'IN', fx(bm - 0.75), fy(-5.2), `16px ${FONT}`, ink);
+    shIcoSlider(g, fx(bm + 0.75), fy(-4.55), 30, 14, 1, ink); shTxt(g, 'OUT', fx(bm + 0.75), fy(-5.2), `16px ${FONT}`, ink);
+    const kx = fx(PIN_KX), ky = fy(0);
+    for (let i = 0; i < 5; i++) {                                   // 刻度：1 正上方，順時針每段 72°（旋鈕 r 3.3）
+      const a = Math.PI / 2 - i * Math.PI * 2 / 5;
+      g.strokeStyle = ink; g.lineWidth = 4; g.beginPath();
+      g.moveTo(kx + Math.cos(a) * 3.7 * PX, ky - Math.sin(a) * 3.7 * PX); g.lineTo(kx + Math.cos(a) * 3.95 * PX, ky - Math.sin(a) * 3.95 * PX); g.stroke();
+      shTxt(g, String(i + 1), kx + Math.cos(a) * 4.35 * PX, ky - Math.sin(a) * 4.35 * PX, `bold 26px ${FONT}`, ink);
+    }
+    shTxt(g, 'DETECTION', fx(PIN_KX - 4.9), fy(-4.7), `bold 19px ${FONT}`, ink);   // SDM 三段圖示（photo4：在大旋鈕左下）
+    ['Mirror', 'DM570', 'DM630'].forEach((s, i) => { const y = fy(-5.35 - i * 0.6); shIcoSlider(g, fx(PIN_KX - 6.0), y, 30, 13, i / 2, ink); shTxt(g, s, fx(PIN_KX - 5.25), y, `17px ${FONT}`, ink, 'left'); });
   });
-  tag(sdmSlider, 'detDM'); anchor(sdmSlider, '偵測 DM (SDM)', [0, 3.6, AX], { interior: true });
+  const subDecal = shDecal(OW, OH, subTex, (SPX0 + SPX1) / 2, (SPY0 + SPY1) / 2, FZ + 0.01, { cut: true });
+  const titleTex = shTex(448, 64, (g, W, Hh) => { g.clearRect(0, 0, W, Hh); shTxt(g, 'CONFOCAL APERTURE', W / 2, Hh / 2, `bold 34px ${FONT}`); });
+  const titleDecal = shDecal(7.0, 1.0, titleTex, PIN_KX, SPY1 - 0.8, FZ + 0.02, { cut: true });   // 標題印在前板內、刻度 1 的正上方
+  for (const dm of [subDecal, titleDecal]) { dm.material.userData.baseOpacity = 1; wallMats.push(dm.material); housingMats.push(dm.material); shell.add(dm); }
+  // 銘牌 OLYMPUS FLUOVIEW（大旋鈕右下方，寬約 9.5，photo4）
+  const plateTex = shTex(512, 128, (g, W, Hh) => { g.fillStyle = '#0e0f12'; g.fillRect(0, 0, W, Hh); shTxt(g, 'OLYMPUS', W / 2, 44, `bold 56px ${FONT}`, '#f4f4f4'); shTxt(g, 'FLUOVIEW', W / 2, 96, `bold 36px ${FONT}`, '#f4f4f4'); });
+  const plate = group(shell, PIN_KX + 8.5, -6.0, FZ);
+  plate.add(mesh(box(9.5, 2.4, 0.3), mBlack, 0, 0, 0.15));
+  plate.add(shDecal(9.4, 2.36, plateTex, 0, 0, 0.31));
+  // 藍色膠帶兩小塊（photo4：前板左上角螺絲旁、銘牌右側）；黃色 CLASS 3B 貼在上蓋前左角（見上蓋段）
+  const tex3B = shSticker(640, 224, 'CAUTION - CLASS 3B', ['LASER RADIATION WHEN OPEN', 'AVOID EXPOSURE TO THE BEAM'], 50, 30);
+  const mTape = M.body(0x2244cc);
+  shell.add(mesh(box(2.0, 2.0, 0.06), mTape, SPX0 + 3.2, SPY1 - 1.7, FZ + 0.03, { shadow: false }));
+  shell.add(mesh(box(2.2, 1.6, 0.06), mTape, PIN_KX + 8.5 + 7.2, -6.2, FZ + 0.03, { shadow: false }));
+  // 前板上的五金：CH2 / CH1 滑桿出口 + 濾片匣固定螺絲、SDM 拉桿圓座、CONFOCAL APERTURE 旋鈕座環
+  for (const x of [OPT.ba2, OPT.ba1]) {
+    shell.add(mesh(cyl(0.62, 0.62, 0.4, 24), mBlack, x, 0, FZ + 0.2, { rx: R2 }));
+    shScrew(shell, x - 0.35, 1.75, FZ, 'z', true); shScrew(shell, x + 1.35, -2.55, FZ, 'z', true);
+  }
+  shell.add(mesh(cyl(2.3, 2.3, 0.5, 32), mSteelDk, SDM_KX, SDM_KY, FZ + 0.25, { rx: R2 }));
+  shell.add(mesh(cyl(3.6, 3.6, 0.3, 48), mAno2, PIN_KX, 0, FZ + 0.15, { rx: R2 }));
+  tag(plate, 'frontPanel'); tag(subPanel, 'frontPanel'); tag(subDecal, 'frontPanel'); tag(titleDecal, 'frontPanel');
 
-  // CH1 折返鏡（固定 45°）：-z → -x，讓 CH1 與 CH2 平行
-  const fold = mesh(box(0.25, 3.6, 3.6), M.mirror(), OPT.fold, 0, OPT.ch1z, { ry: Math.PI / 4 });
-  inner.add(tag(fold, 'foldMirror')); tag(holder(OPT.fold, OPT.ch1z, Math.PI / 4), 'foldMirror'); post(OPT.fold, OPT.ch1z);
-  anchor(fold, '折返鏡', [0, 3.6, 0], { interior: true });
+  // ---- 右牆：接 IX71 連接管的黑色埠圈（與側埠同軸 y=0, z=0）----
+  const port = group(shell, HW.x1, 0, 0);
+  port.add(mesh(cyl(4.3, 4.3, 0.5, 48), mAno2, -0.15, 0, 0, { rz: R2 }));      // 法蘭
+  port.add(mesh(cyl(3.6, 3.6, 1.6, 48), mAno, 0.8, 0, 0, { rz: R2 }));          // 埠圈 x 0..1.6
+  port.add(mesh(cyl(3.05, 3.05, 0.3, 48), mBlack, 1.65, 0, 0, { rz: R2 }));     // 內孔
+  for (const a of [45, 135, 225, 315]) shScrew(port, 0.1, Math.sin(a * Math.PI / 180) * 3.95, Math.cos(a * Math.PI / 180) * 3.95, 'x', true);
+  tag(port, 'headPort'); anchor(port, '側埠接口', [0, 5.5, 0]);
+  tag(shell, 'scanhead'); anchor(shell, 'FV300 掃描頭', [HW.x0 + 6, HW.y1 + 3, HW.z1 - 4]);   // 箱體左前上角（避開 EX. DM 拉鈕的標籤）
 
-  // CH1 / CH2 Barrier filter 滑軌：兩格（濾片 + 空格）
-  ba1Slider.position.set(OPT.ba1, 0, 0); inner.add(ba1Slider); sliderRail(ba1Slider, OPT.ch1z, 2);
-  ba1Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0x44ff88, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, OPT.ch1z); ba1Slider.add(ba1Mesh);
-  tag(ba1Slider, 'ba1'); anchor(ba1Slider, 'BA1', [0, 3.4, OPT.ch1z], { interior: true });
-  ba2Slider.position.set(OPT.ba2, 0, 0); inner.add(ba2Slider); sliderRail(ba2Slider, AX, 2);
-  ba2Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0xff8844, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, AX); ba2Slider.add(ba2Mesh);
-  tag(ba2Slider, 'ba2'); anchor(ba2Slider, 'BA2', [0, 3.4, AX], { interior: true });
+  // ============================================================
+  //  上蓋（可掀開，樞軸在後緣）：左大右小兩塊面板（接縫 x≈3）、四角內六角螺絲、貼紙、EX. DM 穿孔襯圈
+  // ============================================================
+  lidPivot.position.set(0, HW.y1, HW.z0); head.add(lidPivot);
+  const lidD = d - 3.2, lidZ = 3.2 + lidD / 2;                  // 上蓋從固定條前緣到前牆
+  const lid = mesh(box(w, HW.t, lidD), headMat, cx, -HW.t / 2, lidZ); lidPivot.add(lid);
+  const panelMat = HOUSING(M.body(0xefede6));
+  const SEAM = 3.0, GAP = 0.35, INS = 0.7;
+  const pl = [HW.x0 + INS, SEAM - GAP], pr = [SEAM + GAP, HW.x1 - INS];
+  for (const p of [pl, pr]) {
+    lidPivot.add(mesh(box(p[1] - p[0], 0.25, lidD - 2 * INS), panelMat, (p[0] + p[1]) / 2, 0.125, lidZ));
+    for (const sx of [p[0] + 1.0, p[1] - 1.0]) for (const sz of [3.2 + INS + 1.0, d - INS - 1.0]) shScrew(lidPivot, sx, 0.25, sz);
+  }
+  const texCaution = shSticker(512, 256, 'CAUTION', ['LASER RADIATION WHEN OPEN.', 'AVOID EXPOSURE TO BEAM.'], 66, 28);
+  const texCautionS = shSticker(384, 160, 'CAUTION', ['Turn off all main switches', 'before opening this panel.'], 46, 19);
+  lidPivot.add(shDecal(6.6, 2.2, tex3B, HW.x0 + 6.0, 0.27, 6.1, { rx: -R2 }));                    // 左段後方 CLASS 3B（photo2：靠左後）
+  lidPivot.add(shDecal(6.6, 2.2, tex3B, HW.x0 + 5.5, 0.27, 3.2 + lidD - INS - 1.6, { rx: -R2, rz: Math.PI }));   // 左段前左角 CLASS 3B（photo4：長邊沿前緣、文字朝後可讀）
+  lidPivot.add(mesh(cyl(0.45, 0.45, 0.9, 16), mSteel, SEAM - 5.5, 0.7, 3.2 + lidD * 0.68));       // 左段頂面前 1/3 的小同軸插座 + 旁邊一顆螺絲（photo4）
+  shScrew(lidPivot, SEAM - 4.0, 0.25, 3.2 + lidD * 0.68);
+  lidPivot.add(shDecal(6.4, 3.2, texCaution, 11.5, 0.27, 7.4, { rx: -R2 }));                      // 右段兩張 CAUTION（靠後）
+  lidPivot.add(shDecal(4.8, 2.0, texCautionS, 11.5, 0.27, 10.6, { rx: -R2 }));
+  lidPivot.add(mesh(new THREE.TorusGeometry(0.85, 0.22, 10, 32), mRubber, OPT.exDM, 0.3, AX - HW.z0, { rx: R2 }));   // EX. DM 拉桿穿孔襯圈
+  const texExDM = shTex(320, 160, (g, W, Hh) => {
+    g.clearRect(0, 0, W, Hh); shTxt(g, 'EX. DM', W / 2, 36, `bold 40px ${FONT}`);
+    shIcoSlider(g, W / 2 - 62, 104, 76, 28, 0, '#1c1e22'); shIcoSlider(g, W / 2 + 62, 104, 76, 28, 1, '#1c1e22');
+    shTxt(g, '1', W / 2 - 62, 140, `bold 22px ${FONT}`); shTxt(g, '2', W / 2 + 62, 140, `bold 22px ${FONT}`);
+  });
+  lidPivot.add(shDecal(4.4, 2.2, texExDM, OPT.exDM - 1.0, 0.27, AX - HW.z0 + 2.7, { rx: -R2, cut: true }));   // 印在拉鈕前方（操作者側）
+  tag(lidPivot, 'lid');
 
-  // 兩支側窗 PMT：橫躺、窗口朝 +x、並排在左端
+  // ============================================================
+  //  頂面後緣接頭（固定在後牆頂條上，依 photo2）：兩個 BNC（橘 / 綠線頭）+ 大型多芯接頭 + 兩個方形訊號接頭
+  // ============================================================
+  const conn = group(head, 0, HW.y1, HW.z0 + 1.6);
+  const bnc = (x, color) => {
+    const g = group(conn, x, 0, 0), mc = M.body(color);
+    g.add(mesh(box(1.3, 0.3, 1.3), mAno2, 0, 0.15, 0));
+    g.add(mesh(cyl(0.5, 0.5, 1.2, 20), mSteel, 0, 0.9, 0));
+    g.add(mesh(cyl(0.68, 0.68, 0.5, 20), mSteelDk, 0, 1.6, 0));         // 卡口環
+    g.add(mesh(cyl(0.6, 0.6, 0.4, 20), mBlack, 0, 2.05, 0));
+    g.add(mesh(cyl(0.44, 0.44, 1.4, 20), mc, 0, 2.95, 0));               // 彩色線頭
+    shTube(g, [[0, 3.6, 0], [0, 4.6, -0.9], [0, 4.3, -2.2], [0, 1.5, -2.9], [0, -12, -3.0], [0, HW.y0 - HW.y1 + 0.3, -3.4]], 0.22, mc, 40);   // 短纜線：翻過後緣、貼後牆垂到桌面
+    return g;
+  };
+  bnc(-17.2, 0xe8601c); bnc(-15.0, 0x2e9e5b);
+  const mp = group(conn, -3.5, 0, 0);                                    // 大型多芯接頭（至 FV5-PSU）；x=-3.5 讓垂下的粗纜線避開 x=1 的光纖入口（世界 x -51.5）
+  mp.add(mesh(box(4.4, 2.6, 3.0), mBlack, 0, 1.3, 0));
+  mp.add(mesh(box(4.0, 0.3, 2.6), mSteelDk, 0, 2.75, 0));
+  mp.add(mesh(cyl(0.95, 0.95, 1.6, 20), mRubber, 0, 1.3, -2.2, { rx: R2 }));
+  shTube(mp, [[0, 1.3, -2.9], [0, 1.1, -5.0], [0, -3, -6.0], [0, -12, -6.2], [0, HW.y0 - HW.y1 + 0.6, -7.0]], 0.6, mCable, 40);   // 粗黑纜線往後、垂到桌面
+  for (const x of [6.5, 9.5]) {                                          // 兩個方形接頭（PMT 訊號 / 高壓），黑纜往後垂下
+    const g = group(conn, x, 0, 0);
+    g.add(mesh(box(2.2, 2.4, 2.2), mBlack, 0, 1.2, 0));
+    g.add(mesh(box(1.9, 0.25, 1.9), mSteelDk, 0, 2.5, 0));
+    g.add(mesh(cyl(0.6, 0.6, 1.0, 16), mRubber, 0, 1.2, -1.5, { rx: R2 }));
+    shTube(g, [[0, 1.2, -2.0], [0, 0.9, -3.8], [0, -3, -4.6], [0, -12, -4.8], [0, HW.y0 - HW.y1 + 0.5, -5.4]], 0.4, mCable, 32);
+  }
+  tag(conn, 'headConnectors'); anchor(conn, '訊號 / 控制接頭', [-5, 5, 0]);
+
+  // ============================================================
+  //  CONFOCAL APERTURE 旋鈕 + 傳動軸 + 傘齒輪（都在 pinKnob 裡，隨 pinKnob.rotation.z 轉）
+  // ============================================================
+  const toothGeo = box(0.28, 0.62, 0.22), coneGeo = cyl(1.6, 1.0, 0.6, 32), gHubGeo = cyl(0.75, 0.75, 0.4, 24);
+  const bevelGear = (n, phase) => {   // 局部：兩軸交點（節錐頂點）在原點，齒輪沿 +y，齒帶在離頂點 1.0–1.6 處（45° 節錐）
+    const gg = new THREE.Group();
+    gg.add(mesh(coneGeo, mBrass, 0, 1.3, 0)); gg.add(mesh(gHubGeo, mBrass, 0, 1.8, 0));
+    const qz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 4), qy = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < n; i++) {
+      const th = phase + i * Math.PI * 2 / n;
+      const m = new THREE.Mesh(toothGeo, mBrass); m.castShadow = true; m.receiveShadow = true;
+      m.quaternion.copy(qy.setFromAxisAngle(Y, th)).multiply(qz);
+      m.position.set(Math.cos(th) * 1.38, 1.18, -Math.sin(th) * 1.38);
+      gg.add(m);
+    }
+    return gg;
+  };
+  pinKnob.position.set(PIN_KX, 0, FZ); head.add(pinKnob);                             // 旋鈕在前板表面
+  pinKnob.add(mesh(cyl(3.2, 3.3, 2.4, 48), mRubber, 0, 0, 1.5, { rx: R2 }));         // 旋鈕本體 z 0.3..2.7（直徑約 6.5 = 正面高的 0.26；photo4 ≈ 0.4）
+  pinKnob.add(mesh(cyl(2.95, 2.95, 0.12, 48), mBlack, 0, 0, 2.75, { rx: R2 }));       // 前端面
+  pinKnob.add(mesh(box(0.22, 2.4, 0.08), mWhite, 0, 1.5, 2.82, { shadow: false }));   // 白色指針（段位 1 = 正上方）
+  const shaftLen = FZ - (ZC + 1.6);
+  pinKnob.add(mesh(cyl(0.3, 0.3, shaftLen, 16), mSteel, 0, 0, -shaftLen / 2, { rx: R2 }));   // 傳動軸：齒輪 → 前面板
+  const gDrive = bevelGear(12, Math.PI / 12); gDrive.position.set(0, 0, ZC - FZ); gDrive.rotation.x = R2; pinKnob.add(gDrive);
+  tag(pinKnob, 'pinholeKnob', { force: true }); tag(gDrive, 'bevelGear', { force: true });
+  anchor(pinKnob, 'CONFOCAL APERTURE', [0, 5.6, 1.5]);
+
+  // ============================================================
+  //  內部光學元件（局部座標，光束高度 y=0；每件都有座／立柱接到底板）
+  // ============================================================
+  const inner = group(head);
+  const pedestal = (x, z, top, o = {}) => {   // 黑色陽極鋁座：底板 + 立柱 + 夾塊（夾塊頂 = top）
+    const g = group(inner, x, 0, z); const bw = o.bw || 2.6;
+    g.add(mesh(box(bw, 0.4, o.bd || bw), mAno, 0, FLOOR + 0.2, 0));
+    const ph = top - 1.0 - (FLOOR + 0.4);
+    if (ph > 0.05) g.add(mesh(cyl(0.45, 0.45, ph, 16), mAno2, 0, FLOOR + 0.4 + ph / 2, 0));
+    g.add(mesh(box(o.cw || 1.6, 1.0, o.cd || 1.6), mAno, 0, top - 0.5, 0));
+    if (o.part) tag(g, o.part);
+    return g;
+  };
+  const lensMount = (x, z, r, part, label) => {   // 黑色鏡筒環 + 鍍膜透鏡 + 壓環
+    const g = group(inner, x, 0, z);
+    g.add(mesh(shRing(r + 0.05, r + 0.6, 1.2), mAnoDS, 0, 0, 0, { rz: R2 }));
+    g.add(mesh(cyl(r, r, 0.5, 40), mLens, 0, 0, 0, { rz: R2 }));
+    g.add(mesh(shRing(r - 0.25, r + 0.1, 0.25), mAnoDS, 0.55, 0, 0, { rz: R2 }));
+    tag(g, part); pedestal(x, z, -(r + 0.6), { part });
+    if (label) anchor(g, label, [0, r + 1.8, 0], { interior: true });
+    return g;
+  };
+  const mirrorMount = (x, z, ry, size, part, label) => {   // 鏡座本體在鏡面後方（局部 +x），鏡面朝局部 -x
+    const g = group(inner, x, 0, z); g.rotation.y = ry;
+    g.add(mesh(box(0.7, size + 1.0, size + 1.0), mAno, 0.35, 0, 0));
+    g.add(mesh(box(0.25, size, size), M.mirror(), -0.13, 0, 0));
+    for (const s of [-1, 1]) g.add(mesh(cyl(0.22, 0.22, 0.9, 12), mSteel, 1.1, s * (size / 2 - 0.3), size / 2 - 0.3, { rz: R2 }));   // 調整螺絲
+    tag(g, part); pedestal(x, z, -(size + 1.0) / 2, { part });
+    if (label) anchor(g, label, [0, size / 2 + 2.2, 0], { interior: true });
+    return g;
+  };
+
+  // ---- 瞳孔投影鏡（掃描透鏡）：最靠側埠，在側埠光軸 z=0 上 ----
+  const sl = group(inner, OPT.scanLens, 0, 0);
+  sl.add(mesh(shRing(2.4, 3.0, 3.2), mAnoDS, 0, 0, 0, { rz: R2 }));
+  sl.add(mesh(cyl(2.4, 2.4, 0.5, 40), mLens, -0.9, 0, 0, { rz: R2 }));
+  sl.add(mesh(cyl(2.4, 2.4, 0.5, 40), mLens, 0.9, 0, 0, { rz: R2 }));
+  sl.add(mesh(shRing(2.0, 2.45, 0.3), mAnoDS, 1.5, 0, 0, { rz: R2 }));
+  tag(sl, 'scanLens'); pedestal(OPT.scanLens, 0, -3.0, { part: 'scanLens', cw: 2.2 });
+  anchor(sl, '瞳孔投影鏡', [0, 4.6, 0], { interior: true });
+
+  // ---- 振鏡 Y（慢軸）：鏡面 45°，繞水平軸擺動；馬達橫放在鏡面平面內、朝側埠側（固定件另放在 gym）----
+  galvoY.position.set(OPT.galvo, 0, 0); galvoY.rotation.order = 'YZX'; galvoY.rotation.y = -Math.PI / 4; inner.add(galvoY);
+  galvoY.add(mesh(box(0.25, 4, 4), M.mirror(), 0.13, 0, 0));                  // 鏡面朝局部 +x（= 世界 +x,+z）
+  galvoY.add(mesh(box(0.5, 4.4, 4.4), mAno, -0.25, 0, 0));
+  galvoY.add(mesh(cyl(0.3, 0.3, 1.4, 12), mSteel, 0, 0, -2.8, { rx: R2 }));   // 軸 → 馬達
+  tag(galvoY, 'galvoY'); anchor(galvoY, '振鏡 Y', [0, 4.2, 0], { interior: true });
+  const gym = group(inner, OPT.galvo, 0, 0); gym.rotation.y = -Math.PI / 4;
+  gym.add(mesh(cyl(1.5, 1.5, 0.4, 24), mSteelDk, 0, 0, -3.6, { rx: R2 }));
+  gym.add(mesh(cyl(1.25, 1.25, 3.8, 24), mAno2, 0, 0, -5.7, { rx: R2 }));     // 馬達 z -7.6..-3.8
+  gym.add(mesh(box(3.2, 1.2, 3.0), mAno, 0, -1.85, -5.7));                     // 托座
+  { const hh = -2.45 - (FLOOR + 0.4); gym.add(mesh(box(2.4, hh, 2.4), mAno2, 0, FLOOR + 0.4 + hh / 2, -5.7)); gym.add(mesh(box(3.0, 0.4, 3.0), mAno, 0, FLOOR + 0.2, -5.7)); }
+  shTube(gym, [[0, 0, -7.6], [0, -1.2, -8.6], [0, -6, -8.8], [0, FLOOR + 0.3, -8.4]], 0.22, mCable, 20);   // 馬達線
+  tag(gym, 'galvoY');
+
+  // ---- 振鏡 X（快軸）：鏡面 45°，繞垂直軸擺動；馬達在下（固定件另放在 gxm）----
+  galvoX.position.set(OPT.galvo, 0, AX); galvoX.rotation.y = -Math.PI / 4; inner.add(galvoX);
+  galvoX.add(mesh(box(0.25, 4, 4), M.mirror(), -0.13, 0, 0));                 // 鏡面朝局部 -x（= 世界 -x,-z）
+  galvoX.add(mesh(box(0.5, 4.4, 4.4), mAno, 0.25, 0, 0));
+  galvoX.add(mesh(cyl(0.3, 0.3, 1.4, 12), mSteel, 0, -2.8, 0));
+  tag(galvoX, 'galvoX'); anchor(galvoX, '振鏡 X', [0, 4.2, 0], { interior: true });
+  const gxm = group(inner, OPT.galvo, 0, AX);
+  gxm.add(mesh(cyl(1.5, 1.5, 0.4, 24), mSteelDk, 0, -3.6, 0));
+  gxm.add(mesh(cyl(1.25, 1.25, 4.4, 24), mAno2, 0, -6.0, 0));                 // 馬達 y -8.2..-3.8
+  gxm.add(mesh(box(3.4, 2.2, 3.4), mAno, 0, -7.0, 0));                         // 夾座
+  { const hh = -8.1 - (FLOOR + 0.4); gxm.add(mesh(box(2.4, hh, 2.4), mAno2, 0, FLOOR + 0.4 + hh / 2, 0)); gxm.add(mesh(box(3.0, 0.4, 3.0), mAno, 0, FLOOR + 0.2, 0)); }
+  shTube(gxm, [[0, -8.2, 0], [0.4, -9.6, 1.4], [0.2, FLOOR + 0.3, 2.6]], 0.22, mCable, 16);
+  tag(gxm, 'galvoX');
+
+  // ---- 激發分光鏡：兩段式垂直滑座（兩片 DM 上下疊），頂面 EX. DM 拉鈕經拉桿帶動；45° 反射 +z 來的雷射成 +x ----
+  //      兩段：壓到底（目前）＝上片在光軸上；拉起 4.2 cm ＝下片換到光軸上（第二片在光軸下方，導軌塊在底部，拉鈕壓到底時坐在上蓋襯圈上）
+  const exG = group(inner, OPT.exDM, 0, AX); exG.rotation.y = Math.PI / 4;
+  exG.add(mesh(box(2.6, 0.4, 2.6), mAno, -0.45, FLOOR + 0.2, 0));
+  { const hh = -8.25 - (FLOOR + 0.4); exG.add(mesh(box(1.6, hh, 1.6), mAno2, -0.45, FLOOR + 0.4 + hh / 2, 0)); }
+  exG.add(mesh(box(1.2, 1.4, 5.6), mAno, -0.45, -7.55, 0));                                  // 導軌塊（底部）y -8.25..-6.85
+  for (const s of [-1, 1]) exG.add(mesh(cyl(0.16, 0.16, 14.6, 10), mSteel, -0.45, -0.5, s * 2.6));   // 導桿 y -7.8..6.8（滑座可再升 4.2）
+  const exCar = group(exG);                                                                   // 滑座（目前上片在光軸上）
+  const exPlateMat = new THREE.MeshPhysicalMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.6, side: THREE.DoubleSide });
+  const exPlates = [];
+  for (const yy of [0, -4.2]) { const p = mesh(box(0.25, 3.6, 3.6), exPlateMat, -0.13, yy, 0); exCar.add(p); exPlates.push(p); }
+  for (const s of [-1, 1]) exCar.add(mesh(box(0.5, 9.0, 0.5), mAno, -0.45, -2.1, s * 2.1));   // 側柱 y -6.6..2.4
+  for (const yy of [-6.6, -2.1, 2.4]) exCar.add(mesh(box(0.5, 0.5, 4.7), mAno, -0.45, yy, 0));   // 下 / 中 / 上橫桿
+  const exPull = group(exCar);
+  exPull.add(mesh(cyl(0.3, 0.3, HW.y1 + 0.6 - 2.65, 14), mSteel, 0, (HW.y1 + 0.6 + 2.65) / 2, 0));   // 拉桿：滑座頂橫桿 → 穿過上蓋
+  exPull.add(mesh(cyl(0.95, 0.95, 2.0, 18), mKnurl, 0, HW.y1 + 1.6, 0));                            // 黑色滾花拉鈕
+  exPull.add(mesh(cyl(0.3, 0.3, 0.8, 12), mSteel, 0, HW.y1 + 3.0, 0));                             // 頂端螺紋柱（photo4）
+  tag(exG, 'exDM'); tag(exPull, 'exDMKnob', { force: true });
+  anchor(exPlates[0], '激發 DM', [0, 6.5, 0], { interior: true }); anchor(exPull, 'EX. DM 拉鈕', [0, HW.y1 + 4.2, 0]);
+
+  // ---- 光纖入口 + 準直鏡：光纖從後牆 (OPT.exDM, 0, z0) 進來，準直鏡朝 +z 射向激發 DM ----
+  const coll = group(inner, OPT.exDM, 0, OPT.coll);
+  coll.add(mesh(cyl(1.0, 1.0, 3.5, 28), mAno, 0, 0, 0.25, { rx: R2 }));            // 鏡筒 z -10.5..-7.0
+  coll.add(mesh(cyl(1.15, 1.15, 0.5, 28), mAno2, 0, 0, 1.8, { rx: R2 }));
+  coll.add(mesh(cyl(0.7, 0.7, 0.16, 24), mLens, 0, 0, 2.06, { rx: R2 }));
+  coll.add(mesh(cyl(0.55, 0.55, 0.8, 16), mSteel, 0, 0, -1.9, { rx: R2 }));          // FC 接頭
+  coll.add(mesh(box(2.6, 1.0, 2.4), mAno, 0, -1.45, 0.25));                          // V 型夾座
+  tag(coll, 'fiberPort'); pedestal(OPT.exDM, OPT.coll + 0.25, -1.95, { part: 'fiberPort' });
+  anchor(coll, '光纖入口 / 準直鏡', [0, 3.4, 0], { interior: true });
+  const bh = group(inner, OPT.exDM, 0, HW.z0 + HW.t);                                 // 後牆內側穿牆接頭（外側有螺帽，光纖由此進）
+  bh.add(mesh(box(1.8, 1.8, 0.3), mAno, 0, 0, 0.15));
+  bh.add(mesh(cyl(0.55, 0.55, 1.0, 16), mSteel, 0, 0, 0.8, { rx: R2 }));
+  bh.add(mesh(cyl(0.24, 0.24, 0.7, 12), M.body(0xe0a030), 0, 0, 1.6, { rx: R2 }));   // 內部跳線
+  bh.add(mesh(cyl(0.5, 0.5, 0.9, 16), mSteel, 0, 0, -HW.t - 0.45, { rx: R2 }));
+  tag(bh, 'fiberPort');
+
+  // ---- 共軛焦透鏡 / 準直透鏡 ----
+  lensMount(OPT.cLens, AX, 1.8, 'confocalLens', '共軛焦透鏡');
+  lensMount(OPT.collLens, AX, 1.6, 'collLens', '準直透鏡');   // 鏡筒外環 2.2：SDM 斜滑軌上未選用的 DM 片從旁邊掠過
+
+  // ---- Pinhole 轉盤（依 photo1）：黑色圓盤、五個黃銅環鑲邊的孔（孔徑遞增）、鋼製中心轂、黃銅軸、軸端傘齒輪 ----
+  //      拓樸依 photo1：[鋁板] [轉盤] [轂 + 黃銅軸 + 傘齒輪]，齒輪在轉盤 +x 面。07 驅動 pinWheel.rotation.x = +θ、pinKnob.rotation.z = -θ；
+  //      +x 側傘齒輪的耦合是 ω_wheel = +ω_knob（世界 = -θ̇），所以 pinWheel 放在一個 rotation.y = π 的 wrapper 裡：局部 +θ 在世界 = -θ。
+  //      wrapper 內 x 全部取反（世界 +x 面 = 局部 -x），孔位 (py, pz) = (+R sin φ, +R cos φ)：rotation.x = (p-1)·2π/5 時第 p-1 孔仍落在光軸 (y=0, z=AX)
+  const pinWrap = group(inner, OPT.pinhole, 0, ZC); pinWrap.rotation.y = Math.PI;
+  pinWheel.position.set(0, 0, 0); pinWrap.add(pinWheel);
+  pinWheel.add(mesh(cyl(4, 4, 0.4, 64), mAno, 0, 0, 0, { rz: R2 }));
+  const ringB = new THREE.TorusGeometry(0.62, 0.15, 10, 28);
+  const holeR = [0.18, 0.26, 0.34, 0.44, 0.56];
+  for (let s = 0; s < 5; s++) {
+    const ph = s * Math.PI * 2 / 5, py = PIN_R * Math.sin(ph), pz = PIN_R * Math.cos(ph);
+    pinWheel.add(mesh(ringB, mBrass, -0.22, py, pz, { ry: R2 }));                               // 黃銅環（世界 +x 面；-x 面貼著鋁板）
+    pinWheel.add(mesh(cyl(holeR[s], holeR[s], 0.5, 16), mHole, 0, py, pz, { rz: R2 }));         // 孔
+  }
+  pinWheel.add(mesh(cyl(1.3, 1.3, 0.4, 32), mSteelDk, -0.4, 0, 0, { rz: R2 }));      // 鋼製轂（世界 x 0.2..0.6）
+  for (const a of [90, 210, 330]) shScrew(pinWheel, -0.72, Math.sin(a * Math.PI / 180) * 0.8, Math.cos(a * Math.PI / 180) * 0.8, 'x', true);   // 轂上三顆螺絲（photo1）
+  pinWheel.add(mesh(cyl(0.32, 0.32, 1.4, 16), mBrass, -1.3, 0, 0, { rz: R2 }));       // 黃銅軸：轂 → 齒輪（世界 x 0.6..2.0）
+  const gHub = bevelGear(12, 0); gHub.position.set(-(PIN_KX - OPT.pinhole), 0, 0); gHub.rotation.z = -R2; pinWheel.add(gHub);   // 齒輪本體朝轉盤（局部 +x）
+  tag(pinWheel, 'pinhole'); tag(gHub, 'bevelGear', { force: true });
+  anchor(pinWheel, 'Pinhole 轉盤', [0, 5.0, 0], { interior: true });
+  {  // 黑色鋁板座（轉盤 -x 側，避開光軸；內六角螺絲）+ 腳座；傳動軸的兩個軸承座
+    const pxl = OPT.pinhole - 0.45;
+    const pm = group(inner, pxl, 0, ZC + 0.8);
+    pm.add(mesh(box(0.3, 9.6, 4.6), mAno, 0, 0, 0));                                // z 7.2..11.8（讓 SDM 斜滑軌 DM630 格的夾框從前方掠過）
+    for (const sy of [-4.2, 4.2]) for (const sz of [-1.9, 1.9]) shScrew(pm, 0.15, sy, sz, 'x', true);
+    { const hh = -4.8 - (FLOOR + 0.4); pm.add(mesh(box(1.2, hh, 3.0), mAno2, 0, FLOOR + 0.4 + hh / 2, 0)); pm.add(mesh(box(1.8, 0.4, 3.6), mAno, 0, FLOOR + 0.2, 0)); }
+    tag(pm, 'pinhole');
+    const bearing = (z) => { inner.add(tag(mesh(box(1.6, 1.6, 1.4), mAno, PIN_KX, 0, z), 'pinholeKnob')); pedestal(PIN_KX, z, -0.8, { part: 'pinholeKnob', bw: 2.0 }); };
+    bearing(ZC + 3.0); bearing(HW.z1 - 3.4);
+  }
+
+  // ---- 滑軌通用件：每格上下夾框 + 兩根側柱；底桿在光束下方 (BAR_Y)；固定導軌 (RAIL_Y) 用腳座接底板 ----
+  const slotFrame = (grp, z, ry, sz) => {
+    for (const yy of [-2.05, 2.05]) grp.add(mesh(box(0.5, 0.4, sz + 0.6), mAno, 0, yy, z, { ry }));
+    for (const s of [-1, 1]) { const dz = s * (sz / 2 + 0.2); grp.add(mesh(box(0.5, 4.5, 0.4), mAno, Math.sin(ry) * dz, 0, z + Math.cos(ry) * dz, { ry })); }
+  };
+  const rail = (x, zA, zB, feetZ, part) => {
+    inner.add(tag(mesh(box(2.0, 0.5, zB - zA), mAno2, x, RAIL_Y, (zA + zB) / 2), part));
+    for (const z of feetZ) { const g = group(inner, x, 0, z); g.add(mesh(box(2.2, 0.4, 2.2), mAno, 0, FLOOR + 0.2, 0)); const hh = (RAIL_Y - 0.25) - (FLOOR + 0.4); g.add(mesh(box(1.4, hh, 1.4), mAno2, 0, FLOOR + 0.4 + hh / 2, 0)); tag(g, part); }
+  };
+
+  // ---- 偵測分光鏡滑軌（SDM）：三片 45° 鏡；反射 -z 往折返鏡 → CH1，穿透 -x → CH2 ----
+  //      滑軌 (sdmRig) 沿鏡面平面斜放（世界 (+x,+z) 對角線）：07 設 sdmSlider.position.z = -3.6·index 在 rig 座標＝世界斜向 (-2.55, 0, -2.55)/段，
+  //      選用片永遠落在 (OPT.sdm, 0, AX)，未選用片偏到對角線上——既不擋 z=AX 的入射光、也不擋 x=OPT.sdm 往折返鏡的 CH1 反射光。
+  //      把手：滑座上桿 → 下降塊 → 低桿（y≈-5，從 pinhole 轉盤與鋁板下方穿過）→ 垂直銷 → 前板拉桿 (sdmRod) 末端的 x 向叉槽；
+  //      拉桿只沿 z 平移（07：sdmRod.position.z = sdmSlider.position.z / √2），銷在叉槽裡沿 x 滑動。
+  const sdmRig = group(inner, OPT.sdm, 0, AX); sdmRig.rotation.y = Math.PI / 4;
+  sdmSlider.position.set(0, 0, 0); sdmRig.add(sdmSlider);
+  const SBAR_Y = -1.9;                                          // 滑座上桿（比 BAR_Y 高 0.55：DM630 段位時要跨過 BA1 滑座的底桿）
+  const rigFrame = (z) => {                                     // 每格夾框：上下夾條 + 兩根側柱（都收在 SBAR_Y 之上）
+    sdmSlider.add(mesh(box(0.5, 0.4, 3.8), mAno, 0, 2.05, z)); sdmSlider.add(mesh(box(0.5, 0.4, 3.8), mAno, 0, -1.65, z));
+    for (const s of [-1, 1]) sdmSlider.add(mesh(box(0.5, 3.9, 0.4), mAno, 0, 0.2, z + s * 1.8));
+  };
+  DM_ORDER.forEach((k, i) => {
+    const z = OPT.slot * i;                                     // rig 局部：Mirror 在原點，其餘沿 rig +z（世界 +x,+z）
+    const p = mesh(box(0.25, 3.2, 3.2), new THREE.MeshPhysicalMaterial({ color: DMS[k].color, transparent: k !== 'mirror', opacity: k === 'mirror' ? 1 : 0.7, roughness: 0.05, metalness: k === 'mirror' ? 1 : 0.5, side: THREE.DoubleSide }), 0, 0, z);   // 45° 由 rig 提供：法線 = 世界 (0.707, 0, -0.707)
+    sdmSlider.add(p); dmPlates.push(p); rigFrame(z);
+  });
+  sdmSlider.add(mesh(box(1.4, 0.5, 9.8), mAno, 0, SBAR_Y, 2.7));                 // 上桿 rig z -2.2..7.6
+  sdmSlider.add(mesh(box(1.6, 0.6, 2.0), mAno2, 0, -2.4, 6.6));                  // 滑塊：騎在固定導軌上（y -2.7..-2.1）
+  sdmSlider.add(mesh(box(1.4, 3.6, 1.0), mAno, 0, -3.4, 7.2));                   // 下降塊 y -5.2..-1.6
+  sdmSlider.add(mesh(box(1.4, 0.5, 13.6), mAno, 0, -5.0, 13.5));                 // 低桿 rig z 6.7..20.3（y -5.25..-4.75，從轉盤 (y≥-4) 與鋁板 (y≥-4.8) 下方穿過）
+  sdmSlider.add(mesh(box(0.6, 7.8, 0.6), mSteelDk, 0, -1.35, 19.8));             // 垂直銷 y -5.25..2.55：世界 (-2, ·, 20) − (2.55, 0, 2.55)·index，卡進拉桿叉槽
+  tag(sdmSlider, 'detDM'); anchor(sdmSlider, '偵測 DM (SDM)', [0, 3.8, 0], { interior: true });
+  // 固定導軌（rig 局部沿 z）+ 後腳座 + 跨在低桿上方的橋式腳座
+  sdmRig.add(tag(mesh(box(2.0, 0.5, 9.2), mAno2, 0, RAIL_Y, 3.0), 'detDM'));     // 導軌 rig z -1.6..7.6
+  { const g = group(sdmRig, 0, 0, -1.4); g.add(mesh(box(2.2, 0.4, 2.2), mAno, 0, FLOOR + 0.2, 0)); const hh = (RAIL_Y - 0.25) - (FLOOR + 0.4); g.add(mesh(box(1.4, hh, 1.4), mAno2, 0, FLOOR + 0.4 + hh / 2, 0)); tag(g, 'detDM'); }
+  { const g = group(sdmRig, 0, 0, 5.2), hb = (RAIL_Y - 0.45) - (FLOOR + 0.4);
+    for (const s of [-1, 1]) { g.add(mesh(box(1.6, 0.4, 2.0), mAno, s * 1.6, FLOOR + 0.2, 0)); g.add(mesh(box(1.0, hb, 1.4), mAno2, s * 1.6, FLOOR + 0.4 + hb / 2, 0)); }
+    g.add(mesh(box(4.2, 0.4, 1.4), mAno, 0, RAIL_Y - 0.45, 0)); tag(g, 'detDM'); }
+  // 拉桿 (sdmRod)：前板小旋鈕 → 沿 z 的鋼桿 → 箱內末端的 x 向叉槽（兩條叉條 + 端塊）；整組只沿 z 平移，在 y=SDM_KY 越過傳動軸與軸承座上方
+  sdmRod.position.set(SDM_KX, SDM_KY, 0); head.add(sdmRod);
+  { const zF = 20.0, zEnd = FZ + 7.4, bx0 = -8.1 - SDM_KX, bx1 = -1.5 - SDM_KX;   // 叉槽 z（Mirror 段位）；旋鈕：DM630 時離前板 0.5、Mirror 時 5.6
+    for (const s of [-1, 1]) sdmRod.add(mesh(box(bx1 - bx0, 1.0, 0.45), mAno, (bx0 + bx1) / 2, 0, zF + s * 0.575));   // 叉條（世界 x -8.1..-1.5）
+    sdmRod.add(mesh(box(0.5 - bx1, 1.0, 1.6), mAno, (bx1 + 0.5) / 2, 0, zF));                    // 端塊：叉槽 → 拉桿
+    sdmRod.add(mesh(cyl(0.5, 0.5, zEnd - 1.8 - zF, 16), mSteel, 0, 0, (zF + zEnd - 1.8) / 2, { rx: R2 }));   // 鋼桿：穿出前板圓座
+    sdmRod.add(mesh(cyl(2.2, 2.2, 0.25, 32), mSteel, 0, 0, zEnd - 1.75, { rx: R2 }));            // 銀色法蘭
+    sdmRod.add(mesh(cyl(1.9, 1.9, 1.8, 32), mKnurl, 0, 0, zEnd - 0.9, { rx: R2 }));             // 小黑旋鈕（滾花，直徑 3.8）
+    sdmRod.add(mesh(cyl(1.7, 1.7, 0.1, 32), mBlack, 0, 0, zEnd + 0.03, { rx: R2 }));
+    sdmRod.add(mesh(cyl(0.35, 0.35, 0.12, 6), mHole, 0, 0, zEnd + 0.1, { rx: R2 })); }           // 端面六角孔
+  tag(sdmRod, 'detDM');
+
+  // ---- CH1 折返鏡（固定 45°）：-z → -x，讓 CH1 與 CH2 平行 ----
+  mirrorMount(OPT.fold, OPT.ch1z, Math.PI / 4, 3.6, 'foldMirror', '折返鏡');
+
+  // ---- CH1 / CH2 Barrier filter 滑軌：兩格（濾片 + 空格）；把手 = 副面板伸出的長金屬滑桿（末端六角頭）----
+  const baSlider = (grp, x, zSlot, fm, part, label) => {
+    grp.position.set(x, 0, 0); inner.add(grp);
+    grp.add(fm); slotFrame(grp, zSlot, 0, 3.2); slotFrame(grp, zSlot + OPT.slot, 0, 3.2);
+    const zA = zSlot - 2.2, zBlk = 12.25, zB = zBlk + 0.75, zEnd = HW.z1 + 8.5, rl = zEnd - zB;
+    grp.add(mesh(box(1.4, 0.5, zB - zA), mAno, 0, BAR_Y, (zA + zB) / 2));           // 底桿
+    grp.add(mesh(box(1.6, 3.4, 1.5), mAno, 0, -1.0, zBlk));                          // 前端方塊：把手桿升到光束高度
+    grp.add(mesh(cyl(0.35, 0.35, rl, 16), mSteel, 0, 0, zB + rl / 2, { rx: R2 }));    // 長金屬滑桿
+    grp.add(mesh(cyl(0.62, 0.62, 0.9, 6), mSteelDk, 0, 0, zEnd - 0.45, { rx: R2 }));   // 六角頭
+    tag(grp, part); anchor(grp, label, [0, 3.6, zSlot], { interior: true });
+    rail(x, zSlot - 4, HW.z1 - 1.2, [zSlot - 2.5, 17], part);
+  };
+  ba1Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0x44ff88, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, OPT.ch1z);
+  baSlider(ba1Slider, OPT.ba1, OPT.ch1z, ba1Mesh, 'ba1', 'BA1');
+  ba2Mesh = mesh(box(0.3, 3.2, 3.2), new THREE.MeshStandardMaterial({ color: 0xff8844, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0, AX);
+  baSlider(ba2Slider, OPT.ba2, AX, ba2Mesh, 'ba2', 'BA2');
+
+  // ---- 兩支側窗 PMT：橫躺、窗口朝 +x、並排在左端；後端有 HV (SHV) 與訊號 BNC 接頭與線頭 ----
   const pmt = (x, z, part, label) => {
     const g = group(inner, x, 0, z);
-    g.add(mesh(cyl(1.8, 1.8, 5), M.dark(0x33373f), -2.8, 0, 0, { rz: Math.PI / 2 }));      // 管身 x -5.3..-0.3
-    g.add(mesh(cyl(2.3, 2.3, 0.6), M.metal(0x8a93a3), -0.3, 0, 0, { rz: Math.PI / 2 }));    // 窗口法蘭
-    g.add(mesh(box(1.8, 3.6, 3.6), M.black(), -6.2, 0, 0));                                  // 插座
-    g.add(mesh(box(5, 1.2, 3), M.dark(0x3a3f4a), -3.3, -2.7, 0));                            // 座
-    tag(g, part); anchor(g, label, [-3, 4.5, 0], { interior: true });
+    g.add(mesh(cyl(2.0, 2.0, 5.0, 36), mAno, -2.8, 0, 0, { rz: R2 }));            // 管身 x -5.3..-0.3
+    g.add(mesh(cyl(2.35, 2.35, 0.7, 36), mSteelDk, -0.3, 0, 0, { rz: R2 }));       // 窗口法蘭
+    g.add(mesh(cyl(1.5, 1.5, 0.2, 24), M.glass(0xe8f4ff, 0.5), 0.12, 0, 0, { rz: R2 }));   // 窗
+    g.add(mesh(cyl(2.1, 2.1, 0.5, 36), mBlack, -5.45, 0, 0, { rz: R2 }));          // 後蓋
+    g.add(mesh(cyl(0.5, 0.5, 1.2, 16), mSteel, -6.3, 0.9, 0, { rz: R2 }));         // HV (SHV) 接頭
+    g.add(mesh(cyl(0.66, 0.66, 0.5, 16), mRubber, -6.6, 0.9, 0, { rz: R2 }));
+    g.add(mesh(cyl(0.42, 0.42, 1.0, 16), mSteel, -6.2, -0.9, 0, { rz: R2 }));      // 訊號 BNC
+    shTube(g, [[-6.9, 0.9, 0], [-7.7, 0.7, 0.3], [-7.9, -3, 0.8], [-7.4, FLOOR + 0.3, 1.4]], 0.2, mCable, 20);
+    shTube(g, [[-6.7, -0.9, 0], [-7.5, -1.2, -0.3], [-7.7, -4, -0.8], [-7.2, FLOOR + 0.3, -1.4]], 0.17, mCable, 20);
+    g.add(mesh(box(5.0, 1.0, 4.6), mAno2, -2.8, -2.5, 0));                          // 托座 y -3..-2
+    { const hh = -3.0 - (FLOOR + 0.4); g.add(mesh(box(3.0, hh, 3.0), mAno2, -2.8, FLOOR + 0.4 + hh / 2, 0)); g.add(mesh(box(4.0, 0.4, 4.0), mAno, -2.8, FLOOR + 0.2, 0)); }
+    tag(g, part); anchor(g, label, [-3, 4.6, 0], { interior: true });
     return g;
   };
   pmt(OPT.pmt1, OPT.ch1z, 'pmt1', 'PMT CH1');
   pmt(OPT.pmt2, AX, 'pmt2', 'PMT CH2');
 }
 
+// ---------- 新增零件說明 ----------
+Object.assign(INFO, {
+  scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 左側埠、直接坐在光學桌上的米白色雷射掃描單元。所有光學元件都在同一個水平面上：右端接顯微鏡，雷射從後壁的光纖進來，兩支 PMT 並排躺在左端。正面的白色前板上有 CH2 / CH1 Barrier filter 滑桿、CONFOCAL APERTURE 大旋鈕、DETECTION 小旋鈕與 OLYMPUS FLUOVIEW 銘牌；頂面有 EX. DM 拉鈕，後緣有訊號接頭。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕（傘齒輪帶動轉盤）'], ['偵測器', '2 × PMT（側窗型）'], ['外形', '約 54 × 36 × 25 cm']] },
+  lid: { kind: '掃描單元', zh: '掃描頭上蓋', en: 'Scan Unit Cover', desc: '遮光上蓋，分成左大右小兩塊面板、四角內六角螺絲鎖住；貼著黃色 CAUTION / CLASS 3B 貼紙。EX. DM 拉桿從激發分光鏡正上方的穿孔伸出（本模型落在接縫左側；實機接縫更靠左，拉鈕在右段面板上）。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [['警示', 'Class 3B laser radiation when open']] },
+  frontPanel: { kind: '掃描單元', zh: '前面板（操作副面板）', en: 'Front Control Panel', desc: '正面一整片與機殼同色的白色前板（四角內六角螺絲）。由左至右：CH2 / CH1 兩個 BARRIER FILTER 濾片匣，各有一支長金屬滑桿（推入 = 濾片在光軸上，拉出 = 空格）；CONFOCAL APERTURE 大旋鈕（1–5 段，1 在正上方、順時針遞增）；右側的 DETECTION 小旋鈕是偵測分光鏡滑軌的拉桿把手（推到底 DM630、拉出 DM570、再拉出 Mirror，圖示印在大旋鈕左下）；大旋鈕右下方是 OLYMPUS FLUOVIEW 銘牌。', specs: [['滑桿', 'CH2、CH1 各一（兩格）'], ['旋鈕', 'CONFOCAL APERTURE 五段、DETECTION 三段']] },
+  pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '前面板上的五段旋鈕。旋鈕 → 傳動軸 → 一對 90° 傘齒輪 → pinhole 轉盤，1:1 連動：旋鈕轉 72° 轉盤也轉 72°，下一個孔就轉到光軸上。白色指針在段位 1 時指正上方。', specs: [['段位', '1–5（順時針遞增）'], ['傳動', '傳動軸 + 傘齒輪 1:1']] },
+  bevelGear: { kind: '掃描單元', zh: '傘齒輪（90° 傳動）', en: 'Bevel Gear Pair', desc: '一對黃銅傘齒輪把前面板旋鈕（軸沿前後方向）的轉動轉 90° 傳到 pinhole 轉盤的軸（沿左右方向），齒數相同所以 1:1。轉盤上五個孔的圓周角剛好 72° 一格。', specs: [['齒數比', '1:1'], ['軸交角', '90°']] },
+  exDMKnob: { kind: '掃描單元', zh: 'EX. DM 拉鈕', en: 'Excitation DM Pull Knob', desc: '頂面的黑色滾花拉鈕，穿過上蓋接到裡面激發分光鏡的垂直拉桿。激發 DM 座是兩段式：兩片分光鏡上下疊在滑座上，壓到底（目前）＝上片在光軸上，拉起 4.2 cm ＝下片換到光軸上（例如 DM405/488 ↔ DM488/543/633），不必開蓋。', specs: [['段數', '2（壓到底 = 上片 / 拉起 = 下片）'], ['操作', '從頂面拉／壓，不必開蓋']] },
+  headConnectors: { kind: '掃描單元', zh: '訊號 / 控制接頭', en: 'Signal & Control Connectors', desc: '頂面後緣的固定條上：兩個 BNC（橘、綠線）接振鏡驅動同步 / 像素時脈訊號，大型多芯接頭用粗纜線接到 FV5-PSU 電源控制箱（振鏡驅動、快門），右側兩個方形接頭走 PMT 高壓與訊號。', specs: [['BNC', '2（同步 / 時脈）'], ['多芯接頭', '1（至 FV5-PSU）'], ['方形接頭', '2（PMT HV / 訊號）']] },
+  headPort: { kind: '掃描單元', zh: '側埠接口（掃描頭端）', en: 'Side-port Coupling', desc: '掃描頭右牆上的黑色埠圈，與 IX71 左側埠同軸。中間的黑色連接管把瞳孔投影鏡後的中間像面對準顯微鏡的側埠：掃描光束由此進入顯微鏡，螢光也從此回到掃描頭。', specs: [['光軸高度', 'PORT_Y（= 側埠）']] },
+});
+
 // ============================================================
-//  雷射模組 + 合束器 + 光纖
+//  雷射模組 + 合束器 + 光纖（依 photo2 / photo4 重建）
+//  佈局（世界座標；桌面 y=0、操作者在 +z）：雷射全部放在掃描頭後方 (-z) 的桌面上、出光口朝 +x，
+//  光束沿 +x（同 y、z）射進合束器左側入口面 x=COMBINER_X（07 直線畫），中間只放同軸元件（快門、ND 輪）。
+//  合束後從合束器頂端 FC 接頭出光纖，光纖沿桌面繞一圈再爬上掃描頭後牆入口 (-47, 14, -12)。
+//  平面配置（z 由近掃描頭往後）：z=-30 LD 405（合束器旁，x -50.6..-38）與其 TDA 200（z -24..-18）；
+//  z=-39 Ar 488 長方機箱（x -92..-52）；z=-48 / -57 HeNe 預留 ghost；合束器 x -30..-18、z -61..-26。
+//  跨區段接頭一覽在檔尾 LASER_PORTS 註解。
 // ============================================================
 const laserGroups = {};
 const LASER_GEOM = {   // 出光口位置（世界座標），光束沿 +x 射向合束器
-  405: { x: -33, y: 2.5, z: -30 },
-  488: { x: -27, y: 4.5, z: -40 },
-  543: { x: -27, y: 2.6, z: -50 },
-  633: { x: -27, y: 2.6, z: -60 },
+  405: { x: -38, y: 8, z: -30 },   // LD 405：小型黑色模組（風扇 + 鰭片 + DANGER 貼紙），立柱上；機身 x -50.6..-38（最靠近掃描頭、合束器旁）
+  488: { x: -51, y: 8, z: -39 },   // Ar 488：長方形深色雷射頭（x -92..-52），出光口在 +x 端；放在 LD 405 的 -x 側後方，不擋住它
+  543: { x: -40, y: 8, z: -48 },   // HeNe 543：預留（ghost）
+  633: { x: -40, y: 8, z: -57 },   // HeNe 633：預留（ghost）
 };
-const COMBINER_X = -22;
+const COMBINER_X = -30;            // 合束器入口面（左側面）的世界 x；合束器機身 x -30..-18、z -61..-26
+const LASER_PORTS = {};            // 本區段各接頭的世界座標（給 07 接線／標籤用；見各段與檔尾註解）
+
 {
-  // LD 405：小方塊模組 + 散熱片
-  const g405 = group(scene, -40, 2.5, -30);
-  g405.add(mesh(box(14, 5, 6), M.dark(0x3a3f4a), 0, 0, 0));
-  for (let i = 0; i < 6; i++) g405.add(mesh(box(12, 0.3, 7), M.metal(0x6a7280), 0, -2.0 + i * 0.7, 0));
-  g405.add(mesh(cyl(0.9, 0.9, 1.2), M.metal(0x8a93a3), 7.3, 0, 0, { rz: Math.PI / 2 }));
-  g405.add(mesh(box(1.4, 1.4, 0.15), M.emissive(0x9b6bff, 1.5), -5, 1.2, 3.05, { shadow: false }));
-  tag(g405, 'laser405'); anchor(g405, 'LD 405 nm', [0, 5, 0]); laserGroups[405] = g405;
+  // ---------- 共用材質 / 幾何 ----------
+  const LZ = {
+    black: M.black(),
+    anod: M.dark(0x1f2227),                 // 黑色陽極鋁
+    anod2: M.dark(0x2a2e35),
+    chrome: M.metal(0xc4cad4),
+    steel: new THREE.MeshStandardMaterial({ color: 0x737a85, roughness: 0.42, metalness: 0.8 }),   // 不鏽鋼底座／壓板（霧面）
+    knob: new THREE.MeshStandardMaterial({ color: 0x0f1013, roughness: 0.78, metalness: 0.2 }),
+    cable: new THREE.MeshStandardMaterial({ color: 0x0e0f12, roughness: 0.85, metalness: 0.05 }),
+    blue: M.dark(0x1e78c8),
+    brass: new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.9, roughness: 0.35 }),
+    mirror: M.mirror(),
+  };
+  const m6Geo = cyl(0.5, 0.5, 0.5, 12);
 
-  // Ar 488：長圓筒氣體雷射 + 支架 + 藍色識別環
-  const g488 = group(scene, -50, 4.5, -40);
-  g488.add(mesh(cyl(4.5, 4.5, 46), M.body(0xb9c0cc), 0, 0, 0, { rz: Math.PI / 2 }));
-  g488.add(mesh(cyl(4.7, 4.7, 2), M.dark(0x1e88c8), 12, 0, 0, { rz: Math.PI / 2 }));
-  g488.add(mesh(cyl(4.6, 4.6, 6), M.dark(0x33373f), -20, 0, 0, { rz: Math.PI / 2 }));
-  g488.add(mesh(cyl(1.2, 1.2, 1.5), M.metal(0x8a93a3), 23.6, 0, 0, { rz: Math.PI / 2 }));
-  for (const x of [-16, 14]) { g488.add(mesh(box(8, 2.5, 10), M.dark(0x2a2e37), x, -3.2, 0)); }
-  g488.add(mesh(box(1.6, 0.8, 0.15), M.emissive(0x00bbff, 1.5), 18, 3.2, 3.4, { rx: -0.7, shadow: false }));
-  tag(g488, 'laser488'); anchor(g488, 'Ar 488 nm', [0, 8, 0]); laserGroups[488] = g488;
+  // ---------- CanvasTexture 貼紙 / 銘牌 helper ----------
+  const lzTex = (pw, ph, bg, draw) => {
+    const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+    const g = c.getContext('2d');
+    g.fillStyle = bg; g.fillRect(0, 0, pw, ph);
+    if (draw) draw(g, pw, ph);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    return tex;
+  };
+  // lines: 文字（字串或陣列）；w,h: 平面尺寸；x,y,z: 位置；o: {rx,ry,rz,bg,fg,font,align,pw,ph,draw,rough,glow}
+  const lzLabel = (lines, w, h, x, y, z, o = {}) => {
+    const pw = o.pw || 256, ph = o.ph || Math.max(32, Math.round(pw * h / w));
+    const arr = (Array.isArray(lines) ? lines : [lines]).filter(t => t !== '');
+    const tex = lzTex(pw, ph, o.bg || '#e8e6df', (g) => {
+      if (o.draw) o.draw(g, pw, ph);
+      if (!arr.length) return;
+      g.fillStyle = o.fg || '#111'; g.font = o.font || `bold ${Math.round(ph * 0.6 / arr.length)}px system-ui, sans-serif`;
+      g.textAlign = o.align || 'center'; g.textBaseline = 'middle';
+      const x0 = o.align === 'left' ? Math.round(pw * 0.05) : pw / 2;
+      arr.forEach((t, i) => g.fillText(t, x0, ph * (i + 1) / (arr.length + 1)));
+    });
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: o.rough ?? 0.55, metalness: 0.05 });
+    if (o.glow) { mat.emissive.set(0xffffff); mat.emissiveMap = tex; mat.emissiveIntensity = o.glow; }
+    return mesh(new THREE.PlaneGeometry(w, h), mat, x, y, z, { rx: o.rx, ry: o.ry, rz: o.rz, shadow: false });
+  };
+  const drawDanger = (g, w, h) => {                       // 紅白 DANGER 雷射貼紙
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#d0141c'; g.fillRect(0, 0, w, h * 0.42);
+    g.fillStyle = '#ffffff'; g.font = `bold ${Math.round(h * 0.3)}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('DANGER', w * 0.5, h * 0.22);
+    const cx = w * 0.15, cy = h * 0.7, r = h * 0.13;
+    g.fillStyle = '#d0141c'; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#d0141c'; g.lineWidth = Math.max(1, h * 0.02);
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(cx + Math.cos(a) * r * 1.3, cy + Math.sin(a) * r * 1.3); g.lineTo(cx + Math.cos(a) * r * 1.9, cy + Math.sin(a) * r * 1.9); g.stroke(); }
+    g.fillStyle = '#1a1a1a'; g.textAlign = 'left'; g.font = `bold ${Math.round(h * 0.12)}px system-ui, sans-serif`;
+    g.fillText('LASER RADIATION', w * 0.32, h * 0.57);
+    g.fillStyle = '#555555'; g.font = `${Math.round(h * 0.085)}px system-ui, sans-serif`;
+    g.fillText('AVOID DIRECT EYE EXPOSURE', w * 0.32, h * 0.72);
+    g.fillText('405 nm   CLASS 3B', w * 0.32, h * 0.86);
+  };
+  const drawGrille = (nx, ny, c = '#0a0b0d') => (g, w, h) => {   // 直立長孔散熱柵
+    g.fillStyle = c; const sx = w / nx, sy = h / ny;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) g.fillRect(i * sx + sx * 0.32, j * sy + sy * 0.1, sx * 0.36, sy * 0.8);
+  };
+  const drawND = (g, w, h) => {                           // ND 濾片輪端面：六格深淺不同的濾片 + 輪轂
+    g.fillStyle = '#15171b'; g.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    ['#d8dbe0', '#a9adb3', '#7c8087', '#53575d', '#2e3136', '#121417'].forEach((s, i) => {
+      const a = i * Math.PI / 3, x = cx + Math.cos(a) * w * 0.417, y = cy + Math.sin(a) * w * 0.417;
+      g.fillStyle = '#9aa0a8'; g.beginPath(); g.arc(x, y, w * 0.125, 0, Math.PI * 2); g.fill();
+      g.fillStyle = s; g.beginPath(); g.arc(x, y, w * 0.105, 0, Math.PI * 2); g.fill();
+    });
+    g.fillStyle = '#3a3e45'; g.beginPath(); g.arc(cx, cy, w * 0.1, 0, Math.PI * 2); g.fill();
+  };
 
-  // HeNe 543 / 633：預留位置（半透明）
-  const ghost = (wl, z, tint) => {
-    const g = group(scene, -45, 2.6, z);
-    g.add(mesh(cyl(2.6, 2.6, 36), M.ghost(tint), 0, 0, 0, { rz: Math.PI / 2, shadow: false }));
-    g.add(mesh(cyl(2.8, 2.8, 3), M.ghost(tint), -14, 0, 0, { rz: Math.PI / 2, shadow: false }));
-    for (const x of [-12, 12]) g.add(mesh(box(5, 1.6, 7), M.ghost(0x6ec6ff), x, -1.8, 0, { shadow: false }));
-    g.traverse(m => { if (m.isMesh) m.receiveShadow = false; });
+  // ---------- 光學桌配件 helper ----------
+  // 立柱組：開槽底座 + M6 螺絲 + 黑色立柱座（拇指螺絲）+ 不鏽鋼立柱，立柱頂到 y=topY（parent 座標）
+  const lzPost = (parent, x, z, topY, o = {}) => {
+    const g = group(parent, x, 0, z); if (o.ry) g.rotation.y = o.ry;
+    const bl = o.baseL || 6;
+    g.add(mesh(box(bl, 0.6, 1.9), LZ.steel, 0, 0.3, 0));
+    g.add(mesh(m6Geo, LZ.black, bl * 0.36, 0.85, 0));
+    const hh = Math.max(1.5, Math.min(o.holderH || 4, topY - 1.4));
+    g.add(mesh(cyl(1.0, 1.0, hh, 20), LZ.anod, 0, 0.6 + hh / 2, 0));
+    g.add(mesh(cyl(0.38, 0.38, 1.0, 12), LZ.knob, 0, 0.6 + hh - 0.7, 1.35, { rx: Math.PI / 2 }));
+    g.add(mesh(cyl(0.6, 0.6, topY - 1.0, 16), LZ.chrome, 0, 1.0 + (topY - 1.0) / 2, 0));
+    return g;
+  };
+  // Kinematic 反射鏡座：1 吋鏡片、背面兩顆微調旋鈕，立柱上；鏡面朝局部 +x
+  const lzMirrorMount = (x, z, ry) => {
+    const g = group(scene, x, 0, z); g.rotation.y = ry;
+    const cy0 = 8.6;
+    g.add(mesh(box(0.9, 3.6, 3.6), LZ.anod, 0.45, cy0, 0));                                                   // 前板（鏡片座）
+    g.add(mesh(cyl(1.27, 1.27, 0.6, 32), [LZ.anod2, LZ.mirror, LZ.anod2], 1.2, cy0, 0, { rz: -Math.PI / 2 }));  // Ø25.4 反射鏡
+    g.add(mesh(box(0.9, 3.6, 3.6), LZ.anod2, -0.55, cy0, 0));                                                 // 背板
+    for (const dy of [1.2, -1.2]) g.add(mesh(cyl(0.5, 0.5, 1.4, 16), LZ.knob, -1.7, cy0 + dy, 1.2, { rz: Math.PI / 2 }));  // 微調旋鈕
+    lzPost(g, 0.45, 0, cy0 - 1.8, { baseL: 5.5, holderH: 4 });
+    tag(g, 'mirrorMount'); return g;
+  };
+  // M6 壓板夾具：壓板一端壓在高 fh 的底板／滑軌邊緣（局部 +x 側），另一端墊高 + M6 螺絲
+  const lzClamp = (x, z, ry, fh = 0.6) => {
+    const g = group(scene, x, 0, z); g.rotation.y = ry;
+    g.add(mesh(box(3.8, 0.55, 1.4), LZ.steel, 0, fh + 0.28, 0));
+    g.add(mesh(cyl(0.45, 0.45, fh, 12), LZ.anod2, -1.3, fh / 2, 0));
+    g.add(mesh(m6Geo, LZ.black, -1.3, fh + 0.8, 0));
+    tag(g, 'clampM6'); return g;
+  };
+  // 電線（TubeGeometry，世界座標點列）
+  const lzCable = (pts, r = 0.45, part = null) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(24, pts.length * 10), r, 8, false), LZ.cable);
+    m.castShadow = true; m.receiveShadow = true; scene.add(m); if (part) tag(m, part); return m;
+  };
+
+  // ===================== LD 405 nm：小型黑色 LD 模組（photo2 中央偏右；前端圓形出光口、上方風扇 + 鰭片、DANGER 貼紙）=====================
+  {
+    const P = LASER_GEOM[405];
+    const g = group(scene, P.x, P.y, P.z);          // 局部原點 = 出光口中心；機身往 -x 延伸（x -12.6..0）
+    // 前段方塊（出光鏡筒、DANGER 貼紙）x -4.4..-0.8
+    g.add(mesh(box(3.6, 3.4, 4.0), LZ.anod, -2.6, 0, 0));
+    g.add(mesh(cyl(0.95, 0.95, 0.9, 24), LZ.anod2, -0.4, 0, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.55, 0.55, 0.12, 16), M.emissive(0x9b6bff, 1.6), 0.06, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    g.add(lzLabel('', 3.0, 1.6, -2.6, 1.72, 0, { rx: -Math.PI / 2, pw: 240, ph: 128, draw: drawDanger, glow: 0.25 }));
+    // 散熱段 x -12.6..-4.4：頂面鰭片（風扇後方）+ 兩側鰭片，鰭片沿 x 方向
+    g.add(mesh(box(8.2, 3.4, 4.0), LZ.anod, -8.5, 0, 0));
+    const finTop = box(4.0, 1.1, 0.22), finSide = box(8.0, 0.22, 0.5);
+    for (let i = 0; i < 7; i++) g.add(mesh(finTop, LZ.anod2, -10.5, 2.25, -1.8 + i * 0.6));
+    for (let i = 0; i < 5; i++) for (const s of [-1, 1]) g.add(mesh(finSide, LZ.anod2, -8.5, -1.3 + i * 0.65, s * 2.2));
+    // 風扇（頂面前段）：黑色框 + 鍍鉻護網
+    g.add(mesh(box(4.2, 1.3, 4.2), LZ.black, -6.3, 2.35, 0));
+    g.add(mesh(cyl(1.8, 1.8, 0.2, 24), M.dark(0x0b0c0f), -6.3, 3.05, 0));
+    g.add(mesh(new THREE.TorusGeometry(1.85, 0.09, 6, 32), LZ.chrome, -6.3, 3.12, 0, { rx: Math.PI / 2 }));
+    g.add(mesh(new THREE.TorusGeometry(1.15, 0.08, 6, 24), LZ.chrome, -6.3, 3.12, 0, { rx: Math.PI / 2 }));
+    g.add(mesh(cyl(0.5, 0.5, 0.16, 12), LZ.chrome, -6.3, 3.12, 0));
+    for (let i = 0; i < 4; i++) g.add(mesh(box(3.7, 0.08, 0.14), LZ.chrome, -6.3, 3.12, 0, { ry: i * Math.PI / 4 }));   // 護網輻條
+    // 尾端（-x 面）：圓形多芯驅動接頭（→ FV5-PSU 頂上的 DPSSL DRIVER，跨區段線由整合時畫）+ SMA 調變輸入（→ TDA 200，本區段已接線）
+    g.add(mesh(cyl(0.8, 0.8, 1.0, 16), LZ.black, -13.1, -0.5, -0.9, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.55, 0.55, 0.5, 16), LZ.steel, -13.8, -0.5, -0.9, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.4, 0.4, 0.9, 12), LZ.brass, -13.0, 0.6, 1.0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.2, 0.2, 0.15, 10), M.emissive(0x3fa0ff, 2), -3.2, 0.8, 2.05, { rx: Math.PI / 2, shadow: false }));
+    tag(g, 'laser405'); anchor(g, 'LD 405 nm', [-6, 5.5, 0]); laserGroups[405] = g;
+    // 立柱 + 立柱座 + 開槽底座（模組前段下方，photo2）
+    tag(lzPost(scene, P.x - 3, P.z, P.y - 1.7, { baseL: 6.5, holderH: 4 }), 'laser405');
+    LASER_PORTS.ld405Drive = [P.x - 14.1, P.y - 0.5, P.z - 0.9];   // (-52.1, 7.5, -30.9) 多芯驅動接頭，朝 -x（未接線：整合時從 PERIPH_PORTS.dpsslOut 拉過來）
+    LASER_PORTS.ld405Mod = [P.x - 13.5, P.y + 0.6, P.z + 1.0];     // (-51.5, 8.6, -29)  SMA 調變輸入（已接 TDA 200）
+  }
+
+  // ===================== Ar 488 nm：長方形深色氬離子雷射頭（風冷、出光口在 +x 端、藍色識別標、散熱柵）=====================
+  {
+    const P = LASER_GEOM[488];
+    const L = 40, W = 9, Hh = 11;
+    const g = group(scene, P.x - 1 - L / 2, 1 + Hh / 2, P.z);    // 機身中心；機身 x -92..-52、y 1..12、z -43.5..-34.5
+    const ey = P.y - (1 + Hh / 2);                                  // 出光口的局部 y
+    g.add(mesh(box(L, Hh, W), LZ.anod, 0, 0, 0));
+    g.add(mesh(box(L - 0.6, 0.3, W - 0.6), LZ.anod2, 0, Hh / 2 + 0.1, 0));                                   // 頂蓋
+    for (const s of [-1, 1]) g.add(mesh(box(L - 4, 1.0, 1.4), LZ.black, 0, -Hh / 2 - 0.5, s * (W / 2 - 1.2)));  // 底部兩條滑軌
+    // 出光口（+x 端）：黑色鏡筒 + 藍色識別環 + 發光點；黃色 APERTURE 貼紙、藍色 488 nm 標
+    g.add(mesh(cyl(1.5, 1.5, 1.2, 24), LZ.anod2, L / 2 + 0.5, ey, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(1.62, 1.62, 0.35, 24), LZ.blue, L / 2 + 0.3, ey, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.6, 0.6, 0.12, 16), M.emissive(0x00bbff, 1.6), L / 2 + 1.08, ey, 0, { rz: Math.PI / 2, shadow: false }));
+    g.add(lzLabel(['LASER', 'APERTURE'], 3.2, 1.6, L / 2 + 0.02, ey - 3.0, 0, { ry: Math.PI / 2, bg: '#f2c227', fg: '#111', font: 'bold 40px system-ui, sans-serif', pw: 256, ph: 128, glow: 0.3 }));
+    g.add(lzLabel('488 nm', 3.4, 1.4, L / 2 + 0.02, ey + 3.2, 0, { ry: Math.PI / 2, bg: '#1e78c8', fg: '#ffffff', font: 'bold 50px system-ui, sans-serif', pw: 256, ph: 104 }));
+    // +z 側（朝操作者）：銘牌、Class 3B 貼紙；兩側後半段與頂面後段散熱柵
+    g.add(lzLabel(['Ar-ION LASER   488 nm', 'AIR-COOLED   ·   CLASS 3B'], 12, 2.6, 11, 2.6, W / 2 + 0.02, { bg: '#2a2e35', fg: '#d5d9e0', font: 'bold 34px system-ui, sans-serif', pw: 512, ph: 110 }));   // +z 面前半段（後半段是散熱柵 x -17.5..-2.5）
+    g.add(lzLabel(['Ar-ION LASER   488 nm', 'AIR-COOLED   ·   CLASS 3B'], 12, 2.6, 8, 2.6, -W / 2 - 0.02, { ry: Math.PI, bg: '#2a2e35', fg: '#d5d9e0', font: 'bold 34px system-ui, sans-serif', pw: 512, ph: 110 }));   // -z 面（雷射視角看得到）
+    g.add(lzLabel(['CAUTION  CLASS 3B', 'LASER RADIATION WHEN OPEN', 'AVOID EXPOSURE TO BEAM'], 8, 3.2, 11, -2.2, W / 2 + 0.02, { bg: '#f2c227', fg: '#111', font: 'bold 30px system-ui, sans-serif', pw: 400, ph: 160, glow: 0.3 }));
+    for (const s of [-1, 1]) g.add(lzLabel('', 15, 7.5, -10, -0.2, s * (W / 2 + 0.02), { ry: s > 0 ? 0 : Math.PI, bg: '#2c3037', pw: 480, ph: 240, draw: drawGrille(18, 1, '#050607'), rough: 0.7 }));
+    g.add(lzLabel('', 15, 6, -10, Hh / 2 + 0.26, 0, { rx: -Math.PI / 2, bg: '#33373f', pw: 480, ph: 192, draw: drawGrille(18, 1, '#050607'), rough: 0.7 }));
+    // 頂面前段：LASER ON 藍色 LED、藍色識別膠帶
+    g.add(mesh(cyl(0.35, 0.35, 0.3, 12), M.emissive(0x2fa0ff, 2.5), 14, Hh / 2 + 0.4, -2.3, { shadow: false }));
+    g.add(lzLabel('LASER ON', 2.6, 0.7, 14, Hh / 2 + 0.27, -1.2, { rx: -Math.PI / 2, bg: '#2a2e35', fg: '#c8ccd2', font: 'bold 34px system-ui, sans-serif', pw: 192, ph: 52 }));
+    g.add(mesh(box(6, 0.06, 1.2), LZ.blue, 12, Hh / 2 + 0.28, 2.6));
+    // -x 尾端：臍帶纜接頭（電源／風扇線；粗黑纜線拉到桌後緣垂下）
+    g.add(mesh(cyl(1.7, 1.7, 1.6, 24), LZ.black, -L / 2 - 0.8, -1, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(1.3, 1.3, 1.0, 24), LZ.steel, -L / 2 - 2.0, -1, 0, { rz: Math.PI / 2 }));
+    tag(g, 'laser488'); anchor(g, 'Ar 488 nm', [0, 9, 0]); laserGroups[488] = g;
+    LASER_PORTS.arUmbilical = [P.x - 1 - L - 2.5, 5.5, P.z];   // (-94.5, 5.5, -39) 臍帶纜（已拉線到桌後緣垂下）
+    // 滑軌兩端用 M6 壓板夾具固定在桌面（滑軌 x -90..-54）
+    const rx0 = P.x - 1 - L + 2, rx1 = P.x - 1 - 2;
+    for (const s of [-1, 1]) { lzClamp(rx0 - 0.6, P.z + s * (W / 2 - 1.2), 0, 1.0); lzClamp(rx1 + 0.6, P.z + s * (W / 2 - 1.2), Math.PI, 1.0); }
+  }
+
+  // ===================== HeNe 543 / 633：預留位置（半透明 ghost：管身 + 兩個 V 型座）=====================
+  const ghost = (wl, tint) => {
+    const P = LASER_GEOM[wl];
+    const g = group(scene, P.x - 18, P.y, P.z);      // 管長 36，出光口在 +x 端
+    // Basic 材質（無環境反射／高光）：半透明管身才不會在桌面上渲染成一片淡色平板；renderOrder 2 讓它在纜線之後畫
+    const gMat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.22, depthWrite: false });
+    const gm = gMat(tint), gm2 = gMat(0x6ec6ff);
+    const gEdge = new THREE.LineBasicMaterial({ color: tint, transparent: true, opacity: 0.55 });
+    g.add(mesh(cyl(2.6, 2.6, 36, 32), gm, 0, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(cyl(2.6, 2.6, 36, 24), 30), gEdge); edges.rotation.z = Math.PI / 2; g.add(edges);   // 管身輪廓線
+    g.add(mesh(cyl(2.8, 2.8, 3, 32), gm, -14, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    g.add(mesh(cyl(1.0, 1.0, 1.2, 16), gm, 18.5, 0, 0, { rz: Math.PI / 2, shadow: false }));
+    const mh = P.y - 2.6;                            // 座高：桌面 (y=0) 到管底，V 型座直接坐在桌面上
+    for (const x of [-12, 12]) g.add(mesh(box(5, mh, 6.5), gm2, x, -2.6 - mh / 2, 0, { shadow: false }));
+    g.traverse(m => { if (m.isMesh) { m.receiveShadow = false; m.renderOrder = 2; } });
     tag(g, 'laser' + wl); anchor(g, `HeNe ${wl} nm（預留）`, [0, 5.5, 0]); laserGroups[wl] = g;
   };
-  ghost(543, -50, 0x8aff5a); ghost(633, -60, 0xff4444);
+  ghost(543, 0x8aff5a); ghost(633, 0xff4444);
 
-  // 合束器 / 光纖耦合器
-  const comb = group(scene, -18, 3.5, -46);
-  comb.add(mesh(box(8, 7, 40), HOUSING(M.dark(0x2f333c)), 0, 0, 0));
-  comb.add(mesh(box(8.4, 0.6, 40.4), M.dark(0x1a1d24), 0, -3.3, 0));
-  for (const z of [-30, -40, -50, -60]) comb.add(mesh(cyl(1.2, 1.2, 0.6), M.black(), -4.1, LASER_GEOM[z === -30 ? 405 : z === -40 ? 488 : z === -50 ? 543 : 633].y - 3.5, z + 46, { rz: Math.PI / 2 }));
-  comb.add(mesh(cyl(0.7, 0.7, 2.4), M.metal(0x8a93a3), 0, 4.2, 16));       // 光纖接頭朝上
-  comb.add(mesh(box(2, 1, 2), M.dark(0x3a3f4a), 0, 3.9, 16));
-  comb.add(mesh(cyl(1.0, 1.0, 1.0), M.black(), 0, 3.6, 4));                // ND / 快門旋鈕
-  tag(comb, 'combiner'); anchor(comb, '合束器 / 光纖耦合', [0, 7, 0]);
+  // ===================== 光束上的同軸元件（不折光）：405 手動快門、488 ND 濾片輪 + 光圈 =====================
+  {
+    const P = LASER_GEOM[405], sx = -34;             // 出光口 (-38) 與合束器入口 (-30) 之間
+    const g = group(scene, sx, P.y, P.z);
+    g.add(mesh(box(1.6, 3.2, 3.2), LZ.anod, 0, 0, 0));
+    for (const s of [-1, 1]) g.add(mesh(cyl(0.55, 0.55, 0.2, 16), LZ.black, s * 0.85, 0, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.18, 0.18, 1.8, 10), LZ.chrome, 0.3, 2.35, 0.9, { rz: 0.35 }));      // 撥桿
+    g.add(mesh(cyl(0.32, 0.32, 0.5, 10), LZ.knob, -0.01, 3.2, 0.9, { rz: 0.35 }));
+    g.add(lzLabel('SHUTTER', 1.5, 0.5, 0, -1.0, 1.62, { bg: '#1f2227', fg: '#c8ccd2', font: 'bold 34px system-ui, sans-serif', pw: 160, ph: 52 }));
+    tag(g, 'shutter'); tag(lzPost(scene, sx, P.z, P.y - 1.6, { baseL: 4, holderH: 4 }), 'shutter');
+  }
+  {
+    const P = LASER_GEOM[488], wx = -41, cy0 = P.y - 2.0;       // 輪心在光束下方 2.0，光束穿過最上面那格濾片
+    const g = group(scene, wx, cy0, P.z);
+    const ndMat = new THREE.MeshStandardMaterial({ map: lzTex(256, 256, '#15171b', drawND), roughness: 0.5, metalness: 0.3 });
+    g.add(mesh(cyl(2.4, 2.4, 0.5, 48), [LZ.anod2, ndMat, ndMat], 0, 0, 0, { rz: Math.PI / 2 }));
+    g.add(mesh(cyl(0.6, 0.6, 1.0, 16), LZ.chrome, 0, 0, 0, { rz: Math.PI / 2 }));       // 輪軸
+    g.add(mesh(box(1.5, 1.2, 1.2), LZ.anod, 1.0, 0, 0));                                  // 軸座（輪前方）
+    g.add(mesh(cyl(0.15, 0.15, 0.6, 8), LZ.brass, 0.45, 2.45, 0, { rz: Math.PI / 2 }));    // 段位指標
+    tag(g, 'ndWheel'); tag(lzPost(scene, wx + 1.0, P.z, cy0 - 0.6, { baseL: 5, holderH: 2.5 }), 'ndWheel');
+    // 光圈（iris diaphragm）：黑色環 + 調整撥桿，光束穿過中心孔
+    const ix = -34.5, gi = group(scene, ix, P.y, P.z);
+    gi.add(mesh(new THREE.TorusGeometry(1.35, 0.42, 8, 32), LZ.anod, 0, 0, 0, { ry: Math.PI / 2 }));
+    gi.add(mesh(new THREE.TorusGeometry(0.85, 0.12, 6, 24), LZ.anod2, 0.1, 0, 0, { ry: Math.PI / 2 }));   // 葉片組（內環）
+    gi.add(mesh(cyl(0.12, 0.12, 1.1, 8), LZ.chrome, 0.35, 1.5, 1.3, { rx: -0.6 }));                       // 撥桿
+    gi.add(mesh(box(1.0, 1.4, 0.8), LZ.anod, 0, -1.9, 0));                                                // 環座
+    tag(gi, 'iris'); tag(lzPost(scene, ix, P.z, P.y - 2.6, { baseL: 4, holderH: 3 }), 'iris');
+  }
+
+  // ===================== TDA 200：黑色小盒（photo2），LD 405 的觸發／調變盒，放在 LD 模組尾端旁（Ar 雷射頭與掃描頭之間）；立柱上 =====================
+  {
+    const C = [-61, 5.6, -21];                       // 機身 x -65.5..-56.5、y 4..7.2、z -24..-18
+    const g = group(scene, ...C);
+    g.add(mesh(box(9, 3.2, 6), LZ.anod2, 0, 0, 0));
+    g.add(lzLabel('', 7.4, 4.6, 0, 1.62, 0, { rx: -Math.PI / 2, bg: '#d9d5c8', pw: 370, ph: 230, draw: (gg, w, h) => {
+      gg.fillStyle = '#e8862a'; gg.fillRect(w * 0.08, h * 0.2, w * 0.12, h * 0.14);     // 橘色標記
+      gg.fillStyle = '#222'; gg.textBaseline = 'middle'; gg.textAlign = 'left';
+      gg.font = `bold ${Math.round(h * 0.26)}px system-ui, sans-serif`; gg.fillText('TDA 200', w * 0.26, h * 0.3);
+      gg.font = `${Math.round(h * 0.14)}px system-ui, sans-serif`; gg.fillText('Trigger Diode', w * 0.26, h * 0.52);
+      gg.fillStyle = '#777'; for (let i = 0; i < 3; i++) gg.fillRect(w * 0.08, h * (0.68 + i * 0.09), w * (0.5 - i * 0.1), h * 0.035);
+      gg.fillStyle = '#333'; gg.font = `bold ${Math.round(h * 0.11)}px system-ui, sans-serif`; gg.textAlign = 'right'; gg.fillText('CE', w * 0.92, h * 0.85);
+    } }));
+    g.add(mesh(cyl(0.25, 0.25, 0.2, 10), M.emissive(0xff2a2a, 2.2), -2.8, 1.7, -1.6, { shadow: false }));   // 紅色 LED
+    g.add(mesh(cyl(0.45, 0.45, 0.9, 12), LZ.brass, 3, 0, -3.4, { rx: Math.PI / 2 }));                      // -z 面 SMA（輸出 → LD 模組調變輸入）
+    g.add(mesh(cyl(0.6, 0.6, 1.0, 16), LZ.black, -4.95, 0, 1.2, { rz: Math.PI / 2 }));                    // -x 面 BNC（觸發輸入）
+    g.add(mesh(cyl(0.45, 0.45, 0.9, 12), LZ.brass, -4.9, 0, -1.4, { rz: Math.PI / 2 }));                  // -x 面 SMA（空）
+    tag(g, 'tda200'); anchor(g, 'TDA 200', [0, 3.5, 0]);
+    tag(lzPost(scene, C[0], C[2], C[1] - 1.6, { baseL: 5, holderH: 2.4 }), 'tda200');
+    LASER_PORTS.tda200Out = [C[0] + 3, C[1], C[2] - 3.9];      // (-58, 5.6, -24.9)   已接 LD 405 SMA
+    LASER_PORTS.tda200In = [C[0] - 5.5, C[1], C[2] + 1.2];     // (-66.5, 5.6, -19.8) 已拉線到桌後緣
+    LASER_PORTS.tda200Aux = [C[0] - 5.4, C[1], C[2] - 1.4];    // (-66.4, 5.6, -22.4) 空的 SMA
+  }
+
+  // ===================== 合束器 / 光纖耦合器：黑色機箱，四個入口與 LASER_GEOM 的 y,z 對齊，頂端 FC 光纖接頭 =====================
+  {
+    const CW = 12, CD = 35, CH = 10;                              // 機身 x -30..-18、z -61..-26、y 0.8..10.8
+    const cx = COMBINER_X + CW / 2, cz = -43.5, cy = 0.8 + CH / 2, topY = cy + CH / 2;
+    const comb = group(scene, cx, 0, cz);
+    comb.add(mesh(box(CW + 1.5, 0.8, CD + 2), LZ.anod, 0, 0.4, 0));                          // 底板
+    comb.add(mesh(box(CW, CH, CD), HOUSING(M.dark(0x2b2f37)), 0, cy, 0));                     // 機身（外殼透明模式會淡出）
+    comb.add(mesh(box(CW - 0.6, 0.25, CD - 0.6), LZ.anod2, 0, topY + 0.1, 0));               // 頂蓋
+    // 入口（-x 面）：黑色鏡筒 + 金屬環 + 波長標籤
+    for (const wl of [405, 488, 543, 633]) {
+      const P = LASER_GEOM[wl], lz = P.z - cz;
+      comb.add(mesh(cyl(1.35, 1.35, 1.4, 24), LZ.anod2, -CW / 2 - 0.7, P.y, lz, { rz: Math.PI / 2 }));
+      comb.add(mesh(cyl(1.05, 1.05, 0.5, 24), LZ.steel, -CW / 2 - 1.6, P.y, lz, { rz: Math.PI / 2 }));
+      comb.add(lzLabel(wl + ' nm', 2.4, 0.8, -CW / 2 - 0.02, P.y + 2.2, lz, { ry: -Math.PI / 2, bg: '#1a1d24', fg: '#d5d9e0', font: 'bold 40px system-ui, sans-serif', pw: 192, ph: 64 }));
+    }
+    // 機箱內部（外殼透明時可見）：每支雷射一片 45° 分光鏡把光束轉向 +z 匯成同一軸，末端 45° 反射鏡把光束轉向上，經耦合鏡進光纖
+    const ix = -2, fz = -28 - cz;                                  // 內部光軸局部 x（世界 -26）、耦合位置局部 z（世界 -28）
+    for (const wl of [405, 488, 543, 633]) comb.add(mesh(box(0.15, 2.4, 2.4), M.glass(0xbfe3ff, 0.45), ix, 8, LASER_GEOM[wl].z - cz, { ry: Math.PI / 4 }));
+    comb.add(mesh(box(2.4, 0.15, 2.4), LZ.mirror, ix, 8, fz, { rx: -Math.PI / 4 }));
+    comb.add(mesh(cyl(0.8, 0.8, 0.3, 24), M.glass(0xd8f0ff, 0.5), ix, 10.0, fz));
+    // 頂端：FC 光纖接頭（座 + 螺紋套筒 + 鎖緊螺帽 + 防折套）
+    comb.add(mesh(box(3.2, 1.2, 3.2), LZ.anod, ix, topY + 0.6, fz));
+    comb.add(mesh(cyl(0.75, 0.75, 2.0, 16), LZ.steel, ix, topY + 2.2, fz));
+    comb.add(mesh(cyl(0.95, 0.95, 0.7, 16), LZ.black, ix, topY + 3.2, fz));
+    comb.add(mesh(cyl(0.5, 0.36, 2.0, 12), LZ.black, ix, topY + 4.3, fz));
+    // 頂面：手動快門與 ND 旋鈕（白色指示線 + 標籤）、黃色 Class 3B 貼紙
+    const knob = (lx, lz, text) => {
+      comb.add(mesh(cyl(1.1, 1.1, 1.0, 24), LZ.knob, lx, topY + 0.6, lz));
+      comb.add(mesh(box(0.9, 0.06, 0.16), M.emissive(0xffffff, 0.5), lx + 0.4, topY + 1.12, lz, { shadow: false }));
+      comb.add(lzLabel(text, 2.6, 0.7, lx, topY + 0.24, lz + 1.9, { rx: -Math.PI / 2, bg: '#2a2e35', fg: '#c8ccd2', font: 'bold 34px system-ui, sans-serif', pw: 192, ph: 52 }));
+    };
+    knob(3, -3, 'SHUTTER'); knob(3, -10, 'ND');
+    comb.add(lzLabel(['CAUTION  CLASS 3B', 'LASER RADIATION', 'AVOID EXPOSURE TO BEAM'], 6, 2.6, -2, topY + 0.24, -12, { rx: -Math.PI / 2, bg: '#f2c227', fg: '#111', font: 'bold 28px system-ui, sans-serif', pw: 300, ph: 130, glow: 0.3 }));
+    // +z 面（朝操作者）銘牌；-z 面散熱柵；+x 面控制接頭
+    comb.add(lzLabel(['OLYMPUS', 'LASER COMBINER  ·  FIBER OUT'], 8.5, 2.4, 0, cy + 1.5, CD / 2 + 0.02, { bg: '#1a1d24', fg: '#d5d9e0', font: 'bold 30px system-ui, sans-serif', pw: 400, ph: 112 }));
+    comb.add(lzLabel('', 8, 5, 0, cy - 0.5, -CD / 2 - 0.02, { ry: Math.PI, bg: '#2b2f37', pw: 320, ph: 200, draw: drawGrille(12, 1), rough: 0.7 }));
+    comb.add(mesh(box(0.5, 1.4, 2.6), LZ.anod2, CW / 2 + 0.2, 4, -8.5));
+    comb.add(mesh(box(0.3, 1.0, 2.0), LZ.black, CW / 2 + 0.55, 4, -8.5));
+    tag(comb, 'combiner'); anchor(comb, '合束器 / 光纖耦合', [0, topY + 2.5, 5]);
+    LASER_PORTS.combinerCtrl = [cx + CW / 2 + 0.7, 4, cz - 8.5];   // (-17.3, 4, -52) 已拉線到桌後緣
+    LASER_PORTS.fiberFC = [cx + ix, topY + 2.8, cz + fz];          // (-26, 13.6, -28)
+    // 底板用 M6 壓板固定（底板 x -30.75..-17.25）
+    lzClamp(cx - (CW + 1.5) / 2 - 0.6, -34, 0, 0.8); lzClamp(cx - (CW + 1.5) / 2 - 0.6, -54, 0, 0.8); lzClamp(cx + (CW + 1.5) / 2 + 0.6, -44, Math.PI, 0.8);
+  }
+
+  // ===================== 桌面上其他光學件（都在雷射光束之外）：kinematic 反射鏡座 =====================
+  lzMirrorMount(-58, -68, 0.55); lzMirrorMount(-44, -70.5, -0.35); lzMirrorMount(-104, -30, 2.3);
+  lzMirrorMount(-86, -66, 1.05); lzMirrorMount(-84, -17, -2.2);
+
+  // ===================== 電線（TubeGeometry；貼桌面的段落 y = 線徑，桌後緣 z=-75 翻下去）=====================
+  lzCable([[-51.2, 8.6, -29], [-53.6, 8.5, -29.1], [-56, 7.4, -28.7], [-57.7, 6.2, -27], [-58, 5.6, -24.6]], 0.28, 'laser405');   // LD 405 SMA 調變輸入 → TDA 200 輸出
+  lzCable([[-66.5, 5.6, -19.8], [-69, 5.5, -19.8], [-71.5, 2.8, -20.3], [-74, 0.35, -22.5], [-79, 0.35, -27], [-86, 0.35, -30], [-94, 0.35, -31.5], [-98.5, 0.35, -36], [-100.3, 0.35, -46], [-100.6, 0.35, -60], [-100.6, 0.35, -72], [-100.4, 0.2, -75.6], [-100.2, -4, -76.6], [-100, -14, -77]], 0.3, 'tda200');   // TDA 200 觸發線 → 桌後緣垂下
+  lzCable([[-94.2, 5.5, -39], [-97.5, 5.3, -39], [-100, 3.2, -40.5], [-102, 0.6, -45], [-102.6, 0.6, -58], [-102.6, 0.6, -70], [-102.7, 0.3, -75.6], [-103, -4, -76.6], [-103.4, -14, -77]], 0.55, 'laser488');   // Ar 臍帶纜 → 桌後緣垂下
+  lzCable([[-17.3, 4, -52], [-16.3, 4, -52], [-15.4, 0.35, -53], [-15.6, 0.35, -63], [-18.5, 0.35, -71], [-19.6, 0.2, -75.6], [-20, -4, -76.6], [-20.2, -14, -77]], 0.3, 'combiner');   // 合束器控制線 → 桌後緣垂下
 }
 
-// 光纖：合束器頂端 → 掃描頭後牆入口
+// ===================== 光纖：合束器頂端 FC → 沿桌面繞一圈 → 掃描頭後牆入口 (-47, 14, -12) =====================
 const fiberCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-18, 7.6, -30), new THREE.Vector3(-19.5, 12.5, -25),
-  new THREE.Vector3(-28, 16, -18), new THREE.Vector3(-38, 14.5, -11.5),
-  HEAD_POS.clone().add(new THREE.Vector3(1, 0, -9.8)),
+  new THREE.Vector3(-26, 13.6, -28), new THREE.Vector3(-26.1, 15.6, -27.6),      // FC 接頭垂直出來
+  new THREE.Vector3(-28.5, 16.6, -24.5), new THREE.Vector3(-33, 12, -21.8),      // 往 -x 下降；離掃描頭後牆 (z=-12) 的垂下電纜 6 cm 以上
+  new THREE.Vector3(-38, 5.5, -22.3), new THREE.Vector3(-43.5, 1.3, -24.2),      // 落到桌面（y≈1.3）
+  new THREE.Vector3(-49.5, 1.3, -26), new THREE.Vector3(-53.2, 1.6, -22.8),      // 沿桌面繞一圈（在 LD 405 模組前方 z>-28、光束之外）
+  new THREE.Vector3(-51.6, 4.2, -20), new THREE.Vector3(-48.3, 9.6, -20.6),      // 爬上後牆入口高度（多芯粗纜線垂在 x=-51.5、z≈-17）
+  new THREE.Vector3(-47, 14, -19),
+  new THREE.Vector3(-47, 14, -12),   // 契約：最後一點 = 掃描頭後牆光纖入口（世界座標），倒數第二點在其 -z 方向讓光纖垂直進牆
 ]);
+LASER_PORTS.fiberWall = [-47, 14, -12];
 {
-  const jacket = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 64, 0.42, 10, false), new THREE.MeshStandardMaterial({ color: 0xe0a030, roughness: 0.6, transparent: true, opacity: 0.62 }));
-  jacket.castShadow = true; jacket.userData.pickAlways = true; scene.add(tag(jacket, 'fiber')); anchor(jacket, '單模光纖', [-30, 18, -17]);
+  const jacket = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 96, 0.42, 10, false), new THREE.MeshStandardMaterial({ color: 0xf0a020, roughness: 0.55, transparent: true, opacity: 0.7 }));
+  jacket.castShadow = true; jacket.userData.pickAlways = true; scene.add(tag(jacket, 'fiber')); anchor(jacket, '單模光纖', [-49, 17, -20]);
 }
-const fiberCore = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 64, 0.2, 8, false), new THREE.MeshBasicMaterial({ color: 0x00bbff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+const fiberCore = new THREE.Mesh(new THREE.TubeGeometry(fiberCurve, 96, 0.2, 8, false), new THREE.MeshBasicMaterial({ color: 0x00bbff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
 scene.add(fiberCore);
-const fiberPts = fiberCurve.getPoints(40);
+const fiberPts = fiberCurve.getPoints(48);
+
+// ---------- 跨區段接頭（世界座標 [x,y,z]）：LASER_PORTS.ld405Drive 多芯驅動接頭（朝 -x，未接線 → 整合時接 PERIPH_PORTS.dpsslOut）、
+//            ld405Mod / tda200Out（已互接）、tda200In、tda200Aux（空 SMA）、arUmbilical、combinerCtrl、fiberFC、fiberWall ----------
+// ---------- 本區段新零件的說明 ----------
+Object.assign(INFO, {
+  tda200: { kind: '雷射', zh: 'TDA 200 觸發／調變盒', en: 'TDA 200 Trigger Diode Box', desc: '405 nm LD 模組尾端旁的黑色小盒（photo2）：LD 的驅動電流來自 FV5-PSU 頂上的 DPSSL DRIVER，而這個小盒接在模組的 SMA 調變輸入上，提供 TTL 觸發／調變訊號，讓半導體雷射能隨掃描同步開關。', specs: [['連接', '405 nm LD 模組（SMA 調變輸入）'], ['介面', 'BNC 觸發輸入 / SMA 輸出'], ['固定', '立柱 + M6 底座']] },
+  shutter: { kind: '雷射', zh: '手動快門（405 nm 光路）', en: 'Manual Beam Shutter', desc: '出光口與合束器之間的同軸小快門：撥下擋片就能擋住 405 nm 光束而不必關雷射。擋片垂直光軸，不改變光束方向。', specs: [['位置', 'LD 405 出光口 → 合束器之間'], ['作用', '擋光 / 放行']] },
+  ndWheel: { kind: '雷射', zh: 'ND 濾片輪（488 nm 光路）', en: 'ND Filter Wheel', desc: '六段中性密度濾片輪，轉到不同段位可把氬離子雷射功率衰減 1～1000 倍再送進合束器；濾片垂直光軸、不折光，光束穿過最上面那一格。', specs: [['段位', '6（ND 0 / 0.3 / 0.6 / 1 / 2 / 3）'], ['位置', 'Ar 488 出光口 → 合束器之間']] },
+  iris: { kind: '雷射', zh: '光圈（488 nm 光路）', en: 'Iris Diaphragm', desc: 'ND 濾片輪與合束器之間的可調光圈：縮小開口可擋掉氬離子雷射的雜散光與旁瓣，也用來檢查光束是否還在光軸上（對心）。開口與光軸同心，不折光。', specs: [['開口', 'Ø1–12 mm 可調'], ['位置', 'ND 濾片輪 → 合束器之間']] },
+  mirrorMount: { kind: '光學桌', zh: 'Kinematic 反射鏡座', en: 'Kinematic Mirror Mount', desc: '黑色陽極鋁的 1 吋反射鏡座，背面兩顆微調旋鈕分別調俯仰與水平。這幾組都放在 FV300 雷射光路之外，是桌上其他實驗用的光學件（photo2）。', specs: [['鏡片', 'Ø25.4 mm'], ['調整', '2 軸（pitch / yaw）'], ['固定', '立柱 + 立柱座 + M6 開槽底座']] },
+  clampM6: { kind: '光學桌', zh: 'M6 壓板夾具', en: 'M6 Clamping Fork', desc: '不鏽鋼壓板配 M6 內六角螺絲鎖進桌面 25 mm 孔陣，把雷射頭滑軌與合束器底板壓在光學桌上。', specs: [['螺絲', 'M6 × 25 mm 孔距'], ['用途', '固定底板 / 滑軌']] },
+});
 
 // ============================================================
-//  周邊：FV5-PSU、LG-PS2、電腦
+//  周邊：FV5-PSU（頂上放 DPSSL DRIVER）、LG-PS2、電腦（SyncMaster 943BM、主機、鍵盤滑鼠）
+//  依 photo2 / photo3 / photo4。PSU 移到 IX71 後方、雷射合束器右側（photo2 位置）。
 // ============================================================
+// ---- 小工具（tp 前綴＝table-periph 區段專用）----
+function tpRoundRect(g, x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); g.closePath(); }
+// 文字／圖案貼圖：text 可為字串或多行陣列；o.draw(g,w,h) 可先畫自訂圖案
+function tpLabelTex(text, w, h, o = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  if (o.bg) { g.fillStyle = o.bg; g.fillRect(0, 0, w, h); }
+  if (o.border) { const lw = o.borderW || Math.max(2, h * 0.03); g.strokeStyle = o.border; g.lineWidth = lw; g.strokeRect(lw / 2, lw / 2, w - lw, h - lw); }
+  if (o.draw) o.draw(g, w, h);
+  const lines = Array.isArray(text) ? text : (text ? [text] : []);
+  if (lines.length) {
+    g.fillStyle = o.fg || '#ffffff'; g.font = o.font || `bold ${Math.round(h * 0.62 / lines.length)}px system-ui, sans-serif`;
+    g.textAlign = o.align || 'center'; g.textBaseline = 'middle';
+    const lh = o.lineH || h / lines.length;
+    const x = o.align === 'left' ? (o.pad ?? h * 0.12) : (o.align === 'right' ? w - (o.pad ?? h * 0.12) : w / 2);
+    lines.forEach((t, i) => g.fillText(t, x, (i + 0.5) * lh + (o.dy || 0)));
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+// 貼在表面上的薄平面（預設受光；unlit=true 用 Basic 材質，給發光的顯示器）
+function tpLabel(text, W, H, x, y, z, o = {}) {
+  const pw = o.pw || 256, ph = o.ph || Math.max(16, Math.round(pw * H / W));
+  const tex = tpLabelTex(text, pw, ph, o);
+  const mat = o.unlit ? new THREE.MeshBasicMaterial({ map: tex, transparent: !o.bg, toneMapped: false })
+                      : new THREE.MeshStandardMaterial({ map: tex, transparent: !o.bg, roughness: o.rough ?? 0.75, metalness: 0 });
+  mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -1;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), mat);
+  m.position.set(x, y, z); if (o.rx) m.rotation.x = o.rx; if (o.ry) m.rotation.y = o.ry; if (o.rz) m.rotation.z = o.rz;
+  m.castShadow = false; m.receiveShadow = !o.unlit; return m;
+}
+// 通風柵圖案（cols×rows 個橫向長條孔）
+function tpGrille(cols, rows, dark = '#0d0e10', edge = '#2a2c30') {
+  return (g, w, h) => {
+    const sw = w / cols, sh = h / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = c * sw + sw * 0.1, y = r * sh + sh * 0.28, ww = sw * 0.8, hh = sh * 0.44;
+      g.fillStyle = edge; tpRoundRect(g, x, y, ww, hh, hh / 2); g.fill();
+      g.fillStyle = dark; tpRoundRect(g, x + 1.5, y + 1.5, ww - 3, hh - 3, Math.max(0.5, (hh - 3) / 2)); g.fill();
+    }
+  };
+}
+// 鍵盤面（704×224 px ↔ 44×14 cm）
+function tpKeyboardDraw(g, w, h) {
+  const U = 28, X0 = 24, Y0 = 40;
+  const cap = (x, y, uw, uh = 1) => {
+    const ww = U * uw - 3, hh = U * uh - 3;
+    g.fillStyle = '#383c44'; tpRoundRect(g, x, y, ww, hh, 4); g.fill();
+    g.fillStyle = '#4c515a'; tpRoundRect(g, x + 2, y + 2, ww - 4, hh - 8, 3); g.fill();
+  };
+  for (let i = 0; i < 13; i++) cap(X0 + i * U * 1.12, 10, 1, 0.65);                    // ESC + F1–F12
+  const rows = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+    [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
+    [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],
+    [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75],
+    [1.25, 1.25, 1.25, 6.25, 1.25, 1.25, 1.25, 1.25],
+  ];
+  rows.forEach((row, r) => { let x = X0; row.forEach(uw => { cap(x, Y0 + r * U, uw); x += uw * U; }); });
+  const X1 = X0 + 15 * U + 14;                                                         // 導覽鍵區
+  for (let c = 0; c < 3; c++) cap(X1 + c * U, 10, 1, 0.65);
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) cap(X1 + c * U, Y0 + r * U, 1);
+  cap(X1 + U, Y0 + 3 * U, 1); for (let c = 0; c < 3; c++) cap(X1 + c * U, Y0 + 4 * U, 1);
+  const X2 = X1 + 3 * U + 14;                                                          // 數字鍵區
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 4; c++) {
+    if ((r === 4 && (c === 1 || c === 3)) || (r === 2 && c === 3)) continue;
+    cap(X2 + c * U, Y0 + r * U, (r === 4 && c === 0) ? 2 : 1, (c === 3 && (r === 1 || r === 3)) ? 2 : 1);
+  }
+}
+
 const leds = {};
+// 供區段 07 接線用的世界座標接頭位置（[x, y, z]）
+const PERIPH_PORTS = {};
 {
-  // FV5-PSU
-  const psu = group(scene, -100, 7, 30);
-  psu.add(mesh(box(24, 14, 34), HOUSING(M.body(0xaab0ba)), 0, 0, 0));
-  psu.add(mesh(box(24.4, 1.2, 34.4), M.dark(0x33373f), 0, -6.6, 0));
-  psu.add(mesh(box(22, 10, 0.3), M.dark(0x2a2e37), 0, 0.5, 17.1));
-  const led = (name, x, c) => { const m = mesh(cyl(0.55, 0.55, 0.4), M.emissive(c, 2.5), x, 3.5, 17.4, { rx: Math.PI / 2, shadow: false }); psu.add(m); leds[name] = m; };
-  led('power', -8, 0x7ee787); led('laser', -4, 0x00bbff); led('scan', 0, 0xffb86c);
-  psu.add(mesh(box(6, 2.2, 0.4), M.black(), 6, 3.5, 17.3));                  // 主開關
-  for (let i = 0; i < 8; i++) psu.add(mesh(box(20, 0.35, 0.3), M.black(), 0, -4.5 + i * 0.9, 17.3, { shadow: false }));  // 通風柵
-  tag(psu, 'psu'); anchor(psu, 'FV5-PSU 電源', [0, 10, 0]);
+  const WHITE = 0xe8e6df;
 
-  // LG-PS2
+  // ===================== FV5-PSU：白色機箱，IX71 後方、合束器右側 =====================
+  // 世界 x -10..16, y 0..15, z -58..-38：寬(x) 大於深(z) 的扁箱（photo2 俯視 ≈ 26 × 20），前面板維持在 z=-38，
+  // 在 IX71 立柱／燈室正後方（立柱 z -23..-11、底板 z ≥ -27）；左側面離區段 05 合束器右面 (x=-18) 有 8 cm 讓粗纜線落地；LG-PS2 在 x ≥ 24。
+  const PSU_POS = [3, 7.5, -48], PW = 26, PH = 15, PD = 20;
+  const psu = group(scene, ...PSU_POS);
+  psu.add(mesh(box(PW, PH, PD), HOUSING(M.body(WHITE)), 0, 0, 0));
+  psu.add(mesh(box(PW + 0.3, 1.0, PD + 0.3), M.dark(0x2a2d33), 0, -PH / 2 + 0.5, 0));        // 底部黑色飾邊
+  const FZ = PD / 2;
+  // 前面板（photo4：整片白色，只有中上部一條橫向長孔通風帶）：POWER / LASER / SCAN 三燈直接嵌在白面上、主開關在右上角
+  const led = (name, x, c) => { const m = mesh(cyl(0.45, 0.45, 0.4, 16), M.emissive(c, 2.5), x, 5.6, FZ + 0.15, { rx: Math.PI / 2, shadow: false }); psu.add(m); leds[name] = m; };
+  led('power', -10, 0x7ee787); led('laser', -7, 0x00bbff); led('scan', -4, 0xffb86c);
+  [['POWER', -10], ['LASER', -7], ['SCAN', -4], ['MAIN', 10]].forEach(([t, x]) =>
+    psu.add(tpLabel(t, 2.8, 0.75, x, 4.45, FZ + 0.06, { fg: '#3a3d44', font: 'bold 26px system-ui, sans-serif', pw: 128 })));
+  psu.add(mesh(box(2.6, 1.6, 0.5), M.black(), 10, 5.9, FZ + 0.25));                           // 主開關（搖頭）
+  psu.add(mesh(box(1.0, 0.9, 0.2), M.emissive(0xd42a1e, 0.5), 9.5, 5.9, FZ + 0.57, { shadow: false }));
+  // 中上部橫向通風帶 + 下半留白只放銘牌（photo4）
+  psu.add(tpLabel('', PW - 3, 2.6, 0, 1.8, FZ + 0.06, { bg: '#e4e2db', pw: 912, ph: 125, rough: 0.6, draw: tpGrille(28, 3) }));
+  psu.add(tpLabel('OLYMPUS   FV5-PSU', 8.5, 0.9, -7.5, -4.8, FZ + 0.06, { fg: '#3a3d44', font: 'bold 30px system-ui, sans-serif', align: 'left', pw: 384 }));
+  // 左側面（-x）：通風柵（上）+ 往掃描頭的圓形多芯接頭（靠前，電纜直接往 +z 走到掃描頭後方）+ AC 電源座（靠後，photo2）
+  const LX = -PW / 2;
+  psu.add(tpLabel('', 16, 4.0, LX - 0.06, 3.4, 2, { ry: -Math.PI / 2, bg: '#e4e2db', pw: 768, ph: 192, rough: 0.6, draw: tpGrille(16, 6) }));
+  const CZ = 6;                                                                                  // 接頭局部 z（世界 -48）
+  psu.add(mesh(cyl(2.1, 2.1, 1.2, 24), M.black(), LX - 0.6, -1.2, CZ, { rz: Math.PI / 2 }));
+  psu.add(mesh(cyl(1.7, 1.7, 1.0, 24), M.metal(0x6c7380), LX - 1.6, -1.2, CZ, { rz: Math.PI / 2 }));
+  psu.add(mesh(cyl(1.15, 1.15, 0.8, 16), M.black(), LX - 2.4, -1.2, CZ, { rz: Math.PI / 2 }));
+  PERIPH_PORTS.psuScanHead = [PSU_POS[0] + LX - 2.8, PSU_POS[1] - 1.2, PSU_POS[2] + CZ];      // (-12.8, 6.3, -42) 粗電纜 → 掃描頭頂面後緣多芯接頭
+  psu.add(mesh(box(1.0, 2.4, 3.2), M.black(), LX - 0.5, -3.8, -7));                            // IEC 插座（靠後）
+  psu.add(mesh(box(0.5, 1.6, 2.2), M.dark(0x3a3e46), LX - 1.1, -3.8, -7));
+  PERIPH_PORTS.psuAC = [PSU_POS[0] + LX - 1.4, PSU_POS[1] - 3.8, PSU_POS[2] - 7];             // (-11.4, 3.7, -55) AC 電源線
+  // 背面（-z）：風扇 + 往電腦的 D-sub 介面
+  psu.add(tpLabel('', 7, 7, 4, 0.5, -FZ - 0.06, { ry: Math.PI, bg: '#e4e2db', pw: 224, ph: 224, draw: (g, w, h) => {
+    g.fillStyle = '#15171b'; g.beginPath(); g.arc(w / 2, h / 2, w * 0.44, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#8a8d93'; g.lineWidth = 3; for (let r = 0.12; r < 0.44; r += 0.08) { g.beginPath(); g.arc(w / 2, h / 2, w * r, 0, Math.PI * 2); g.stroke(); }
+    g.beginPath(); g.moveTo(w * 0.06, h / 2); g.lineTo(w * 0.94, h / 2); g.moveTo(w / 2, h * 0.06); g.lineTo(w / 2, h * 0.94); g.stroke();
+  } }));
+  psu.add(mesh(box(4.2, 1.6, 0.8), M.dark(0x3a3e46), -5, -2, -FZ - 0.3));
+  psu.add(mesh(box(3.2, 1.0, 0.4), M.black(), -5, -2, -FZ - 0.8));
+  PERIPH_PORTS.psuPC = [PSU_POS[0] - 5, PSU_POS[1] - 2, PSU_POS[2] - FZ - 1.0];               // (-2, 5.5, -59) 電腦介面線
+  // 頂面：財產標籤（photo2：貼在頂面右後角）
+  psu.add(tpLabel(['國立陽明交通大學', '財產編號  3100566-22', '共軛焦顯微鏡系統  FV300', '111.01.03'], 6.5, 4.2, 9.5, PH / 2 + 0.03, -6.5, {
+    rx: -Math.PI / 2, bg: '#f4f3ee', border: '#8a8d93', fg: '#2b2e33', font: '600 24px system-ui, sans-serif', align: 'left', pw: 325, ph: 210, dy: -8,
+    draw: (g, w, h) => { g.fillStyle = '#222'; for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) if ((i * 3 + j * 5 + i * j) % 3) g.fillRect(w - 62 + i * 8, h - 62 + j * 8, 7, 7); },
+  }));
+
+  // ---------- DPSSL DRIVER：放在 PSU 頂上的黑色小盒（photo4）----------
+  const DW = 15, DH = 5.5, DD = 12, DFZ = DD / 2;
+  const DR = group(psu, 0, PH / 2 + DH / 2, 2);                     // 世界 (3, 17.75, -46)：PSU 頂面靠前（前緣離 PSU 前緣 2 cm，photo4）、左右置中
+  DR.add(mesh(box(DW, DH, DD), M.dark(0x1a1c20), 0, 0, 0));
+  DR.add(mesh(box(DW + 0.2, 0.5, DD + 0.2), M.black(), 0, -DH / 2 + 0.25, 0));
+  DR.add(mesh(box(1.5, 2.2, 0.5), M.black(), -5.3, 0.1, DFZ + 0.2));                              // 紅色照明搖頭開關
+  DR.add(mesh(box(1.1, 1.8, 0.2), M.emissive(0xff2a1e, 0.9), -5.3, 0.1, DFZ + 0.52, { shadow: false }));
+  DR.add(tpLabel('ON', 1.6, 0.6, -5.3, 1.85, DFZ + 0.06, { fg: '#cfd3da', font: 'bold 28px system-ui, sans-serif', pw: 96 }));
+  DR.add(mesh(cyl(0.85, 0.85, 0.6, 20), M.metal(0x9aa3b2), -2.8, 0.1, DFZ + 0.3, { rx: Math.PI / 2 }));   // 鑰匙開關
+  DR.add(mesh(box(0.3, 1.0, 0.2), M.black(), -2.8, 0.1, DFZ + 0.68));
+  DR.add(mesh(box(0.5, 0.3, 0.15), M.emissive(0x7ee787, 1.5), -2.8, 1.75, DFZ + 0.12, { shadow: false }));  // 綠色 LED
+  DR.add(mesh(box(4.0, 1.9, 0.3), M.black(), 1.3, 0.2, DFZ + 0.1));                                // 紅色數字顯示（LD 電流）
+  DR.add(tpLabel('0.94', 3.4, 1.3, 1.3, 0.2, DFZ + 0.3, { bg: '#180302', fg: '#ff3b2a', font: 'bold 96px "Courier New", monospace', pw: 340, ph: 130, unlit: true }));
+  DR.add(mesh(cyl(1.0, 1.0, 0.9, 24), M.black(), 5.4, 0.2, DFZ + 0.45, { rx: Math.PI / 2 }));    // 電流旋鈕
+  DR.add(mesh(box(0.15, 0.8, 0.1), M.metal(0xdde2ea), 5.4, 0.6, DFZ + 0.95));
+  DR.add(tpLabel('DPSSL DRIVER', 5.2, 0.7, -3.0, -1.85, DFZ + 0.06, { fg: '#e2e5ea', font: 'bold 30px system-ui, sans-serif', pw: 300 }));
+  DR.add(tpLabel(['DPSSL DRIVER', 'LD 405 nm · I max 1.2 A', 'S/N 750018'], 5, 2.6, 2.5, DH / 2 + 0.03, -1.5, { rx: -Math.PI / 2, bg: '#f2f1ec', fg: '#333', font: '500 26px system-ui, sans-serif', pw: 300, ph: 156 }));
+  // LD 輸出接頭在左側面（-x，朝雷射區），電纜從這裡越過合束器上方走到桌上的 405 nm LD 模組
+  DR.add(mesh(cyl(1.0, 1.0, 1.0, 16), M.black(), -DW / 2 - 0.4, 0, -2, { rz: Math.PI / 2 }));
+  DR.add(mesh(cyl(0.7, 0.7, 0.6, 12), M.metal(0x6c7380), -DW / 2 - 1.1, 0, -2, { rz: Math.PI / 2 }));
+  DR.add(mesh(box(1.2, 1.4, 0.8), M.black(), 3, -0.5, -DFZ - 0.35));                              // 背面 DC 電源座
+  PERIPH_PORTS.dpsslOut = [PSU_POS[0] - DW / 2 - 1.5, PSU_POS[1] + PH / 2 + DH / 2, PSU_POS[2] + 2 - 2];   // (-6, 17.75, -48) → 405 LD 模組
+  tag(DR, 'dpsslDriver'); anchor(DR, 'DPSSL 驅動器 (405 nm)', [0, 4.5, 0]);
+  tag(psu, 'psu'); anchor(psu, 'FV5-PSU 電源', [9, PH / 2 + 1.5, 6]);
+
+  // ===================== LG-PS2 透射光源電源：小白盒 =====================
   const lg = group(scene, 32, 4, -44);
-  lg.add(mesh(box(16, 8, 22), HOUSING(M.body(0xaab0ba)), 0, 0, 0));
-  lg.add(mesh(box(16.4, 1, 22.4), M.dark(0x33373f), 0, -3.6, 0));
-  lg.add(mesh(cyl(1.6, 1.6, 1.2), M.black(), -4, 0.5, 11.4, { rx: Math.PI / 2 }));
-  lg.add(mesh(cyl(0.5, 0.5, 0.4), M.emissive(0xffb86c, 2), 3, 1.5, 11.4, { rx: Math.PI / 2, shadow: false }));
-  lg.add(mesh(box(4, 1.2, 0.3), M.black(), 3, -1.2, 11.3));
+  lg.add(mesh(box(16, 8, 22), HOUSING(M.body(WHITE)), 0, 0, 0));
+  lg.add(mesh(box(16.3, 0.9, 22.3), M.dark(0x2a2d33), 0, -3.55, 0));
+  lg.add(mesh(cyl(2.3, 2.3, 0.4, 24), M.dark(0x3a3e46), -3.5, 0.6, 11.2, { rx: Math.PI / 2 }));    // 亮度旋鈕刻度環
+  lg.add(mesh(cyl(1.7, 1.9, 1.4, 24), M.black(), -3.5, 0.6, 11.9, { rx: Math.PI / 2 }));
+  lg.add(mesh(box(0.2, 1.3, 0.12), M.metal(0xdde2ea), -3.5, 1.3, 12.62));
+  lg.add(mesh(box(1.6, 2.2, 0.5), M.black(), 4.5, 0.4, 11.2));                                     // 電源搖頭開關
+  lg.add(mesh(box(1.1, 0.9, 0.2), M.emissive(0xffb86c, 0.4), 4.5, 0.8, 11.5, { shadow: false }));
+  lg.add(mesh(cyl(0.45, 0.45, 0.4, 12), M.emissive(0xffb86c, 2), 2.0, 2.4, 11.2, { rx: Math.PI / 2, shadow: false }));  // 燈亮指示
+  lg.add(tpLabel('OLYMPUS  LG-PS2', 7, 0.8, -1.5, -2.6, 11.04, { fg: '#3a3d44', font: 'bold 30px system-ui, sans-serif', pw: 320 }));
+  lg.add(tpLabel('LAMP', 2.2, 0.55, 4.5, -1.3, 11.04, { fg: '#3a3d44', font: 'bold 26px system-ui, sans-serif', pw: 128 }));
+  lg.add(mesh(cyl(1.0, 1.0, 1.0, 16), M.black(), 0, 2, -11.4, { rx: Math.PI / 2 }));               // 背面：燈室電纜插座
+  lg.add(mesh(box(1.0, 2.2, 0.8), M.black(), 5, -1.5, -11.3));                                     // AC
+  PERIPH_PORTS.lgLamp = [32, 6, -55.9];
   tag(lg, 'lgps2'); anchor(lg, 'LG-PS2 透射光源', [0, 7, 0]);
 
-  // 電腦：螢幕（顯示即時掃描影像）+ 主機 + 鍵盤
+  // ===================== 電腦：Samsung SyncMaster 943BM（19 吋 5:4）=====================
   const mon = group(scene, 75, 0, -15);
-  mon.add(mesh(box(24, 1, 14), M.dark(0x2a2e37), 0, 0.5, 1));
-  mon.add(mesh(box(4, 8, 3), M.dark(0x2a2e37), 0, 5, -1));
-  mon.add(mesh(box(52, 32, 2), M.dark(0x1a1d24), 0, 25, -1));
-  tag(mon, 'monitor'); anchor(mon, '控制電腦 (FluoView)', [0, 44, 0]);
+  const mBlk = M.dark(0x1a1c20), mBlk2 = M.dark(0x26292f);
+  mon.add(mesh(cyl(10, 10.6, 1.2, 48), mBlk, 0, 0.6, 0));                    // 圓底座
+  mon.add(mesh(cyl(4.4, 5.6, 1.6, 32), mBlk2, 0, 2.0, 0));                   // 底座轂
+  mon.add(mesh(box(6, 17, 2.2), mBlk2, 0, 10, -2.6));                        // 頸
+  const SW = 37.6, SH = 30.1, BZ = 1.8, BB = 3.0, SCY = 25;                  // 螢幕 37.6×30.1（5:4），中心 y=25
+  const panelH = SH + BZ + BB, panelCY = SCY - SH / 2 - BB + panelH / 2;
+  mon.add(mesh(box(SW + 2 * BZ, panelH, 1.6), mBlk, 0, panelCY, 0.2));       // 面板：前緣局部 z=1.0（世界 -14）
+  mon.add(mesh(box(30, 24, 3.6), mBlk2, 0, panelCY, -2.2));                  // 背部隆起
+  mon.add(tpLabel('SyncMaster 943BM', 7.5, 0.75, -SW / 2 + 3.9, SCY + SH / 2 + BZ / 2, 1.02, { fg: '#aeb3ba', font: 'bold 28px system-ui, sans-serif', align: 'left', pw: 320 }));
+  mon.add(tpLabel('SAMSUNG', 6.5, 0.95, 0, SCY - SH / 2 - BB / 2, 1.02, { fg: '#c3c7cd', font: 'bold 34px system-ui, sans-serif', pw: 256 }));
+  const btnGeo = cyl(0.28, 0.28, 0.15, 10), btnMat = M.dark(0x3a3e46);
+  for (let i = 0; i < 5; i++) mon.add(mesh(btnGeo, btnMat, SW / 2 - 8 + i * 1.6, SCY - SH / 2 - BB / 2, 1.05, { rx: Math.PI / 2, shadow: false }));
+  mon.add(mesh(cyl(0.25, 0.25, 0.15, 10), M.emissive(0x3b8cff, 2), SW / 2 + 0.6, SCY - SH / 2 - BB / 2, 1.05, { rx: Math.PI / 2, shadow: false }));  // 藍色電源燈
+  mon.add(mesh(box(2.6, 1.0, 0.6), M.dark(0x3a5db0), -6, panelCY - 6, -4.2));                      // 背面 VGA 接頭
+  PERIPH_PORTS.monitorBack = [69, panelCY - 6, -19.6];
+  tag(mon, 'monitor'); anchor(mon, '控制電腦 (FluoView)', [0, 45, 0]);
+
+  // 主機塔（放在桌面右側；背面 z=-12 給 07 的 PC→PSU 線用）
   const tower = group(scene, 105, 21, 10);
-  tower.add(mesh(box(18, 42, 44), HOUSING(M.dark(0x2f333c)), 0, 0, 0));
-  tower.add(mesh(box(18.4, 6, 4), M.black(), 0, 15, 22.1));
-  tower.add(mesh(cyl(0.5, 0.5, 0.4), M.emissive(0x6ec6ff, 2), -5, 12, 22.3, { rx: Math.PI / 2, shadow: false }));
+  tower.add(mesh(box(18, 42, 44), HOUSING(M.dark(0x2b2e35)), 0, 0, 0));
+  tower.add(mesh(box(18.4, 42.4, 1.2), M.dark(0x1e2126), 0, 0, 22.4));                            // 前面板
+  tower.add(mesh(box(14, 1.6, 0.3), M.dark(0x3c4049), 0, 15, 23.1));                              // 光碟機
+  tower.add(mesh(box(14, 1.2, 0.3), M.dark(0x3c4049), 0, 12, 23.1));
+  tower.add(mesh(cyl(1.1, 1.1, 0.4, 20), M.metal(0x8a93a3), 0, 6, 23.15, { rx: Math.PI / 2 }));   // 電源鈕
+  tower.add(mesh(cyl(0.45, 0.45, 0.3, 12), M.emissive(0x6ec6ff, 2), -4, 6, 23.15, { rx: Math.PI / 2, shadow: false }));
+  tower.add(mesh(cyl(0.35, 0.35, 0.3, 12), M.emissive(0xffb86c, 1.5), -5.5, 6, 23.15, { rx: Math.PI / 2, shadow: false }));
+  tower.add(tpLabel('', 12, 8, 0, -12, 23.02, { bg: '#1e2126', pw: 360, ph: 240, draw: tpGrille(8, 8, '#0b0c0e', '#2c3037') }));
+  tower.add(tpLabel('', 16, 16, 9.02, 6, -4, { ry: Math.PI / 2, bg: '#2b2e35', pw: 320, ph: 320, draw: tpGrille(6, 14, '#0b0c0e', '#363a42') }));
+  tower.add(mesh(box(10, 16, 0.4), M.dark(0x3c4049), -2, 8, -22.2));                              // 背面 I/O 板
+  tower.add(mesh(box(4, 3, 0.6), M.black(), 4, 16, -22.3));                                       // 電源插座
+  PERIPH_PORTS.pcBack = [105, 21, -12];
   tag(tower, 'pc');
-  const kb = mesh(box(44, 1.2, 14), M.dark(0x2a2e37), 75, 0.6, 14); scene.add(tag(kb, 'pc'));
-  scene.add(tag(mesh(box(3.2, 1.6, 6), M.dark(0x2a2e37), 103, 0.8, 34), 'pc'));
+
+  // 鍵盤（頂面用鍵帽貼圖）、滑鼠墊、滑鼠
+  const kbTex = tpLabelTex('', 704, 224, { bg: '#282b31', draw: tpKeyboardDraw });
+  const kbTop = new THREE.MeshStandardMaterial({ map: kbTex, roughness: 0.75, metalness: 0.05 }), kbSide = M.dark(0x24272c);
+  const kb = mesh(box(44, 1.6, 14), [kbSide, kbSide, kbTop, kbSide, kbSide, kbSide], 75, 0.8, 14);
+  scene.add(tag(kb, 'pc'));
+  scene.add(tag(mesh(box(20, 0.25, 22), M.dark(0x1d2025), 104, 0.125, 40), 'pc'));
+  const mouse = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), M.dark(0x2a2d33));
+  mouse.scale.set(1.8, 1.05, 3.0); mouse.position.set(104, 1.3, 40); mouse.castShadow = true; mouse.receiveShadow = true;
+  scene.add(tag(mouse, 'pc'));
+  scene.add(tag(mesh(box(0.5, 0.5, 1.2), M.dark(0x44484f), 104, 2.25, 38.6), 'pc'));              // 滾輪
 }
-// 螢幕畫面（CanvasTexture）
-const screenCanvas = document.createElement('canvas'); screenCanvas.width = 640; screenCanvas.height = 400;
+// 螢幕畫面（CanvasTexture，640×512 = 5:4；區段 07 的 drawScreen() 負責畫 FluoView 畫面）
+const screenCanvas = document.createElement('canvas'); screenCanvas.width = 640; screenCanvas.height = 512;
 const screenCtx = screenCanvas.getContext('2d');
-const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace;
+const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = 8;
 {
-  const scr = new THREE.Mesh(new THREE.PlaneGeometry(48, 30), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(37.6, 30.1), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
   scr.position.set(75, 25, -13.95); scene.add(tag(scr, 'monitor'));
 }
 
-// 線纜（裝飾）：PSU→掃描頭、LG-PS2→燈室、PC→PSU
+Object.assign(INFO, {
+  dpsslDriver: { kind: '周邊', zh: 'DPSSL 雷射驅動器 (405 nm)', en: 'DPSSL Laser Driver (405 nm)', desc: '放在 FV5-PSU 頂上的黑色小盒：405 nm 半導體雷射模組的定電流驅動器。紅色搖頭開關供電、鑰匙開關解鎖出光（Class 3B 安全連鎖）、紅色數字顯示 LD 電流，右側旋鈕調功率；輸出電纜接到桌上帶散熱片的 405 nm LD 模組。', specs: [['驅動', '405 nm LD 模組（定電流）'], ['安全', '鑰匙開關 + 連鎖'], ['顯示', 'LD 電流 (A)']] },
+  monitor: { ...INFO.monitor, specs: [['螢幕', 'Samsung SyncMaster 943BM · 19 吋 5:4 · 1280×1024'], ['軟體', 'FLUOVIEW v.5.0 / Windows XP']] },
+  psu: { ...INFO.psu, desc: INFO.psu.desc + ' 白色扁箱放在 IX71 後方：前面板中上部一條橫向通風帶，左側面有往掃描頭的圓形多芯接頭與 AC 插座，背面是風扇與電腦介面；頂面貼財產標籤，上面放著 405 nm 的 DPSSL 驅動器。', specs: [...INFO.psu.specs, ['接頭', '左側多芯接頭 → 掃描頭頂面後緣']] },
+});
+// ============================================================
+//  線纜（裝飾）：三條路徑的世界座標集中定義在這裡，整合時只改這張表即可
+//  psuToHead：FV5-PSU 左側面多芯接頭 → 掃描頭頂面後緣多芯接頭的粗纜線（區段 04 已把它沿後牆垂到桌面）
+//  lgToLamp ：LG-PS2 背面插座 → IX71 立柱頂端的鹵素燈室背板
+//  pcToPsu  ：電腦主機背板 → FV5-PSU 後方介面接頭
+//  pts = CatmullRom 控制點 [x,y,z]（世界座標），r = 線徑，color = 線材顏色
+//  區段 06（新版）匯出 PERIPH_PORTS.{psuScanHead(-12.8,6.3,-42), psuAC(-11.4,3.7,-55), psuPC(-2,5.5,-59), dpsslOut(-6,17.75,-48), lgLamp(32,6,-55.9),
+//  monitorBack, pcBack(105,21,-12)}；有它就用新版佈局的路徑，否則退回原始（舊 PSU 在 x=-100）的路徑。
+//  新版佈局固定點：掃描頭粗纜線落地點 HEAD_CABLE_END = HEAD_POS + (-3.5, -13.4, -19.4)（區段 04 的 mp 纜線末端，接頭在局部 x=-3.5）；
+//  另外還有 psuAC（IEC 電源線）、monitorVga、focusMotor（接續區段 03 畫到桌面的馬達電纜）、bncOrange / bncGreen（接續區段 04 的 BNC 短線）、
+//  dpsslToLd（DPSSL DRIVER → LD 405 尾端多芯驅動接頭，繞合束器後方）。
+//  鹵素燈室背板 LAMP_CABLE_END（區段 03：ix 局部 (0, 60, -36.7)）。PSU 左牆 x=-10、合束器右牆 x=-18，粗纜線走這條 8 cm 的縫落地。
+// ============================================================
+const _PP = (typeof PERIPH_PORTS !== 'undefined' && PERIPH_PORTS.psuScanHead) ? PERIPH_PORTS : null;
+const HEAD_CABLE_END = [HEAD_POS.x - 3.5, 0.6, HEAD_POS.z - 19.4];      // (-51.5, 0.6, -17.4)：區段 04 多芯接頭（局部 x=-3.5）粗纜線沿後牆垂到桌面的末端
+const LAMP_CABLE_END = [0, 60, -36.7];
+const _LP = (typeof LASER_PORTS !== 'undefined' && LASER_PORTS.ld405Drive) ? LASER_PORTS : null;
+const CABLE_ROUTES = _PP ? {
+  // PSU 左側多芯接頭 → 落地 → 穿過合束器底板右前角 (-17.25,-25) 與 IX71 底座左後角 (-14.2,-26.7) 之間的縫 → 沿合束器前方 z≈-19.5 走到掃描頭後牆粗纜線落地點
+  psuToHead: { pts: [_PP.psuScanHead, [-14.3, 3.4, -40.6], [-14.6, 0.8, -37], [-14.6, 0.8, -32], [-14.7, 0.8, -28.5], [-15.7, 0.8, -25.85], [-17.6, 0.8, -22.8], [-21, 0.8, -20.6], [-30, 0.8, -19.5], [-40, 0.75, -19.2], [-48, 0.7, -18.3], HEAD_CABLE_END], r: 0.55, color: 0x2a2e37 },
+  lgToLamp:  { pts: [_PP.lgLamp, [30, 8, -62], [16, 30, -64], [4, 56, -52], LAMP_CABLE_END], r: 0.35, color: 0x3a3f4a },
+  pcToPsu:   { pts: [_PP.pcBack, [100, 6, -30], [70, 1.2, -62], [30, 1.2, -70], [8, 1.5, -73], [0, 3.2, -66], _PP.psuPC], r: 0.45, color: 0x2a2e37 },
+  // PSU 左側 IEC 電源座 → 桌後緣垂下
+  psuAC:     { pts: [_PP.psuAC, [-12.6, 3.3, -57.5], [-12.8, 1.0, -62], [-12.5, 0.4, -70], [-12.6, 0.2, -75.6], [-12.8, -4, -76.6], [-13, -14, -77]], r: 0.4, color: 0x1e2126 },
+  // 螢幕背面 VGA → 繞過螢幕底座後方 → 主機背板 I/O
+  monitorVga:{ pts: [_PP.monitorBack, [69, 17, -22.5], [72, 6, -26], [80, 0.5, -28], [95, 0.5, -26], [99, 0.5, -18], [101, 4, -15], [103, 18, -13.5], [103, 31, -12.5]], r: 0.35, color: 0x2a2e37 },
+  // IX71 調焦馬達的電纜（區段 03 畫到 (-19,0.35,18.5)）→ 沿 IX71 前方、鍵盤與螢幕底座之間 → 主機背板（控制介面卡）
+  focusMotor:{ pts: [[-19, 0.35, 18.5], [-10, 0.35, 21], [5, 0.35, 19], [25, 0.35, 10], [45, 0.35, 3], [70, 0.35, 2], [93, 0.35, 0], [94.5, 0.35, -10], [96, 0.35, -15.5], [101, 4, -16.5], [100.5, 12, -14.5], [100.5, 24, -12.5]], r: 0.3, color: 0x15171c },
+  // 掃描頭頂面兩個 BNC（橘 / 綠）的短線落地後 → 沿掃描頭後方桌面往 -x → 桌左緣垂下（photo2 拉往左側）
+  bncOrange: { pts: [[-65.2, 0.3, -13.8], [-67.5, 0.3, -13.4], [-75, 0.3, -13.1], [-95, 0.3, -13.0], [-113, 0.3, -13.0], [-115.8, 0.0, -13.0], [-116.6, -3, -13.0], [-117, -12, -13.0]], r: 0.22, color: 0xe8601c },
+  bncGreen:  { pts: [[-63, 0.3, -13.8], [-64.8, 0.3, -12.7], [-70, 0.3, -12.3], [-95, 0.3, -12.2], [-113, 0.3, -12.2], [-115.8, 0.0, -12.2], [-116.6, -3, -12.2], [-117, -12, -12.2]], r: 0.22, color: 0x2e9e5b },
+} : {
+  psuToHead: { pts: [[-100, 7, 13], [-98, 2, 0], [-86, 1.2, -4], [-78, 3, 0], [-74.2, 8, 0]], r: 0.55, color: 0x3a3f4a },
+  lgToLamp:  { pts: [[32, 6, -55], [26, 14, -62], [12, 40, -62], [2, 60, -48], [0, 60, -36]], r: 0.35, color: 0x3a3f4a },
+  pcToPsu:   { pts: [[105, 21, -12], [90, 6, -35], [30, 1.2, -60], [-60, 1.2, -68], [-100, 4, -20], [-100, 7, 13]], r: 0.45, color: 0x2a2e37 },
+};
+// DPSSL DRIVER（PSU 頂上）左側 LD 輸出 → 沿 PSU 左側面落地 → 繞合束器後方 (z≈-64) → 沿 HeNe 預留座西側 (x≈-50.5) 往前 → Ar 雷射頭前方 → LD 405 尾端多芯驅動接頭
+if (_PP && _LP) CABLE_ROUTES.dpsslToLd = { pts: [_PP.dpsslOut, [-9.5, 17.2, -56], [-11.2, 13, -59.5], [-11.4, 6, -61], [-10.8, 0.5, -63.2], [-13.5, 0.5, -64.2], [-16, 1.1, -64.3], [-18.5, 0.5, -64.3], [-30, 0.5, -64.3], [-40, 0.5, -64], [-49, 0.5, -63.5], [-50.6, 0.5, -60], [-50.6, 0.5, -46], [-50.3, 0.5, -38], [-50.6, 0.5, -34.2], [-53.5, 0.5, -33.2], [-56.2, 1.2, -33.1], [-56.9, 4.3, -32.4], [-55.2, 7.2, -31.3], _LP.ld405Drive], r: 0.35, color: 0x1e2126 };
 function cable(points, r = 0.5, color = 0x3a3f4a) {
   const c = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
   const m = new THREE.Mesh(new THREE.TubeGeometry(c, 48, r, 8, false), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
   m.castShadow = true; scene.add(m); return m;
 }
-cable([[-100, 7, 13], [-98, 2, 0], [-86, 1.2, -4], [-78, 3, 0], [-74.2, 8, 0]], 0.55);
-cable([[32, 6, -55], [26, 14, -62], [12, 40, -62], [2, 60, -48], [0, 60, -36]], 0.35);
-cable([[105, 21, -12], [90, 6, -35], [30, 1.2, -60], [-60, 1.2, -68], [-100, 4, -20], [-100, 7, 13]], 0.45, 0x2a2e37);
+const cableMeshes = {};
+for (const name in CABLE_ROUTES) { const c = CABLE_ROUTES[name]; cableMeshes[name] = cable(c.pts, c.r, c.color); }
 
 // ============================================================
 //  光路系統：發光線段池 + 光子 + 焦點光斑
@@ -1242,35 +2236,349 @@ function writePixel(i, j) {
 // 初始先掃一整張，接著由動畫逐行更新
 for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) writePixel(i, j);
 
-function drawScreen() {
-  const g = screenCtx, W = screenCanvas.width, Hh = screenCanvas.height;
-  g.fillStyle = '#0a0c12'; g.fillRect(0, 0, W, Hh);
-  g.fillStyle = '#171a21'; g.fillRect(0, 0, W, 38);
-  g.fillStyle = '#6ec6ff'; g.font = 'bold 20px system-ui, sans-serif'; g.fillText('FluoView FV300 — Live Scan', 18, 26);
-  g.fillStyle = '#5c6474'; g.font = '14px system-ui, sans-serif'; g.fillText('🦉 owl-toys', W - 100, 26);
-  g.imageSmoothingEnabled = false;
-  g.drawImage(scanCanvas, 20, 56, 320, 320);
-  g.strokeStyle = '#262b36'; g.lineWidth = 2; g.strokeRect(20, 56, 320, 320);
-  // 掃描線游標
-  const ly = 56 + (Math.floor(scan.pos) % N) / N * 320;
-  g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(20, ly, 320, 2);
+// ============================================================
+//  螢幕畫面：FLUOVIEW v.5.0 on Windows XP（photo3）
+//  設計座標固定 640×512（5:4），實際依 screenCanvas.width/height 縮放。
+//  靜態層（桌布、工作列、FluoView 視窗框、面板骨架）只畫一次；每幀只重畫會變的部分
+//  （STOP SCAN、PMT/Gain/Offset、Scan Speed、Objective/C.A.、染料清單、Live#1 影像、時鐘）。
+// ============================================================
+const SCR_W = 640, SCR_H = 512, SCR_TB = 20;           // 設計尺寸、工作列高
+const XP = { face: '#ece9d8', shadow: '#aca899', dark: '#716f64', white: '#ffffff', ink: '#000000', sel: '#316ac5', dim: '#6d6d6d' };
+const SCR_EXP = { x: 306, y: 64, w: 330, h: 322 };                                // 背景的 My Pictures 檔案總管視窗（photo3：下緣約在 3/4 高，下面露出草原）
+const SCR_LIVE = { x: 326, y: 138, w: 284, h: 290, ix: 340, iy: 162, s: 256 };  // Live#1 視窗與影像區（浮在檔案總管上）
+const SCR_DYES = ['Calcium Crimson', 'Calcium Green-1', 'Cy3', 'Cy5', 'DAPI', 'DiI', 'DiO', 'EGFP', 'FITC', 'TRITC'];
+function xpFont(px, w) { return (w ? w + ' ' : '') + px + 'px Tahoma, Verdana, "DejaVu Sans", Arial, sans-serif'; }
+function xpText(g, text, x, y, o = {}) {
+  g.fillStyle = o.color || XP.ink; g.font = xpFont(o.px || 9, o.bold ? (o.italic ? 'bold italic' : 'bold') : (o.italic ? 'italic' : ''));
+  g.textAlign = o.align || 'left'; g.textBaseline = 'middle'; g.fillText(text, x, y);
+}
+function xpRaised(g, x, y, w, h, pressed = false) {                     // 凸起面板 / 按鈕底
+  g.fillStyle = pressed ? '#dedbcf' : XP.face; g.fillRect(x, y, w, h);
+  g.fillStyle = pressed ? XP.dark : XP.white; g.fillRect(x, y, w, 1); g.fillRect(x, y, 1, h);
+  g.fillStyle = pressed ? XP.white : XP.dark; g.fillRect(x, y + h - 1, w, 1); g.fillRect(x + w - 1, y, 1, h);
+  g.fillStyle = pressed ? XP.face : XP.shadow; g.fillRect(x + 1, y + h - 2, w - 2, 1); g.fillRect(x + w - 2, y + 1, 1, h - 2);
+}
+function xpSunken(g, x, y, w, h, bg = XP.white) {                       // 凹陷框（輸入框、清單）
+  g.fillStyle = bg; g.fillRect(x, y, w, h);
+  g.fillStyle = XP.shadow; g.fillRect(x, y, w, 1); g.fillRect(x, y, 1, h);
+  g.fillStyle = XP.dark; g.fillRect(x + 1, y + 1, w - 2, 1); g.fillRect(x + 1, y + 1, 1, h - 2);
+  g.fillStyle = XP.white; g.fillRect(x, y + h - 1, w, 1); g.fillRect(x + w - 1, y, 1, h);
+}
+function xpButton(g, x, y, w, h, label, o = {}) {
+  xpRaised(g, x, y, w, h, o.pressed);
+  xpText(g, label, x + w / 2, y + h / 2 + 0.5, { px: o.px || 8, bold: o.bold, color: o.color, align: 'center' });
+}
+function xpGroup(g, x, y, w, h, title) {                                 // 蝕刻群組框 + 標題
+  g.strokeStyle = XP.white; g.lineWidth = 1; g.strokeRect(x + 1.5, y + 1.5, w - 2, h - 2);
+  g.strokeStyle = XP.shadow; g.strokeRect(x + 0.5, y + 0.5, w - 2, h - 2);
+  if (title) { g.font = xpFont(7); const tw = g.measureText(title).width; g.fillStyle = XP.face; g.fillRect(x + 5, y - 4, tw + 4, 8); xpText(g, title, x + 7, y + 0.5, { px: 7, color: XP.dim }); }
+}
+function xpCheck(g, x, y, on, label) {
+  xpSunken(g, x, y, 9, 9);
+  if (on) { g.strokeStyle = '#21a121'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 2, y + 4.5); g.lineTo(x + 4, y + 6.5); g.lineTo(x + 7.5, y + 2); g.stroke(); }
+  if (label) xpText(g, label, x + 12, y + 5, { px: 8 });
+}
+function xpRadio(g, x, y, on, label) {
+  g.fillStyle = XP.white; g.beginPath(); g.arc(x + 4.5, y + 4.5, 4, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = XP.dark; g.lineWidth = 1; g.stroke();
+  if (on) { g.fillStyle = '#21a121'; g.beginPath(); g.arc(x + 4.5, y + 4.5, 2, 0, Math.PI * 2); g.fill(); }
+  if (label) xpText(g, label, x + 12, y + 5, { px: 8 });
+}
+function xpCombo(g, x, y, w, h, text, px = 8) {                          // 下拉選單（Luna 藍箭頭鈕）
+  xpSunken(g, x, y, w, h); xpText(g, text, x + 4, y + h / 2 + 0.5, { px });
+  const bw = h - 2, bx = x + w - bw - 1, by = y + 1;
+  const gr = g.createLinearGradient(0, by, 0, by + bw); gr.addColorStop(0, '#cfe0fb'); gr.addColorStop(1, '#8fb6f2');
+  g.fillStyle = gr; g.fillRect(bx, by, bw, bw); g.strokeStyle = '#6a97d9'; g.lineWidth = 1; g.strokeRect(bx + 0.5, by + 0.5, bw - 1, bw - 1);
+  g.fillStyle = '#3d5580'; g.beginPath(); g.moveTo(bx + bw / 2 - 3, by + bw / 2 - 1.5); g.lineTo(bx + bw / 2 + 3, by + bw / 2 - 1.5); g.lineTo(bx + bw / 2, by + bw / 2 + 2); g.closePath(); g.fill();
+}
+function xpMeter(g, x, y, w, h, frac, color) {                          // 直立長條（PMT/Gain/Offset）
+  xpSunken(g, x, y, w, h, '#4d4d4d');
+  const fh = Math.round((h - 4) * Math.max(0, Math.min(1, frac)));
+  g.fillStyle = color; g.fillRect(x + 2, y + h - 2 - fh, w - 4, fh);
+  g.fillStyle = 'rgba(255,255,255,0.22)'; for (let yy = y + 5; yy < y + h - 3; yy += 6) g.fillRect(x + 2, yy, w - 4, 1);
+}
+function xpRoundPath(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + h - r); g.quadraticCurveTo(x + w, y + h, x + w - r, y + h); g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r); g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath(); }
+function xpTitleBtn(g, x, y, s, kind) {
+  const gr = g.createLinearGradient(0, y, 0, y + s);
+  if (kind === 'close') { gr.addColorStop(0, '#ee8d78'); gr.addColorStop(1, '#c4432a'); } else { gr.addColorStop(0, '#5c9cf8'); gr.addColorStop(1, '#2a63d6'); }
+  g.fillStyle = gr; xpRoundPath(g, x, y, s, s, 2.5); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 1; xpRoundPath(g, x + 0.5, y + 0.5, s - 1, s - 1, 2.5); g.stroke();
+  const c = s / 2; g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.beginPath();
+  if (kind === 'close') { g.moveTo(x + c - 3, y + c - 3); g.lineTo(x + c + 3, y + c + 3); g.moveTo(x + c + 3, y + c - 3); g.lineTo(x + c - 3, y + c + 3); }
+  else if (kind === 'max') g.rect(x + c - 3.5, y + c - 3.5, 7, 7);
+  else { g.moveTo(x + c - 3, y + c + 3); g.lineTo(x + c + 2, y + c + 3); }
+  g.stroke();
+}
+function xpTitleBar(g, x, y, w, h, title, o = {}) {                     // Luna 藍色標題列
+  const gr = g.createLinearGradient(0, y, 0, y + h);
+  gr.addColorStop(0, '#0a5fd8'); gr.addColorStop(0.1, '#3f8ff5'); gr.addColorStop(0.45, '#0b5fdc'); gr.addColorStop(1, '#0446c4');
+  g.fillStyle = gr; if (o.round) { g.beginPath(); g.moveTo(x, y + h); g.lineTo(x, y + 6); g.quadraticCurveTo(x, y, x + 6, y); g.lineTo(x + w - 6, y); g.quadraticCurveTo(x + w, y, x + w, y + 6); g.lineTo(x + w, y + h); g.closePath(); g.fill(); } else g.fillRect(x, y, w, h);
+  // 小圖示（FluoView：黑框綠影像）
+  g.fillStyle = '#e8eef8'; g.fillRect(x + 5, y + h / 2 - 4, 9, 8); g.fillStyle = '#1b3b8a'; g.fillRect(x + 6, y + h / 2 - 3, 7, 5); g.fillStyle = '#5ad35a'; g.fillRect(x + 7, y + h / 2 - 2, 3, 3);
+  xpText(g, title, x + 18, y + h / 2 + 0.5, { color: '#fff', bold: true, px: o.px || 10 });
+  const bs = h - 4, by = y + 2; let bx = x + w - bs - 3;
+  xpTitleBtn(g, bx, by, bs, 'close');
+  if (o.full) { bx -= bs + 2; xpTitleBtn(g, bx, by, bs, 'max'); bx -= bs + 2; xpTitleBtn(g, bx, by, bs, 'min'); }
+}
+function scrClock() { const d = new Date(); let h = d.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ap; }
+
+// ---------- 靜態層 ----------
+function scrBliss(g, W, H) {                                             // XP Bliss 桌布：藍天、白雲、綠草原
+  const sky = g.createLinearGradient(0, 0, 0, H * 0.7);
+  sky.addColorStop(0, '#1d55c8'); sky.addColorStop(0.45, '#4f8fe4'); sky.addColorStop(1, '#c2dcf7');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,255,255,0.82)';
+  const puff = (cx, cy, s) => { g.beginPath(); g.ellipse(cx, cy, 30 * s, 8 * s, 0, 0, Math.PI * 2); g.ellipse(cx - 16 * s, cy + 3 * s, 16 * s, 6 * s, 0, 0, Math.PI * 2); g.ellipse(cx + 18 * s, cy + 2 * s, 18 * s, 6 * s, 0, 0, Math.PI * 2); g.ellipse(cx + 4 * s, cy - 5 * s, 14 * s, 7 * s, 0, 0, Math.PI * 2); g.fill(); };
+  puff(140, 118, 1.1); puff(430, 84, 0.8); puff(575, 160, 1.0); puff(300, 190, 0.55); puff(500, 236, 0.7);
+  g.fillStyle = '#8fb0da'; g.beginPath(); g.moveTo(W * 0.5, H * 0.68); g.lineTo(W * 0.62, H * 0.61); g.lineTo(W * 0.74, H * 0.65); g.lineTo(W * 0.86, H * 0.6); g.lineTo(W, H * 0.64); g.lineTo(W, H * 0.72); g.closePath(); g.fill();
+  const hill = g.createLinearGradient(0, H * 0.48, 0, H);
+  hill.addColorStop(0, '#a8dc4e'); hill.addColorStop(0.3, '#6cc12f'); hill.addColorStop(0.7, '#3f9622'); hill.addColorStop(1, '#2b6e18');
+  g.fillStyle = hill; g.beginPath(); g.moveTo(0, H * 0.58); g.bezierCurveTo(W * 0.12, H * 0.5, W * 0.28, H * 0.47, W * 0.42, H * 0.53); g.bezierCurveTo(W * 0.58, H * 0.6, W * 0.78, H * 0.7, W, H * 0.69); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(20,80,15,0.32)'; g.beginPath(); g.moveTo(0, H * 0.86); g.bezierCurveTo(W * 0.3, H * 0.78, W * 0.6, H * 0.84, W, H * 0.8); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+}
+function scrRecycleBin(g, cx, cy) {
+  g.fillStyle = '#dbe6f3'; g.beginPath(); g.moveTo(cx - 7, cy); g.lineTo(cx + 7, cy); g.lineTo(cx + 5, cy + 18); g.lineTo(cx - 5, cy + 18); g.closePath(); g.fill();
+  g.strokeStyle = '#6f88a8'; g.lineWidth = 1; g.stroke();
+  g.fillStyle = '#5fa8e8'; g.fillRect(cx - 8, cy - 2, 16, 3);
+  g.fillStyle = '#2f7fc9'; for (let i = -1; i <= 1; i++) g.fillRect(cx + i * 4 - 0.5, cy + 3, 1, 12);
+  xpText(g, 'Recycle Bin', cx + 1, cy + 27, { color: 'rgba(0,0,0,0.7)', px: 8, align: 'center' }); xpText(g, 'Recycle Bin', cx, cy + 26, { color: '#fff', px: 8, align: 'center' });
+}
+function scrTaskbar(g, W, H) {
+  const y = H - SCR_TB;
+  const gr = g.createLinearGradient(0, y, 0, H); gr.addColorStop(0, '#3168d5'); gr.addColorStop(0.1, '#4a8bf5'); gr.addColorStop(0.5, '#245edb'); gr.addColorStop(1, '#1941a5');
+  g.fillStyle = gr; g.fillRect(0, y, W, SCR_TB); g.fillStyle = '#6aa8f8'; g.fillRect(0, y, W, 1);
+  const sg = g.createLinearGradient(0, y, 0, H); sg.addColorStop(0, '#62c25f'); sg.addColorStop(0.5, '#3c9f3c'); sg.addColorStop(1, '#2b7a2b');
+  g.fillStyle = sg; g.beginPath(); g.moveTo(0, y + 1); g.lineTo(44, y + 1); g.quadraticCurveTo(58, y + 1, 58, y + SCR_TB / 2); g.quadraticCurveTo(58, H - 1, 44, H - 1); g.lineTo(0, H - 1); g.closePath(); g.fill();
+  const fx = 6, fy = y + SCR_TB / 2 - 5;
+  g.fillStyle = '#f35325'; g.fillRect(fx, fy, 4, 4); g.fillStyle = '#81bc06'; g.fillRect(fx + 5, fy, 4, 4); g.fillStyle = '#05a6f0'; g.fillRect(fx, fy + 5, 4, 4); g.fillStyle = '#ffba08'; g.fillRect(fx + 5, fy + 5, 4, 4);
+  xpText(g, 'start', 18, y + SCR_TB / 2 + 0.5, { color: '#fff', bold: true, italic: true, px: 11 });
+  const btn = (x, w, label, pressed) => {
+    const bg = g.createLinearGradient(0, y, 0, H); if (pressed) { bg.addColorStop(0, '#1b47b4'); bg.addColorStop(1, '#2f66d6'); } else { bg.addColorStop(0, '#5f9df6'); bg.addColorStop(1, '#3a76e0'); }
+    g.fillStyle = bg; xpRoundPath(g, x, y + 3, w, SCR_TB - 6, 2); g.fill();
+    g.fillStyle = '#fff'; g.fillRect(x + 4, y + 7, 8, 6); g.fillStyle = '#1b3b8a'; g.fillRect(x + 5, y + 8, 6, 4);
+    xpText(g, label, x + 16, y + SCR_TB / 2 + 0.5, { color: '#fff', px: 8 });
+  };
+  btn(66, 92, 'FLUOVIEW v. 5.0', true); btn(162, 82, 'Untitled-PAPP', false); btn(248, 76, 'My Pictures', false);
+}
+function scrToolbarIcons(g, x, y) {
+  const cols = ['#3b7bd7', '#1a1a1a', '#3b7bd7', '#e8c020', '#5a5a5a', '#5a5a5a', '#5a5a5a', '#e0a020', '#e0a020', '#e0a020', '#e0a020', '#6a6a6a', '#3b3b3b', '#3b3b3b', '#3b3b3b', '#3b3b3b', '#6a6a6a', '#d0a000', '#3b7bd7', '#3b7bd7', '#3b7bd7', '#3b7bd7', '#5a5a5a', '#5a5a5a', '#5a5a5a', '#4a4a4a', '#4a4a4a', '#3b3b3b', '#3b7bd7', '#3b3b3b', '#e04040', '#30a030', '#d0a000', '#3b3b3b', '#3b3b3b', '#3b7bd7'];
+  const seps = [4, 8, 12, 16, 22, 25, 29, 34];
+  let px = x;
+  cols.forEach((c, i) => {
+    if (seps.includes(i)) { g.fillStyle = XP.shadow; g.fillRect(px + 1, y, 1, 12); g.fillStyle = XP.white; g.fillRect(px + 2, y, 1, 12); px += 5; }
+    const k = i % 5; g.fillStyle = c;
+    if (i === 1) xpText(g, 'Z', px + 5, y + 6, { px: 11, bold: true, align: 'center' });
+    else if (k === 0) g.fillRect(px + 1, y + 2, 9, 8);
+    else if (k === 1) { g.beginPath(); g.arc(px + 5.5, y + 6, 4, 0, Math.PI * 2); g.fill(); }
+    else if (k === 2) { g.fillRect(px + 1, y + 1, 9, 10); g.fillStyle = '#fff'; g.fillRect(px + 3, y + 3, 5, 6); }
+    else if (k === 3) { g.beginPath(); g.moveTo(px + 1, y + 10); g.lineTo(px + 5.5, y + 1); g.lineTo(px + 10, y + 10); g.closePath(); g.fill(); }
+    else { g.fillRect(px + 1, y + 3, 9, 2); g.fillRect(px + 1, y + 7, 9, 2); }
+    px += 13;
+  });
+  xpText(g, '?', px + 5, y + 6, { px: 11, bold: true, color: '#3b7bd7', align: 'center' });
+}
+function scrFluoFrame(g, W) {                                            // FluoView 主視窗（頂部橫條：標題、選單、工具列、狀態）
+  g.fillStyle = '#0a5fd8'; g.fillRect(0, 0, W, 62);
+  xpTitleBar(g, 0, 0, W, 18, 'FLUOVIEW v. 5.0', { full: true, px: 10 });
+  g.fillStyle = XP.face; g.fillRect(3, 18, W - 6, 42);
+  let mx = 8;
+  for (const m of ['Acquire', 'File I/O', 'Display', 'Process', 'Analysis', 'Visualize', 'Tools', 'Window', 'Help']) { xpText(g, m, mx, 25); mx += g.measureText(m).width + 9; }
+  g.fillStyle = XP.shadow; g.fillRect(3, 31, W - 6, 1); g.fillStyle = XP.white; g.fillRect(3, 32, W - 6, 1);
+  scrToolbarIcons(g, 8, 34);
+  xpSunken(g, 6, 47, W - 12, 11, XP.face); xpText(g, 'Current Selected Display: Live#1 (Unlocked)', 10, 52.5, { px: 7.5 });
+  g.fillStyle = XP.dark; g.fillRect(3, 59, W - 6, 1);
+}
+function scrLeftPanelStatic(g) {                                         // 左側控制面板骨架（x 6..170，y 64..488）
+  xpRaised(g, 6, 64, 164, 424);
+  const gr = g.createRadialGradient(17, 76, 1, 17, 76, 8); gr.addColorStop(0, '#dff6ff'); gr.addColorStop(1, '#2f8fd8');   // 掃描小圖示
+  g.fillStyle = gr; g.beginPath(); g.arc(17, 77, 7, 0, Math.PI * 2); g.fill();
+  xpText(g, 'PMT', 23, 104, { px: 7, align: 'center' }); xpText(g, 'Gain', 51, 104, { px: 7, align: 'center' }); xpText(g, 'Offset', 81, 104, { px: 7, align: 'center' });
+  xpGroup(g, 10, 180, 156, 20, 'Series Scans');
+  ['XY', 'XYT', 'XYZ', 'XYZT'].forEach((s, i) => xpButton(g, 14 + i * 38, 185, 36, 11, s, { pressed: i === 0, px: 7 }));
+  xpGroup(g, 10, 206, 156, 68, 'Scan Modes');
+  xpRadio(g, 14, 210, true, 'Surface'); xpText(g, 'XY-Norm', 66, 215, { px: 8 });
+  const ic = [14, 44, 74, 104, 134], iy = 222;
+  g.fillStyle = '#7fe3e3'; g.fillRect(ic[0], iy, 16, 14); g.strokeStyle = '#1f4fc8'; g.lineWidth = 1;
+  for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(ic[0] + 2, iy + 2.5 + i * 3); g.lineTo(ic[0] + 14, iy + 2.5 + i * 3); g.stroke(); }
+  g.strokeRect(ic[0] - 0.5, iy - 0.5, 17, 15);
+  g.strokeStyle = '#1f7fd8'; g.lineWidth = 1.2;
+  g.beginPath(); g.moveTo(ic[1] + 2, iy + 4); g.lineTo(ic[1] + 14, iy + 4); g.moveTo(ic[1] + 10, iy + 1); g.lineTo(ic[1] + 14, iy + 4); g.lineTo(ic[1] + 10, iy + 7); g.moveTo(ic[1] + 14, iy + 10); g.lineTo(ic[1] + 2, iy + 10); g.moveTo(ic[1] + 6, iy + 7); g.lineTo(ic[1] + 2, iy + 10); g.lineTo(ic[1] + 6, iy + 13); g.stroke();
+  g.strokeRect(ic[2] + 2.5, iy + 1.5, 11, 11);
+  g.beginPath(); g.moveTo(ic[3] + 8, iy + 1); g.lineTo(ic[3] + 14, iy + 7); g.lineTo(ic[3] + 8, iy + 13); g.lineTo(ic[3] + 2, iy + 7); g.closePath(); g.stroke();
+  xpText(g, '1', ic[4] + 2, iy + 5, { px: 7, color: '#1f4fc8' }); xpText(g, '2', ic[4] + 7, iy + 8, { px: 7, color: '#1f4fc8' }); xpText(g, '3', ic[4] + 12, iy + 11, { px: 7, color: '#1f4fc8' });
+  ['Normal', 'Fast', 'Clip', 'ZoomIn', 'Seq'].forEach((s, i) => xpText(g, s, ic[i] + 8, 243, { px: 7, align: 'center', color: i === 0 ? '#1f4fc8' : XP.ink }));
+  xpRadio(g, 14, 250, false, 'Line'); xpText(g, 'XT-Norm', 66, 255, { px: 8 });
+  xpRadio(g, 14, 259, false, 'Depth'); xpText(g, 'XZ', 66, 264, { px: 8 });
+  xpRadio(g, 14, 268, false, 'Point');
+  xpGroup(g, 10, 280, 156, 22, 'Scan Size'); xpCombo(g, 14, 286, 148, 13, '256 by 256');
+  xpGroup(g, 10, 308, 156, 52, '');
+  xpText(g, 'Pan', 38, 314, { px: 7, align: 'center' }); xpText(g, 'Zoom', 122, 314, { px: 7, align: 'center' });
+  [[33, 319], [33, 343], [21, 331], [45, 331]].forEach(([x, y]) => xpButton(g, x, y, 11, 11, '', {}));
+  g.fillStyle = '#333'; g.beginPath(); g.moveTo(38.5, 322); g.lineTo(41.5, 326); g.lineTo(35.5, 326); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(38.5, 351); g.lineTo(41.5, 347); g.lineTo(35.5, 347); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(23.5, 336.5); g.lineTo(27.5, 333.5); g.lineTo(27.5, 339.5); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(53.5, 336.5); g.lineTo(49.5, 333.5); g.lineTo(49.5, 339.5); g.closePath(); g.fill();
+  xpRaised(g, 33, 331, 11, 11); g.fillStyle = '#333'; g.fillRect(36, 334, 5, 5);
+  xpText(g, '0,0', 38, 356, { px: 7, align: 'center' });
+  g.fillStyle = '#7fe3e3'; g.beginPath(); g.arc(122, 336, 16, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#2a8fb8'; g.lineWidth = 1; g.stroke();
+  g.fillStyle = '#a9ecf0'; g.fillRect(116, 330, 12, 12); g.strokeStyle = '#1f4fc8'; g.strokeRect(116.5, 330.5, 11, 11);
+  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(116, 330 + i * 3); g.lineTo(116 + i * 3, 330); g.stroke(); g.beginPath(); g.moveTo(116 + i * 3, 342); g.lineTo(128, 330 + i * 3); g.stroke(); }
+  g.fillStyle = '#333'; [[100, 320], [144, 320], [100, 352], [144, 352]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 1.2, 0, Math.PI * 2); g.fill(); });
+  xpText(g, '0°', 92, 356, { px: 7, align: 'center' }); xpText(g, '2.0', 150, 356, { px: 7, align: 'center' });
+  xpButton(g, 155, 318, 9, 8, '', {}); xpButton(g, 155, 348, 9, 8, '', {}); g.fillStyle = XP.shadow; g.fillRect(159, 327, 1, 20);
+  xpGroup(g, 10, 366, 156, 30, 'Scan Speed'); xpText(g, 'Fast', 14, 375, { px: 7 }); xpText(g, 'Slow', 132, 375, { px: 7 });
+  xpGroup(g, 10, 402, 156, 24, 'Objective');
+  xpText(g, 'Z', 16, 438, { px: 12, bold: true, color: '#1f4fc8' }); xpText(g, 'IX', 32, 438, { px: 7 });
+  g.fillStyle = '#c9c4b0'; g.fillRect(16, 446, 22, 5); g.fillStyle = '#9e9880'; g.fillRect(18, 451, 18, 4); g.fillStyle = '#7b7663'; g.fillRect(16, 455, 22, 3);   // 載物台 / Z 驅動示意
+  g.fillStyle = '#5e5a4a'; g.beginPath(); g.ellipse(27, 468, 10, 4, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#8a8570'; g.fillRect(17, 468, 20, 10); g.fillStyle = '#5e5a4a'; g.beginPath(); g.ellipse(27, 478, 10, 4, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#d02020'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(44, 448); g.lineTo(44, 480); g.moveTo(41, 451); g.lineTo(44, 448); g.lineTo(47, 451); g.moveTo(41, 477); g.lineTo(44, 480); g.lineTo(47, 477); g.stroke();
+  xpText(g, 'Stop Z', 58, 434, { px: 7, color: XP.dim }); xpSunken(g, 96, 429, 46, 11); xpText(g, '50.0 µm', 139, 434.5, { px: 7, align: 'right' });
+  xpButton(g, 96, 441, 20, 9, 'Go', { px: 6 }); xpButton(g, 118, 441, 24, 9, 'Set', { px: 6 });
+  xpText(g, 'Current Pos.', 58, 456, { px: 7, color: XP.dim });
+  xpButton(g, 96, 462, 46, 9, 'Set Zero', { px: 6 });
+  xpText(g, 'Start Z', 58, 477, { px: 7, color: XP.dim }); xpSunken(g, 96, 472, 46, 11); xpText(g, '0.0 µm', 139, 477.5, { px: 7, align: 'right' });
+  xpText(g, 'Step 50.0 µm   Slices 2', 58, 485, { px: 6, color: XP.dim });
+}
+function scrMidPanelStatic(g) {                                          // 中間面板骨架（x 174..302）
+  xpRaised(g, 174, 64, 128, 424);
+  const gr = g.createRadialGradient(184, 72, 1, 184, 72, 7); gr.addColorStop(0, '#dff6ff'); gr.addColorStop(1, '#2f8fd8');
+  g.fillStyle = gr; g.beginPath(); g.arc(184, 73, 6, 0, Math.PI * 2); g.fill();
+  xpGroup(g, 178, 82, 120, 22, 'Acquisition Configuration'); xpButton(g, 182, 88, 54, 12, 'Load...', { px: 7 }); xpButton(g, 240, 88, 54, 12, 'Save...', { px: 7 });
+  xpGroup(g, 178, 110, 120, 20, 'Focus Mode'); xpButton(g, 182, 115, 54, 11, 'X2', { px: 7 }); xpButton(g, 240, 115, 54, 11, 'X4', { px: 7 });
+  xpGroup(g, 178, 136, 120, 20, 'Filter Mode');
+  xpButton(g, 182, 141, 34, 11, 'Normal', { px: 6.5, pressed: true }); xpButton(g, 218, 141, 36, 11, 'Kalman', { px: 6.5 }); xpButton(g, 256, 141, 40, 11, 'Accumulate', { px: 6.5 });
+  xpGroup(g, 178, 162, 120, 20, 'Microscope Control');
+  xpButton(g, 182, 167, 36, 11, 'Tr. Lamp', { px: 6.5 }); xpButton(g, 220, 167, 34, 11, 'Scope', { px: 6.5 }); xpButton(g, 256, 167, 40, 11, 'Scan Unit', { px: 6.5 });
+  g.fillStyle = '#f2c81c'; g.beginPath(); g.arc(184, 189, 4, 0, Math.PI * 2); g.fill();
+  xpText(g, 'Assign dyes manually', 210, 189, { px: 6.5 }); xpCheck(g, 288, 184, false, '');
+  for (let i = 1; i < 4; i++) xpSunken(g, 182 + i * 30, 194, 26, 12);
+  xpText(g, 'Available Dyes:', 180, 214, { px: 7.5 });
+  xpButton(g, 180, 316, 36, 12, 'Prev.', { px: 7 }); xpButton(g, 220, 316, 36, 12, 'Clear', { px: 7 }); xpButton(g, 260, 316, 38, 12, 'Apply', { px: 7 });
+  // 時序（Time series）示意圖
+  g.fillStyle = '#e8ecf4'; g.fillRect(178, 334, 122, 152);
+  const tagBox = (x, y, w, t) => { g.fillStyle = '#5a6b8c'; xpRoundPath(g, x, y, w, 10, 2); g.fill(); g.fillStyle = '#3cc03c'; g.beginPath(); g.arc(x + 5, y + 5, 3, 0, Math.PI * 2); g.fill(); xpText(g, t, x + 11, y + 5.5, { px: 7, bold: true, color: '#fff' }); };
+  tagBox(180, 336, 32, 'Start'); tagBox(180, 474, 28, 'End');
+  g.strokeStyle = '#3a4a6a'; g.lineWidth = 1; g.beginPath(); g.moveTo(186.5, 347); g.lineTo(186.5, 428); g.stroke();
+  g.setLineDash([2, 2]); g.beginPath(); g.moveTo(186.5, 428); g.lineTo(186.5, 452); g.stroke(); g.setLineDash([]);
+  g.beginPath(); g.moveTo(186.5, 452); g.lineTo(186.5, 474); g.stroke();
+  [['1', 350], ['2', 380], ['3', 410], ['N', 456]].forEach(([t, y]) => { g.fillStyle = '#e8b400'; g.fillRect(184, y - 1, 5, 3); xpText(g, t, 181, y, { px: 6.5, align: 'right' }); });
+  xpSunken(g, 198, 352, 40, 10, XP.face); xpText(g, 'Scanning', 218, 357.5, { px: 6.5, align: 'center' });
+  xpSunken(g, 198, 366, 40, 10, XP.face); xpText(g, 'Rest time', 218, 371.5, { px: 6.5, align: 'center' });
+  xpSunken(g, 246, 359, 36, 10, XP.face); xpText(g, 'Interval', 264, 364.5, { px: 6.5, align: 'center' });
+  g.strokeStyle = '#3a4a6a'; g.beginPath(); g.moveTo(190, 355); g.lineTo(198, 355); g.moveTo(190, 371); g.lineTo(198, 371); g.moveTo(238, 364); g.lineTo(246, 364); g.stroke();
+  xpSunken(g, 246, 384, 26, 10); xpText(g, '2.0', 269, 389.5, { px: 6.5, align: 'right' }); xpButton(g, 273, 384, 8, 10, '', {}); xpText(g, 'sec.', 262, 401, { px: 6.5, align: 'center' });
+  xpSunken(g, 246, 410, 26, 10); xpText(g, '2', 269, 415.5, { px: 6.5, align: 'right' }); xpButton(g, 273, 410, 8, 10, '', {});
+  g.strokeStyle = '#3a4a6a'; g.beginPath(); g.moveTo(190, 389); g.lineTo(246, 389); g.moveTo(190, 415); g.lineTo(246, 415); g.stroke();
+  g.fillStyle = '#5a6b8c'; xpRoundPath(g, 198, 434, 46, 9, 2); g.fill(); xpText(g, 'Rest Time =', 200, 438.5, { px: 6, bold: true, color: '#fff' }); xpText(g, '1.4 sec.', 250, 439, { px: 6.5 });
+  g.fillStyle = '#5a6b8c'; xpRoundPath(g, 198, 454, 46, 9, 2); g.fill(); xpText(g, 'Total Time =', 200, 458.5, { px: 6, bold: true, color: '#fff' }); xpText(g, '3.2 sec.', 250, 459, { px: 6.5 });
+  g.fillStyle = '#3b7bd7'; g.fillRect(282, 466, 14, 12); g.fillStyle = '#fff'; g.fillRect(284, 468, 10, 8); xpText(g, 'PAPP', 289, 483, { px: 5, align: 'center' });
+}
+function scrExplorer(g) {                                                // 背景的「My Pictures」檔案總管（photo3：Live 視窗浮在它上面，標題列被 FluoView 狀態列蓋住）
+  const E = SCR_EXP, ix = E.x + 3, iw = E.w - 6, ib = E.y + E.h - 3;
+  g.fillStyle = '#0a5fd8'; g.fillRect(E.x, E.y, E.w, E.h);
+  g.fillStyle = XP.face; g.fillRect(ix, E.y, iw, ib - E.y);
+  let mx = ix + 5;                                                       // 選單列 + 右端 XP 旗標
+  for (const m of ['File', 'Edit', 'View', 'Favorites', 'Tools', 'Help']) { xpText(g, m, mx, E.y + 6, { px: 8 }); mx += g.measureText(m).width + 8; }
+  const fx = E.x + E.w - 19, fy = E.y + 1;
+  g.fillStyle = '#f35325'; g.fillRect(fx, fy, 5, 5); g.fillStyle = '#81bc06'; g.fillRect(fx + 6, fy, 5, 5); g.fillStyle = '#05a6f0'; g.fillRect(fx, fy + 6, 5, 5); g.fillStyle = '#ffba08'; g.fillRect(fx + 6, fy + 6, 5, 5);
+  g.fillStyle = XP.shadow; g.fillRect(ix, E.y + 12, iw, 1); g.fillStyle = XP.white; g.fillRect(ix, E.y + 13, iw, 1);
+  const ty = E.y + 22;                                                   // 工具列：Back / Forward / Up / Search / Folders / Views
+  g.fillStyle = '#3aa63a'; g.beginPath(); g.arc(ix + 12, ty, 6, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix + 15, ty); g.lineTo(ix + 9, ty); g.moveTo(ix + 11.5, ty - 2.5); g.lineTo(ix + 9, ty); g.lineTo(ix + 11.5, ty + 2.5); g.stroke();
+  xpText(g, 'Back', ix + 21, ty + 0.5, { px: 8 });
+  g.fillStyle = '#b9b6a8'; g.beginPath(); g.arc(ix + 52, ty, 6, 0, Math.PI * 2); g.fill();
+  const folder = (x, y) => { g.fillStyle = '#e8c85a'; g.fillRect(x, y - 3, 11, 8); g.fillStyle = '#f7e08a'; g.fillRect(x, y - 5, 5, 3); };
+  folder(ix + 66, ty);
+  g.fillStyle = XP.shadow; g.fillRect(ix + 82, ty - 7, 1, 14); g.fillStyle = XP.white; g.fillRect(ix + 83, ty - 7, 1, 14);
+  g.strokeStyle = '#3b6fc9'; g.lineWidth = 1.5; g.beginPath(); g.arc(ix + 92, ty - 1, 3.5, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(ix + 94.5, ty + 1.5); g.lineTo(ix + 98, ty + 5); g.stroke();
+  xpText(g, 'Search', ix + 101, ty + 0.5, { px: 8 });
+  folder(ix + 134, ty); xpText(g, 'Folders', ix + 148, ty + 0.5, { px: 8 });
+  xpSunken(g, ix + 184, ty - 6, 20, 12, XP.face); g.fillStyle = '#3b6fc9'; for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) g.fillRect(ix + 188 + i * 4, ty - 3 + j * 4, 3, 3);
+  g.fillStyle = '#333'; g.beginPath(); g.moveTo(ix + 207, ty - 1); g.lineTo(ix + 211, ty - 1); g.lineTo(ix + 209, ty + 2); g.closePath(); g.fill();
+  const ay = E.y + 34;                                                   // 位址列（左端被截掉，像 photo3）
+  xpText(g, 'Address', ix + 5, ay + 6, { px: 8, color: XP.dim });
+  xpSunken(g, ix + 40, ay, iw - 78, 12); folder(ix + 44, ay + 6);
+  g.save(); g.beginPath(); g.rect(ix + 56, ay + 1, iw - 96, 10); g.clip();
+  xpText(g, 'C:\\Documents and Settings\\FV300-2\\My Documents\\My Pictures', ix + iw - 42, ay + 6.5, { px: 7.5, align: 'right' }); g.restore();
+  xpButton(g, ix + iw - 36, ay, 34, 12, '', {}); g.fillStyle = '#3aa63a'; g.fillRect(ix + iw - 33, ay + 2, 8, 8);
+  g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ix + iw - 31, ay + 6); g.lineTo(ix + iw - 26, ay + 6); g.moveTo(ix + iw - 28, ay + 4); g.lineTo(ix + iw - 26, ay + 6); g.lineTo(ix + iw - 28, ay + 8); g.stroke();
+  xpText(g, 'Go', ix + iw - 22, ay + 6.5, { px: 8 });
+  g.fillStyle = XP.dark; g.fillRect(ix, ay + 14, iw, 1);
+  const cy = ay + 15, ch = ib - cy;                                      // 內容：左側藍色工作窗格 + 白色縮圖區
+  g.fillStyle = '#fff'; g.fillRect(ix, cy, iw, ch);
+  const pg = g.createLinearGradient(ix, 0, ix + 22, 0); pg.addColorStop(0, '#7ba2e6'); pg.addColorStop(1, '#5f8bd8');
+  g.fillStyle = pg; g.fillRect(ix, cy, 22, ch);
+  [14, 150, 240].forEach(dy => { g.fillStyle = '#fff'; g.beginPath(); g.arc(ix + 11, cy + dy, 5, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#3b6fc9'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(ix + 8, cy + dy + 1.5); g.lineTo(ix + 11, cy + dy - 1.5); g.lineTo(ix + 14, cy + dy + 1.5); g.stroke(); });
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {             // 縮圖：黑底的舊掃描影像 + 檔名
+    const tx = ix + 32 + c * 60, tyy = cy + 6 + r * 58;
+    g.fillStyle = '#fff'; g.fillRect(tx - 1, tyy - 1, 48, 34); g.strokeStyle = XP.shadow; g.lineWidth = 1; g.strokeRect(tx - 0.5, tyy - 0.5, 47, 33);
+    g.fillStyle = '#050505'; g.fillRect(tx, tyy, 46, 32);
+    g.fillStyle = 'rgba(190,210,190,0.4)'; for (let i = 0; i < 6; i++) g.fillRect(tx + 3 + i * 7 + (r * 3 + c) % 4, tyy + 4 + (i * 7 + r) % 9, 1, 10 + (i * 5 + c) % 9);
+    xpText(g, 'Live_9-2-202...', tx + 23, tyy + 40, { px: 6.5, align: 'center' });
+  }
+}
+function scrLiveFrame(g) {                                               // Live#1 影像視窗框
+  const L = SCR_LIVE;
+  g.fillStyle = '#0a5fd8'; g.fillRect(L.x, L.y, L.w, L.h);
+  xpTitleBar(g, L.x, L.y, L.w, 18, 'Live#1 (Unlocked)', { px: 9 });
+  g.fillStyle = '#000'; g.fillRect(L.x + 3, L.y + 18, L.w - 6, L.h - 21);
+}
+let scrStatic = null;
+function buildScreenStatic() {
+  const c = document.createElement('canvas'); c.width = SCR_W; c.height = SCR_H; const g = c.getContext('2d');
+  scrBliss(g, SCR_W, SCR_H); scrRecycleBin(g, 606, 442); scrTaskbar(g, SCR_W, SCR_H); scrFluoFrame(g, SCR_W);
+  scrExplorer(g); scrLeftPanelStatic(g); scrMidPanelStatic(g); scrLiveFrame(g);
+  return c;
+}
+
+// ---------- 每幀重畫的部分 ----------
+function scrLeftPanelLive(g) {
+  xpButton(g, 30, 68, 134, 18, state.scanning ? 'STOP SCAN' : 'XY SCAN', { bold: true, px: 11, pressed: !state.scanning });
+  xpCheck(g, 14, 91, true, 'Channel #1'); xpCheck(g, 108, 91, optics.ch2Frac > 0.02, ''); xpCheck(g, 148, 91, false, '');
+  const pmtV = Math.round(300 + state.power * 5);                       // PMT 高壓隨雷射功率設定連動（示意）
+  xpMeter(g, 16, 109, 14, 56, pmtV / 1000, '#3ec83e'); xpMeter(g, 44, 109, 14, 56, 0.28, '#3ec83e'); xpMeter(g, 74, 109, 14, 56, 0.06, '#3ec83e');
+  g.fillStyle = XP.face; g.fillRect(12, 166, 84, 10);
+  xpText(g, pmtV + 'v', 23, 171, { px: 7, align: 'center' }); xpText(g, '1.0x', 51, 171, { px: 7, align: 'center' }); xpText(g, '5%', 81, 171, { px: 7, align: 'center' });
+  const secs = N / scan.linesPerSec, f = Math.min(1, Math.max(0, (secs - 0.5) / 5));
+  g.fillStyle = XP.face; g.fillRect(34, 369, 96, 12);
+  g.fillStyle = XP.shadow; g.fillRect(38, 374, 88, 2); g.fillStyle = XP.white; g.fillRect(38, 376, 88, 1);
+  xpRaised(g, 38 + f * 82, 370, 6, 10);
+  xpSunken(g, 14, 383, 70, 11, XP.face); xpText(g, secs.toFixed(2) + ' s / Scan', 49, 388.5, { px: 6.5, align: 'center', color: XP.dim });
+  xpSunken(g, 88, 383, 74, 11, XP.face); xpText(g, secs.toFixed(2) + ' s / Image', 125, 388.5, { px: 6.5, align: 'center', color: XP.dim });
+  xpCombo(g, 14, 409, 88, 13, OBJECTIVES[state.objective].label, 7.5); xpCombo(g, 106, 409, 56, 13, 'Use C.A. ' + state.pinhole, 7.5);
+  xpSunken(g, 96, 451, 46, 11); xpText(g, state.zOffset.toFixed(1) + ' µm', 139, 456.5, { px: 7, align: 'right' });
+}
+function scrMidPanelLive(g) {
   const L = LASERS[state.laser];
-  const rows = [
-    ['Laser', `${L.name}  ${state.power}%`, L.color],
-    ['Objective', OBJECTIVES[state.objective].label, '#e8e9ee'],
-    ['Pinhole', `${state.pinhole}  (${optics.pinholeD} μm · ${optics.airyUnits.toFixed(1)} AU)`, '#e8e9ee'],
-    ['Det. DM', DMS[state.detDM].label.split('（')[0], '#e8e9ee'],
-    ['CH1 BA', FILTERS[state.ch1Filter].label, '#7ee787'],
-    ['CH2 BA', FILTERS[state.ch2Filter].label, '#ff7b72'],
-    ['CH1 signal', `${Math.round(optics.ch1Signal * 100)} %`, '#7ee787'],
-    ['CH2 signal', `${Math.round(optics.ch2Signal * 100)} %`, '#ff7b72'],
-    ['Section', `${optics.sliceThickness.toFixed(1)} μm`, '#e8e9ee'],
-  ];
-  g.font = '15px system-ui, sans-serif';
-  rows.forEach((r, i) => { const y = 84 + i * 32; g.fillStyle = '#98a0b0'; g.fillText(r[0], 370, y); g.fillStyle = r[2]; g.fillText(r[1], 470, y); });
-  // 兩條訊號 bar
-  g.fillStyle = '#1e222b'; g.fillRect(370, 372, 240, 8); g.fillStyle = '#7ee787'; g.fillRect(370, 372, 240 * Math.min(1, optics.ch1Signal), 8);
-  g.fillStyle = '#1e222b'; g.fillRect(370, 386, 240, 8); g.fillStyle = '#ff7b72'; g.fillRect(370, 386, 240 * Math.min(1, optics.ch2Signal), 8);
+  xpSunken(g, 182, 194, 26, 12); g.fillStyle = L.fluorColor; g.beginPath(); g.arc(195, 200, 4, 0, Math.PI * 2); g.fill();   // 染料槽 1：目前染料色
+  xpSunken(g, 180, 220, 118, 92);
+  SCR_DYES.forEach((d, i) => { const y = 223 + i * 9, on = d === L.dye; if (on) { g.fillStyle = XP.sel; g.fillRect(182, y - 1, 106, 9); } xpText(g, d, 184, y + 3.5, { px: 7, color: on ? '#fff' : XP.ink }); });
+  g.fillStyle = '#f0efe8'; g.fillRect(289, 222, 8, 88);
+  const sb = g.createLinearGradient(289, 0, 297, 0); sb.addColorStop(0, '#c8dcfa'); sb.addColorStop(1, '#8fb6f2'); g.fillStyle = sb;
+  g.fillRect(289, 222, 8, 8); g.fillRect(289, 302, 8, 8); g.fillRect(289, 232, 8, 28);
+  g.fillStyle = '#3d5580'; g.beginPath(); g.moveTo(291, 228); g.lineTo(295, 228); g.lineTo(293, 225); g.closePath(); g.fill(); g.beginPath(); g.moveTo(291, 305); g.lineTo(295, 305); g.lineTo(293, 308); g.closePath(); g.fill();
+}
+function scrLiveImage(g) {
+  const L = SCR_LIVE;
+  g.imageSmoothingEnabled = false; g.drawImage(scanCanvas, L.ix, L.iy, L.s, L.s); g.imageSmoothingEnabled = true;
+  if (state.scanning) { const ly = L.iy + (Math.floor(scan.pos) % N) / N * L.s; g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(L.ix, ly, L.s, 2); }
+}
+function scrTray(g) {
+  const y = SCR_H - SCR_TB, x = SCR_W - 86;
+  const tg = g.createLinearGradient(0, y, 0, SCR_H); tg.addColorStop(0, '#1e8ff8'); tg.addColorStop(0.1, '#43a4ff'); tg.addColorStop(0.5, '#0f7be8'); tg.addColorStop(1, '#0b5fc7');
+  g.fillStyle = tg; g.fillRect(x, y + 1, 86, SCR_TB - 1); g.fillStyle = '#8fd0ff'; g.fillRect(x, y + 1, 1, SCR_TB - 1);
+  g.fillStyle = '#e8f4ff'; g.fillRect(x + 6, y + 7, 7, 6); g.fillStyle = '#2bd12b'; g.beginPath(); g.arc(x + 20, y + 10, 3, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffd24a'; g.beginPath(); g.arc(x + 29, y + 10, 3, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e8f4ff'; g.fillRect(x + 36, y + 6, 5, 8);
+  xpText(g, scrClock(), SCR_W - 6, y + SCR_TB / 2 + 0.5, { color: '#fff', px: 8, align: 'right' });
+}
+screenTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());   // 斜看螢幕時小字仍清楚
+function drawScreen() {
+  if (!scrStatic) scrStatic = buildScreenStatic();
+  const g = screenCtx, W = screenCanvas.width, Hh = screenCanvas.height;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(scrStatic, 0, 0, W, Hh);
+  g.setTransform(W / SCR_W, 0, 0, Hh / SCR_H, 0, 0);
+  scrLeftPanelLive(g); scrMidPanelLive(g); scrLiveImage(g); scrTray(g);
+  g.setTransform(1, 0, 0, 1, 0, 0);
   screenTex.needsUpdate = true;
 }
 
@@ -1332,14 +2640,14 @@ $('labelBtn').addEventListener('click', () => { state.labels = !state.labels; sy
 //  視角預設 + 飛行
 // ============================================================
 const VIEWS = {
-  overview: { pos: [70, 115, 165], tgt: [-20, 8, -12] },
-  head:     { pos: [-40, 64, 62], tgt: [-48, 12, 4], lid: true },
-  focus:    { pos: [15, 41, 30], tgt: [0, 25, 2] },
+  overview: { pos: [52, 105, 170], tgt: [-8, 8, -10] },                       // 掃描頭 + IX71 + PSU 置中，右側帶到螢幕
+  head:     { pos: [-46, 78, 52], tgt: [-48, 8, 0], lid: true },                // 俯視掀蓋後的掃描頭內部（PMT → pinhole → 振鏡一目了然）
+  focus:    { pos: [-12, 31, 38], tgt: [0, 25, -1] },                           // 左前方稍低：載物台、聚光鏡、樣品與載物台下的物鏡轉盤／光束
   path:     { pos: [-22, 105, 78], tgt: [-26, 14, 0], lid: true, xray: true },
   lasers:   { pos: [-10, 42, -105], tgt: [-42, 6, -45] },
   pc:       { pos: [75, 30, 40], tgt: [75, 24, -14] },
-  front:    { pos: [-36, 26, 62], tgt: [-46, 10, 12] },
-  operator: { pos: [4, 44, 78], tgt: [0, 22, -2] },
+  front:    { pos: [-40, 26, 70], tgt: [-55, 9, 20] },                          // 略偏右前方看前面板：CH2/CH1 滑桿、CONFOCAL APERTURE、DETECTION 旋鈕、銘牌全在畫面內
+  operator: { pos: [4, 38, 80], tgt: [0, 22, -2] },                             // 坐在顯微鏡前
 };
 const fly = { active: false, t: 0, dur: 1.2, p0: new THREE.Vector3(), p1: new THREE.Vector3(), t0: new THREE.Vector3(), t1: new THREE.Vector3() };
 function flyTo(pos, tgt, dur = 1.2) {
@@ -1478,15 +2786,19 @@ function animate() {
   for (const m of housingMats) {
     const target = wallMats.includes(m) ? Math.min(wallOpacity, lerp(1, 0.22, xrayMix)) : lerp(1, 0.22, xrayMix);
     const tr = target < 0.995;
-    m.transparent = tr; m.opacity = target; m.depthWrite = !tr;
+    if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; }   // transparent 翻轉要重編 shader（three 把 OPAQUE 編進 program）
+    m.opacity = target; m.depthWrite = !tr;
   }
-  headMat.transparent = lidAngle < -0.01 || xrayMix > 0.01; headMat.opacity = lerp(1, 0.22, xrayMix); headMat.depthWrite = !headMat.transparent;
+  { const ht = lidAngle < -0.01 || xrayMix > 0.01;
+    if (headMat.transparent !== ht) { headMat.transparent = ht; headMat.needsUpdate = true; }
+    headMat.opacity = lerp(1, 0.22, xrayMix); headMat.depthWrite = !ht; }
 
   // 轉盤 / pinhole / DM 滑軌
   turretAngle = angleLerp(turretAngle, turretAngleFor(state.objective), k); turret.rotation.y = turretAngle;
   wheelAngle = angleLerp(wheelAngle, (state.pinhole - 1) * Math.PI * 2 / 5, k); pinWheel.rotation.x = wheelAngle;
-  pinKnob.rotation.z = lerp(pinKnob.rotation.z, -(state.pinhole - 3) * 0.45, k);
+  pinKnob.rotation.z = -wheelAngle;   // 傘齒輪 1:1 連動：段位 1 指針朝正上方，每段順時針 72°（目標 = -(pinhole-1)·2π/5）
   sdmZ = lerp(sdmZ, -OPT.slot * DM_ORDER.indexOf(state.detDM), k); sdmSlider.position.z = sdmZ;
+  sdmRod.position.z = sdmZ * Math.SQRT1_2;   // 滑座在 45° 斜軌上走 3.6/段，前板拉桿沿 z 只走 2.55/段（銷在叉槽裡沿 x 滑）
   ba1Z = lerp(ba1Z, state.ch1Filter === 'none' ? -OPT.slot : 0, k); ba1Slider.position.z = ba1Z;
   ba2Z = lerp(ba2Z, state.ch2Filter === 'none' ? -OPT.slot : 0, k); ba2Slider.position.z = ba2Z;
 
