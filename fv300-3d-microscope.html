@@ -88,17 +88,29 @@
   .ctl label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; margin-bottom: 2px; color: var(--muted); }
   .ctl output { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
   input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0 6px; }
+  .ticks { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--faint); margin: -6px 2px 4px; letter-spacing: 0.04em; }
+  .ticks.tri { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }   /* 三段刻度：中間的 0 對準滑桿中點 */
+  .ticks.tri span:nth-child(2) { text-align: center; }
+  .ticks.tri span:last-child { text-align: right; }
   .note { font-size: 0.72rem; color: var(--faint); line-height: 1.5; margin-top: 4px; }
+  .note a { color: var(--accent); border-bottom: 1px dotted rgba(110,198,255,0.5); }
   .toggles { display: flex; flex-wrap: wrap; gap: 6px 14px; }
   .toggles label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
   .toggles input { accent-color: var(--accent); }
 
-  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }   /* minmax(0,…) + min-width:0：格子不被 nowrap 內容撐開，ellipsis 才會生效 */
+  .stat { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; }
   .stat .val { font-size: 1.0rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .stat .lbl { font-size: 0.66rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
   .stat.ch1 .val { color: var(--green); }
   .stat.ch2 .val { color: var(--red); }
+  .stat .val.small { font-size: 0.78rem; line-height: 1.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Z 軸卡：深度剖面小圖 + Z 序列列 */
+  .zp { display: block; width: 100%; height: 92px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin: 2px 0 8px; }
+  .zrow { display: flex; align-items: center; gap: 10px; }
+  .zrow .btn { flex: 0 0 auto; }
+  .zrow .note { margin-top: 0; }
 
   .scanwrap { display: flex; gap: 10px; align-items: flex-start; }
   #scanCanvas { width: 150px; height: 150px; border-radius: 8px; background: #05070a; border: 1px solid var(--line); image-rendering: auto; flex: 0 0 auto; }
@@ -220,6 +232,16 @@
     </div>
 
     <div class="card">
+      <h2>掃描 <small>Scan</small></h2>
+      <div class="ctl">
+        <label>掃描速度（Scan Speed）<output id="speedOut">2</output></label>
+        <input type="range" id="speedSlider" min="1" max="5" step="1" value="2">
+        <div class="ticks"><span>Fast</span><span>Slow</span></div>
+      </div>
+      <div class="note"><span id="speedNote"></span> <a href="#" id="speedInfo">什麼是掃描速度？</a></div>
+    </div>
+
+    <div class="card">
       <h2>雷射 <small>Lasers</small></h2>
       <div class="chips" id="laserChips">
         <button class="l405" data-laser="405">LD 405</button>
@@ -258,14 +280,35 @@
     </div>
 
     <div class="card">
+      <h2>Z 軸 · 光學切片 <small>Focus / Z-series</small></h2>
+      <div class="ctl">
+        <label>Z 位置（微調焦）<output id="zOut">+0.0 μm</output></label>
+        <input type="range" id="zSlider" min="-12" max="12" step="0.5" value="0">
+        <div class="ticks tri"><span>−12 μm（靠物鏡）</span><span>0</span><span>+12 μm（深）</span></div>
+      </div>
+      <canvas id="zProfile" class="zp" width="300" height="92"></canvas>
+      <div class="zrow">
+        <button class="btn primary" id="zSeqBtn">▶ Z 序列</button>
+        <span class="note" id="zNote"></span>
+      </div>
+      <div class="note">縮小 pinhole → 切片變薄，只看到目前深度那一層；放大 pinhole → 各層疊在一起。 <a href="#" id="zInfo">什麼是光學切片？</a></div>
+    </div>
+
+    <div class="card">
       <h2>即時數值 <small>Live numbers</small></h2>
       <div class="stats">
         <div class="stat"><div class="val" id="sSpot">--</div><div class="lbl">焦點光斑<br>半徑 μm</div></div>
         <div class="stat"><div class="val" id="sAiry">--</div><div class="lbl">Airy 半徑<br>μm</div></div>
         <div class="stat"><div class="val" id="sSlice">--</div><div class="lbl">光學切片<br>厚度 μm</div></div>
         <div class="stat"><div class="val" id="sAU">--</div><div class="lbl">Pinhole<br>AU</div></div>
+        <div class="stat"><div class="val" id="sDwell">--</div><div class="lbl">像素停留<br>μs</div></div>
+        <div class="stat"><div class="val" id="sFrame">--</div><div class="lbl">幀時間<br>s（256²）</div></div>
+        <div class="stat"><div class="val" id="sSNR">--</div><div class="lbl">SNR（示意）<br>中等亮度</div></div>
         <div class="stat ch1"><div class="val" id="sCh1">--</div><div class="lbl">CH1 訊號</div></div>
         <div class="stat ch2"><div class="val" id="sCh2">--</div><div class="lbl">CH2 訊號</div></div>
+        <div class="stat"><div class="val" id="sZ">--</div><div class="lbl">Z 位置<br>μm</div></div>
+        <div class="stat"><div class="val" id="sZBand">--</div><div class="lbl">切片範圍<br>± μm</div></div>
+        <div class="stat"><div class="val small" id="sZIn">--</div><div class="lbl">切片內<br>結構</div></div>
       </div>
     </div>
 
@@ -331,6 +374,21 @@ const OBJ_ORDER = ['10x', '20x', '40x', '60x'];
 
 const PINHOLE_DIAMETERS = { 1: 60, 2: 100, 3: 150, 4: 200, 5: 300 }; // μm
 
+// 掃描頭光學（示意值，讓 20x/0.75 在 488 nm 時 1 段 ≈ 1 AU）
+const BEAM_EXPANDER = 5.0;        // 掃描頭內擴束比：準直後 0.8 mm 光束放大到 ≈ 4 mm，經瞳孔中繼（×3.6）剛好填滿 20x 物鏡瞳孔 13.5 mm
+const PINHOLE_MAG_RELAY = 3.5;    // 共軛焦透鏡相對管鏡的額外放大：pinhole 面的總放大率 = 物鏡倍率 × 3.5（FV 系列 20x 時 1 AU ≈ 56 μm）
+
+// FluoView Scan Speed 五段（Fast … Slow，示意）：像素停留時間、256×256 一幀時間（含回掃）、3D 動畫的振鏡行速（放慢好看）
+const SCAN_SPEEDS = {
+  1: { name: '最快 Fastest', dwell: 2,  frame: 0.29, lps: 44 },
+  2: { name: '快 Fast',      dwell: 4,  frame: 0.58, lps: 26 },
+  3: { name: '中 Medium',    dwell: 8,  frame: 1.10, lps: 16 },
+  4: { name: '慢 Slow',      dwell: 16, frame: 2.20, lps: 10 },
+  5: { name: '最慢 Slowest', dwell: 32, frame: 4.40, lps: 6.5 },
+};
+const PHOTONS_PER_US = 25;        // 訊號 = 1 時 PMT 每 μs 收到的光子數（示意）→ 停留越久光子越多、散粒雜訊相對越小
+const DARK_PER_US = 0.6;          // PMT 暗計數 / 雜散光（每 μs，示意）→ 快掃時背景顆粒
+
 const FILTERS = {
   'BA505-525': { type: 'bp', lo: 505, hi: 525, label: 'BA505-525', color: 0x44ff88 },
   'BA510-550': { type: 'bp', lo: 510, hi: 550, label: 'BA510-550', color: 0x66ff99 },
@@ -361,13 +419,30 @@ const EXC = {
   633: { dapi: 0.0, fitc: 0.0, tritc: 0.05, cy5: 1.0 },
 };
 
+// 合成樣品的深度結構（示意）：每種染料一個深度中心 zc 與厚度 thick（FWHM，μm）。
+// 倒立式：z 負 = 靠近物鏡／蓋玻片（淺），z 正 = 深入樣品。核貼玻片、微絲在中層、粒線體與細胞膜在上層。
+const DYE_Z = {
+  dapi:  { zc: -4, thick: 3.0, tag: 'DAPI',  zh: '細胞核 DAPI',   color: '#6f8cff' },
+  fitc:  { zc: 0,  thick: 2.0, tag: 'FITC',  zh: '微絲 FITC',     color: '#44ff88' },
+  tritc: { zc: 4,  thick: 2.0, tag: 'TRITC', zh: '粒線體 TRITC',  color: '#ff8844' },
+  cy5:   { zc: 7,  thick: 1.5, tag: 'Cy5',   zh: '細胞膜 Cy5',    color: '#ff4466' },
+};
+const Z_RANGE = 12, Z_STEP = 0.5;   // 側欄 Z 滑桿 ±12 μm、步進 0.5 μm（= FluoView 的 Z Start / Stop / Step）
+const Z_SEQ_MAX_LAYER_S = 1.0;      // Z 序列每層停留上限（s）：實機每層要等完整一幀（0.29–4.4 s，隨掃描速度），本頁最慢只等 1 s 免得動畫太拖（示意）
+function zSeqLayerSec() { return Math.min(Z_SEQ_MAX_LAYER_S, Math.max(0.1, SCAN_SPEEDS[state.scanSpeed].frame)); }   // 每層實際等待（s）
+function zSeqRate() { return Z_STEP / zSeqLayerSec(); }                                                                  // Z 序列速度（μm/s）
+const Z_SCALE = 0.06;               // 3D 誇張比例：1 μm → 0.06 單位（±12 μm → ±0.72）。再大物鏡前端會穿出載玻片、轉盤轂會沉穿空腔底板（0.12 時 z > +4 μm 就撞玻片）
+const KNOB_RAD_PER_UM = 0.3;        // 微調焦旋鈕／馬達聯軸器：每 1 μm 轉 0.3 rad（放大示意）
+
 // ============================================================
 //  狀態
 // ============================================================
 const state = {
   laser: 488, power: 30, divergence: 0.5,
   pinhole: 3, detDM: 'DM570', ch1Filter: 'BA505-525', ch2Filter: 'BA560-600',
-  objective: '20x', zOffset: 0,
+  objective: '20x', zOffset: 0,       // Z 位置（微調焦，μm；0 = FITC 微絲層）
+  zSeq: false,                        // Z 序列：在 ±Z_RANGE 內自動來回掃
+  scanSpeed: 2,                       // FluoView Scan Speed 段位 1（Fast）… 5（Slow）
   lidOpen: false, xray: false, labels: false,
   showEx: true, showEm: true, scanning: true, photons: true,
 };
@@ -386,26 +461,26 @@ const INFO = {
   column: { kind: 'IX71', zh: '立柱（照明支柱）', en: 'Illumination Pillar', desc: '本體後方向上的立柱撐起透射光照明系統：頂端向後伸出鹵素燈室，向前伸的臂掛著聚光鏡、正對物鏡光軸。共軛焦掃描時通常不點亮。', specs: [['照明', '柯勒照明 (Köhler)'], ['燈源', '12 V 100 W 鹵素燈（由 LG-PS2 供電）']] },
   stage: { kind: 'IX71', zh: '載物台', en: 'Stage', desc: '坐在本體頂面上。放置載玻片或培養皿；XY 同軸旋鈕移動樣品；中央開口讓下方的物鏡靠近樣品。', specs: [['行程', '約 120 × 80 mm'], ['操作', 'XY 同軸旋鈕']] },
   stageKnob: { kind: 'IX71', zh: '載物台 XY 旋鈕', en: 'Stage XY Knobs', desc: '載物台右前方向下垂的同軸雙旋鈕：上層移 Y、下層移 X，把要看的區域移到物鏡上方。', specs: [] },
-  turret: { kind: 'IX71', zh: '物鏡轉盤', en: 'Objective Nosepiece', desc: '載物台下方本體空腔裡的六孔旋轉轉盤，把要用的物鏡轉到光軸上；調焦時整個轉盤上下移動。UI 切換物鏡時轉盤會跟著轉。', specs: [['孔位', '6'], ['已裝', 'UPLSAPO 10X、UPLAPO 20X、UPLAPO 40X、UPLSAPO 60X Oil']] },
+  turret: { kind: 'IX71', zh: '物鏡轉盤', en: 'Objective Nosepiece', desc: `載物台下方本體空腔裡的六孔旋轉轉盤，把要用的物鏡轉到光軸上；調焦時整個轉盤上下移動（載物台不動）。UI 切換物鏡時轉盤會跟著轉；拉側欄的 Z 位置滑桿它會上下移動（模型放大成 ${Z_SCALE} 單位/μm 好看見）。`, specs: [['孔位', '6'], ['已裝', 'UPLSAPO 10X、UPLAPO 20X、UPLAPO 40X、UPLSAPO 60X Oil'], ['Z 行程（本頁）', '±12 μm，0.5 μm/步']] },
   objective: { kind: 'IX71', zh: '物鏡', en: 'Objective', desc: '把掃描光束聚成繞射極限的焦點，並收集同一點發出的螢光。NA 決定解析度與收光效率，WD 決定能看多深。', specs: [] },
-  focusKnob: { kind: 'IX71', zh: '粗／微調焦旋鈕', en: 'Coarse / Fine Focus Knobs', desc: '本體下半段左右兩側各一組同軸旋鈕：外圈粗調（每轉約數 mm）、內圈微調（每格 1 μm）。倒立式是移動物鏡轉盤，而不是載物台。', specs: [['微調刻度', '1 μm / 格'], ['移動件', '物鏡轉盤（Z）']] },
+  focusKnob: { kind: 'IX71', zh: '粗／微調焦旋鈕', en: 'Coarse / Fine Focus Knobs', desc: '本體下半段左右兩側各一組同軸旋鈕：外圈粗調（每轉約數 mm）、內圈微調（每格 1 μm）。倒立式是移動物鏡轉盤，而不是載物台。側欄的「Z 位置」滑桿就是在轉這顆微調鈕：焦平面往上或往下移，只有落在光學切片厚度內的結構會成像（看旋鈕端面的刻線轉動）。', specs: [['微調刻度', '1 μm / 格'], ['移動件', '物鏡轉盤（Z）'], ['本頁 Z 滑桿', '±12 μm、0.5 μm/步；每 μm 轉 0.3 rad（放大示意）']] },
   eyepiece: { kind: 'IX71', zh: '目鏡筒（雙目觀察筒）', en: 'Binocular Eyepiece Tube', desc: '掛在本體前方、載物台下緣，向上傾 30°。寬場觀察與找樣品用；切到側埠後光路不再往前走，目鏡看不到共軛焦影像。', specs: [['目鏡', 'WHN10X (FN 22)'], ['傾角', '30°']] },
   sidePort: { kind: 'IX71', zh: '側面埠', en: 'Side Port', desc: '本體左側、與稜鏡同高的出口，經轉接筒直接接到 FV300 掃描頭的右側壁。這裡是中間像面：掃描光束由此進入顯微鏡，螢光也從此回到掃描頭。', specs: [['光路切換', '100% 至側埠（掃描時）']] },
   condenser: { kind: 'IX71', zh: '聚光鏡', en: 'Condenser', desc: '掛在照明臂下、貼近樣品上方的長工作距離聚光鏡。把鹵素燈光均勻聚到樣品上，用來做寬場明視野／相位差找細胞。', specs: [['NA', '0.55 (LWD)']] },
   lamp: { kind: 'IX71', zh: '鹵素燈室', en: 'Halogen Lamp House', desc: '立柱頂端向後伸出的鹵素燈室（12 V 100 W）。光經臂內的反射鏡向下、穿過視野光圈與聚光鏡照到樣品。電源來自 LG-PS2。', specs: [['燈泡', '12 V 100 W 鹵素']] },
-  sample: { kind: '樣品', zh: '樣品（載玻片 / 培養皿）', en: 'Specimen', desc: '合成樣品：DAPI 染細胞核（405 激發）、Alexa 488 染細胞骨架（488 激發）、TRITC 粒線體（需 543）、Cy5 細胞膜（需 633）。點「物鏡焦點」視角看掃描光斑在樣品上掃過。', specs: [] },
+  sample: { kind: '樣品', zh: '樣品（載玻片 / 培養皿）', en: 'Specimen', desc: '合成樣品：DAPI 染細胞核（405 激發）、Alexa 488 染細胞骨架（488 激發）、TRITC 粒線體（需 543）、Cy5 細胞膜（需 633）。樣品是有厚度的：核貼在玻片上（z ≈ −4 μm）、微絲在中層（0）、粒線體（+4）與細胞膜（+7）在上層——模型裡畫成疊在一起的薄圓盤。拉側欄的 Z 位置滑桿，各層會依序浮現／消失；pinhole 越小、切片越薄，分層越乾淨。點「物鏡焦點」視角看掃描光斑在樣品上掃過。注意：DAPI 的發射峰 461 nm 會被 CH1 的 BA505-525 濾片擋掉——用 405 nm 看細胞核時請把 CH1 濾片選「無」，否則就算 Z 已對到核那層，影像仍是黑的（切片內結構列會提示）。', specs: [['DAPI 細胞核', 'z −4 μm，厚 3 μm'], ['FITC 微絲', 'z 0 μm，厚 2 μm'], ['TRITC 粒線體', 'z +4 μm，厚 2 μm'], ['Cy5 細胞膜', 'z +7 μm，厚 1.5 μm'], ['（深度值）', '示意；z 負 = 靠物鏡']] },
   focus: { kind: '光路', zh: '物鏡焦點（掃描光斑）', en: 'Focal Spot', desc: '雷射被物鏡聚成繞射極限光斑，振鏡讓它在樣品上一行行掃過（模型中把掃描範圍放大了很多倍好看）。只有這一點發出的螢光能對準 pinhole。', specs: [] },
 
   scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 左側埠、坐在支架上的雷射掃描單元。所有光學元件都在同一個水平面上：右端接顯微鏡，雷射從後壁的光纖進來，兩支 PMT 並排躺在左端。前面板有 SDM 與兩片 BA 濾片滑軌的把手，以及 CONFOCAL APERTURE 旋鈕。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕'], ['偵測器', '2 × PMT（側窗型）']] },
   headStand: { kind: '掃描單元', zh: '掃描頭支架', en: 'Scan Unit Stand', desc: '把掃描頭撐到與側埠同高並鎖在光學桌上，讓側埠與掃描頭的光軸對準、不會相對位移。', specs: [] },
   lid: { kind: '掃描單元', zh: '掃描頭外殼', en: 'Scan Unit Cover', desc: '遮光上蓋。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [] },
-  fiberPort: { kind: '掃描單元', zh: '光纖入口 / 準直鏡', en: 'Fiber Port & Collimator', desc: '單模光纖從後壁進來，準直鏡把發散光變成平行光束後向前射向激發分光鏡。', specs: [['光纖', '單模，偏振保持'], ['準直後光束', '約 0.7–0.8 mm']] },
+  fiberPort: { kind: '掃描單元', zh: '光纖入口 / 準直鏡', en: 'Fiber Port & Collimator', desc: '單模光纖從後壁進來，準直鏡把發散光變成平行光束，再經擴束鏡放大後向前射向激發分光鏡。光束要夠粗才能填滿物鏡瞳孔，讓物鏡用上全部 NA。', specs: [['光纖', '單模，偏振保持'], ['準直後光束', '約 0.7–0.8 mm'], ['擴束', '約 5×（填滿物鏡瞳孔，示意）']] },
   exDM: { kind: '掃描單元', zh: '激發分光鏡（45°）', en: 'Excitation Dichroic Mirror', desc: '45° 放置。反射從準直鏡來的短波長雷射到振鏡；讓由振鏡回來、波長較長的螢光穿透往偵測端。掀蓋後可整片更換，依雷射組合選用。', specs: [['角度', '45°'], ['型式', 'DM405/488 雙波段（依雷射組合更換）'], ['選項', 'DM488 / DM488/543 / DM488/543/633']] },
   galvoX: { kind: '掃描單元', zh: '振鏡 X（快軸）', en: 'Galvanometer Mirror X', desc: '高速擺動的反射鏡，繞垂直軸轉、馬達在下方，負責影像的水平（行）掃描。與振鏡 Y 緊鄰成一組（close-coupled）。', specs: [['頻率', '數百 Hz（行）'], ['光學掃描角', '約 ±6°'], ['驅動', '閉迴路電流計']] },
   galvoY: { kind: '掃描單元', zh: '振鏡 Y（慢軸）', en: 'Galvanometer Mirror Y', desc: '較慢的擺動鏡，繞水平軸轉、馬達橫放，每掃完一行往下走一步，決定幀率。X 與 Y 一快一慢合成光柵掃描。', specs: [['速度', '每幀一個鋸齒'], ['幀率', '約 0.3–3 fps（依像素數）']] },
   scanLens: { kind: '掃描單元', zh: '瞳孔投影鏡（掃描透鏡）', en: 'Pupil Projection Lens', desc: '掃描頭最靠側埠的一片透鏡。把振鏡的角度掃描轉成側埠中間像面上的位置掃描，並與 IX71 管鏡組成中繼系統，使光束樞軸落在物鏡後焦面（瞳孔）。', specs: [['焦距', '約 50 mm（示意）']] },
   confocalLens: { kind: '掃描單元', zh: '共軛焦透鏡', en: 'Confocal Lens', desc: '把穿過激發 DM 回來的平行螢光聚焦到 pinhole 平面。焦點處的螢光成一個 Airy 光斑，離焦的則是一團模糊大光斑。', specs: [] },
-  pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五孔轉盤）', en: 'Confocal Aperture', desc: '五個孔徑的轉盤，轉到光軸上的那一孔就是目前的 pinhole。只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。CH1/CH2 共用同一個 pinhole。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm']] },
+  pinhole: { kind: '掃描單元', zh: '共軛焦 Pinhole（五孔轉盤）', en: 'Confocal Aperture', desc: '五個孔徑的轉盤，轉到光軸上的那一孔就是目前的 pinhole。只讓焦平面來的螢光通過，離焦的被擋掉——這就是光學切片的來源。CH1/CH2 共用同一個 pinhole。孔徑除以「pinhole 面上的 Airy 光斑直徑」就是 Airy 單位（AU）；落在 pinhole 上的是螢光，所以 AU 以發射波長計（488 nm 激發 FITC 用 519 nm）：換物鏡或換染料／雷射，同一個孔的 AU 也會變。示意值：20x/0.75、488/519 nm 時 1→5 段約 1.0 / 1.7 / 2.5 / 3.4 / 5.1 AU，光學切片厚度約 1.9 / 2.9 / 4.2 / 5.5 / 8.1 μm（60x oil 約 0.6 → 2.3 μm，10x 約 7 → 31 μm；與實機規格同量級）。縮小 pinhole 也要付訊號代價：焦內螢光只有 Airy 圖樣落在孔內的環繞能量能通過（1 − J0² − J1²），1 AU 約收到 84 %、0.6 AU 約 70 %、2 AU 約 91 %——實機縮 pinhole 影像會變暗，得把 PMT HV 調高。想親眼看差別：把 pinhole 轉到 1，再拉側欄的 Z 位置滑桿——焦平面一離開目前那層結構，訊號就消失；轉到 5，相鄰深度的結構會以離焦霧的形式疊進來。', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm'], ['pinhole 面放大率', '物鏡倍率 × 3.5（示意）']] },
   pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '前面板上的五段旋鈕，透過傳動軸帶動裡面的 pinhole 轉盤。', specs: [] },
   collLens: { kind: '掃描單元', zh: '準直透鏡（pinhole 後）', en: 'Collimating Lens', desc: '把穿過 pinhole 後發散的螢光重新整成平行光，後面的偵測 DM 與 BA 濾片才能在設計的 45°／0° 入射角下工作。', specs: [] },
   detDM: { kind: '掃描單元', zh: '偵測分光鏡滑軌（SDM）', en: 'Detection Dichroic Slider', desc: '滑軌上三片 45° 鏡：Mirror、DM570、DM630，把手是前面板的 DETECTION 拉桿。滑軌沿鏡面平面斜向移動，所以未選用的鏡片會偏到光路之外，不會擋到往 CH1 的反射光。反射（短波）側轉 90° 往後走到 CH1，穿透（長波）側直走到 CH2。', specs: [['Mirror', '全反射至 CH1'], ['DM570', '<570 nm → CH1，>570 nm → CH2'], ['DM630', '<630 nm → CH1，>630 nm → CH2']] },
@@ -428,7 +503,9 @@ const INFO = {
 
   psu: { kind: '周邊', zh: 'FV5-PSU 電源供應器', en: 'FV5-PSU Power Supply Unit', desc: '供應掃描頭的振鏡驅動、PMT 高壓與控制電子。前面板有電源、雷射與掃描狀態指示燈。', specs: [['供應', '振鏡驅動 / PMT HV / 控制板'], ['指示燈', 'POWER · LASER · SCAN']] },
   lgps2: { kind: '周邊', zh: 'LG-PS2 透射光源電源', en: 'LG-PS2 Lamp Power Supply', desc: '供 IX71 鹵素燈的穩壓電源，旋鈕調亮度。做寬場觀察找細胞用，掃共軛焦時關掉避免雜光進 PMT。', specs: [['輸出', '12 V 100 W'], ['調光', '手動旋鈕']] },
-  monitor: { kind: '周邊', zh: '控制電腦螢幕', en: 'Control PC Monitor', desc: 'FluoView 軟體：即時顯示掃描影像、設定 PMT 增益、掃描速度與像素數。這裡的螢幕會同步顯示模擬掃描出來的影像。', specs: [] },
+  monitor: { kind: '周邊', zh: '控制電腦螢幕', en: 'Control PC Monitor', desc: 'FluoView 軟體：即時顯示掃描影像、設定 PMT 增益、掃描速度與像素數。這裡的螢幕會同步顯示模擬掃描出來的影像；左面板的 Scan Speed 滑桿與 s/Scan 跟側欄的掃描速度連動。', specs: [] },
+  scanSpeed: { kind: '掃描設定', zh: '掃描速度（像素停留時間）', en: 'Scan Speed / Pixel Dwell Time', desc: 'FluoView 的 Scan Speed 滑桿決定振鏡掃一行的快慢，也就是雷射在每個像素停留多久。停留越久，PMT 在該像素累積的光子越多；散粒雜訊只隨 √光子數成長，所以訊噪比（SNR）∝ √停留時間——慢掃影像乾淨、快掃顆粒明顯。快掃適合看即時動態（找焦、鈣訊號）；要 SNR 可以慢掃，或用 Kalman 多幀平均。代價是雷射照射總時間變長，光漂白與光毒性跟著增加（本頁只說明、不模擬）。', specs: [['段位', '5 段：Fast … Slow'], ['像素停留', '2 / 4 / 8 / 16 / 32 μs（示意）'], ['256 × 256 一幀', '0.29 / 0.58 / 1.1 / 2.2 / 4.4 s'], ['SNR', '∝ √(像素停留時間 × 雷射功率 × pinhole 收光效率)；卡片以中等亮度像素為代表'], ['另一條路', 'Kalman / Accumulate 多幀平均']] },
+  zProfile: { kind: 'Z 軸 · 光學切片', zh: '光學切片與 Z 序列', en: 'Optical Sectioning & Z-series', desc: '共軛焦最重要的能力：pinhole 只讓焦平面附近一層厚度內的螢光通過，這層就是「光學切片」，厚度（FWHM）≈ √(軸向 PSF² + pinhole 幾何項²)——高 NA 物鏡、短波長、小 pinhole 都讓它變薄。側欄的 Z 剖面圖橫向畫出樣品四種染料的深度帶，藍色豎線是目前焦平面，半透明藍帶是目前的切片厚度：帶子蓋到哪一層，影像就以那一層為主；pinhole 轉大，藍帶變寬、相鄰層以模糊的離焦霧疊進來，就像寬視野。「Z 序列」按鈕模擬 FluoView 的 XYZ 掃描：調焦馬達從 Start 一步 Step 走到 Stop、每層取一張影像，疊起來就是 3D 影像堆疊。所以 Z 序列的快慢由掃描速度決定：每層要等完整一幀（0.29–4.4 s），49 層在速度 2 約 28 s、速度 5 約 3.6 分鐘——本頁每層照幀時間等待、但最慢只等 1 s，是加速過的示意。', specs: [['Z 範圍（Start / Stop）', '−12 … +12 μm'], ['步進（Step）', '0.5 μm，共 49 層'], ['每層時間', '= 一幀（隨掃描速度 0.29–4.4 s）；本頁上限 1 s（示意）'], ['切片厚度 FWHM', '√(軸向 PSF² + (√2·n·pinhole投影/NA)²)；軸向 PSF = 0.64·λ̄/(n−√(n²−NA²))，λ̄ = 激發／發射波長的調和平均'], ['各層深度（示意）', 'DAPI −4 / FITC 0 / TRITC +4 / Cy5 +7 μm'], ['影像模型', '每層「通過量」W = max(切片內比例 exp(−½((z−zc)/σ)²), pinhole 幾何放行比例)（隨 pinhole）；「清晰度」只看離焦量（與 pinhole 無關）：離焦層不管 pinhole 多大都只能是模糊霧。霧的比例列在下方即時列（+離焦霧）'], ['3D 比例', `1 μm → ${Z_SCALE} 單位（誇張）；載物台不動、轉盤上下`]] },
   pc: { kind: '周邊', zh: '控制電腦主機', en: 'Control PC', desc: '裝有 FluoView 控制卡的電腦，透過 PSU 對掃描頭下指令並讀回 PMT 訊號。', specs: [] },
   table: { kind: '環境', zh: '光學桌', en: 'Optical Table', desc: '防震桌面，讓雷射、光纖與顯微鏡的相對位置穩定。', specs: [] },
 };
@@ -466,36 +543,55 @@ function spectralSplit(emPeak, emSigma) {
   return { ch1: c1 / tot, ch2: c2 / tot };
 }
 
+// 第一類 Bessel 函數 J_n(x)（冪級數；x ≲ 25 時 60 項綽綽有餘）→ Airy 圖樣的環繞能量 E(v) = 1 − J0(v)² − J1(v)²，v = 3.8317·AU
+function besselJ(n, x) {
+  let s = 0, t = 1; for (let k = 1; k <= n; k++) t *= x / 2 / k;                  // 首項 (x/2)^n / n!
+  const q = -((x / 2) ** 2);                                                          // 遞推比的分子（先加括號：JS 不允許 -a ** b）
+  for (let m = 0; m < 60 && (m < 3 || Math.abs(t) > 1e-15); m++) { s += t; t *= q / ((m + 1) * (m + 1 + n)); }
+  return s;
+}
+function airyEncircled(au) { const v = 3.8317 * au; return v > 25 ? 1 - 2 / (Math.PI * v) : 1 - besselJ(0, v) ** 2 - besselJ(1, v) ** 2; }   // v 很大時級數失準，改用漸近式 J0²+J1² ≈ 2/(πv)
+
 function computeOptics() {
   const laser = LASERS[state.laser];
   const obj = OBJECTIVES[state.objective];
-  const wl_um = laser.wl / 1000;
+  const wl_um = laser.wl / 1000;                                 // 激發波長（樣品面的照明光斑用）
+  const em_um = laser.emPeak / 1000;                             // 螢光發射峰：落在 pinhole 面上的 Airy 光斑是螢光，AU 以此計（Zeiss/Olympus 慣例）
   const n = obj.oil ? 1.515 : 1.0;
 
+  // 光束：光纖準直 → 擴束鏡（BEAM_EXPANDER）→ 瞳孔投影鏡 + 管鏡中繼（×180/50）→ 物鏡瞳孔
   const scanLensFl = 50, tubeLensFl = 180, fiberToScan = 120;
-  const beamAtScanLens = laser.beamDia + 2 * fiberToScan * (state.divergence / 1000);
+  const beamAtScanLens = (laser.beamDia + 2 * fiberToScan * (state.divergence / 1000)) * BEAM_EXPANDER;
   const beamAtPupil = beamAtScanLens * (tubeLensFl / scanLensFl);
-  const fillFactor = beamAtPupil / obj.pupil;
-  const effectiveNA = Math.min(obj.na, obj.na * fillFactor);
+  const fillFactor = Math.min(1, beamAtPupil / obj.pupil);      // 瞳孔填滿就用上全部 NA；小瞳孔的物鏡會過填充（截掉邊緣）
+  const effectiveNA = obj.na * fillFactor;
 
-  const airyRadius = 0.61 * wl_um / effectiveNA;
-  const spotRadius = wl_um / (Math.PI * effectiveNA);
+  const airyRadius = 0.61 * wl_um / effectiveNA;                 // 樣品面 Airy 半徑
+  const spotRadius = wl_um / (Math.PI * effectiveNA);            // 高斯光斑 1/e² 半徑
 
+  // Pinhole：孔徑投影回樣品要除以「物鏡倍率 × 共軛焦透鏡額外放大」
   const pinholeD = PINHOLE_DIAMETERS[state.pinhole];
-  const pinholeInSample = pinholeD / obj.mag;
-  const axialPSF = (0.88 * wl_um) / (n - Math.sqrt(Math.max(1e-6, n * n - effectiveNA * effectiveNA)));
-  const sliceThickness = Math.sqrt(axialPSF ** 2 + (pinholeInSample / Math.SQRT2) ** 2);
-
-  const airyAtPinhole = airyRadius * obj.mag;
-  const ratio = (pinholeD / 2) / airyAtPinhole;
-  const pinholeEff = ratio >= 3 ? 1.0 : 1 - Math.exp(-3.67 * ratio * ratio);
+  const pinholeMag = obj.mag * PINHOLE_MAG_RELAY;
+  const pinholeInSample = pinholeD / pinholeMag;
+  const airyRadiusEm = 0.61 * em_um / effectiveNA;               // 樣品面「螢光」Airy 半徑：落在 pinhole 上的是發射光，AU 用它算（激發光斑卡片仍用 λ_ex）
+  const airyAtPinhole = airyRadiusEm * pinholeMag;               // pinhole 面上的 Airy 半徑（1 AU = 直徑 = 2 × 這個值）
   const airyUnits = pinholeD / (2 * airyAtPinhole);
+  // 焦平面訊號通過比例：Airy 圖樣落在孔內的環繞能量 1 − J0²(v) − J1²(v)，v = 3.8317·AU（0.6 AU ≈ 70 %、1 AU ≈ 84 %、2 AU ≈ 91 %）→ 縮 pinhole 要付訊號代價
+  const pinholeEff = airyEncircled(airyUnits);
+
+  // 光學切片厚度（FWHM）：共軛焦軸向 PSF（pinhole→0：0.64·λ̄/(n−√(n²−NA²))，λ̄ = 激發／發射的調和平均 √2·λex·λem/√(λex²+λem²)，Zeiss 慣例）
+  //   ⊕ pinhole 幾何項 √2·n·PH/NA（Zeiss/Wilhelm 標準式）
+  // 幾何項與 refreshZWeights 的離焦光斑模型（直徑 ≈ 2·Δz·tanα）互相一致：卡片上的切片厚度 = 影像模型對薄層的軸向響應 FWHM
+  const lambdaBar = Math.SQRT2 * wl_um * em_um / Math.sqrt(wl_um * wl_um + em_um * em_um);
+  const axialPSF = (0.64 * lambdaBar) / (n - Math.sqrt(Math.max(1e-6, n * n - effectiveNA * effectiveNA)));
+  const pinholeTerm = Math.SQRT2 * n * pinholeInSample / effectiveNA;
+  const sliceThickness = Math.sqrt(axialPSF ** 2 + pinholeTerm ** 2);
 
   const split = spectralSplit(laser.emPeak, laser.emSigma);
   const gain = pinholeEff * (state.power / 100);
   return {
-    laser, obj, wl_um, effectiveNA, fillFactor, beamAtPupil,
-    airyRadius, spotRadius, sliceThickness, pinholeD, pinholeEff, airyUnits, airyAtPinhole,
+    laser, obj, wl_um, em_um, lambdaBar, n, effectiveNA, fillFactor, beamAtPupil, axialPSF, pinholeInSample,
+    airyRadius, airyRadiusEm, spotRadius, sliceThickness, pinholeD, pinholeEff, airyUnits, airyAtPinhole,
     ch1Frac: split.ch1, ch2Frac: split.ch2,
     ch1Signal: split.ch1 * gain, ch2Signal: split.ch2 * gain,
   };
@@ -593,7 +689,7 @@ function tag(obj, part, opts = {}) {
   return obj;
 }
 function anchor(obj, text, offset = [0, 4, 0], opts = {}) {
-  labelAnchors.push({ obj, text, offset: new THREE.Vector3(...offset), el: null, interior: !!opts.interior });
+  labelAnchors.push({ obj, text, offset: new THREE.Vector3(...offset), el: null, interior: !!opts.interior, prio: opts.prio || 0 });   // prio 大者在螢幕空間避讓時先放（不會被推走／藏起來）
 }
 
 // 群組助手
@@ -731,6 +827,9 @@ const ix71Brass = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0
 const ix71Yellow = M.emissive(0xffcc33, 0.18);
 const ix71Blk = M.black();
 const ix71Anod = M.dark(0x1f2227);
+const FOCUS_Y = 30.86;               // 樣品面 z=0（FITC 微絲層）；各染料層在 FOCUS_Y + zc·Z_SCALE，最底的 DAPI 層（−4 μm，厚 3）剛好坐在載玻片頂 30.53 上
+const focusKnobs = [];               // 左右微調焦旋鈕（含端面刻線）：animate() 依 Z 位置轉動
+let focusCoupler = null;             // 調焦馬達的聯軸器（套在左側微調鈕上，跟著轉）
 
 {
   // ---------- 底座 + 本體下半段（y 2.2–21.5；內含管鏡與稜鏡，左側埠、右側選擇桿、前方斜面板都掛在這一段）----------
@@ -759,7 +858,7 @@ const ix71Anod = M.dark(0x1f2227);
   fp.add(mesh(cyl(2.55, 2.55, 0.3), M.dark(0x4a4f5a), 6.5, 0, 0.95, { rx: Math.PI / 2 }));
   fp.add(mesh(box(0.18, 1.3, 0.08), M.emissive(0xffffff, 0.4), 6.5, 1.3, 2.24, { shadow: false }));            // 旋鈕指示線
   fp.add(ix71Label(3.2, 0.9, ix71Tex(['LAMP'], 256, 72, { fg: '#2c2f36', size: 44 }), 6.5, -2.55, 0.9));
-  tag(fp, 'frontPanel'); anchor(fp, '前面板', [-5, -4, 0]);
+  tag(fp, 'ix71Panel'); anchor(fp, '前面板', [-5, -4, 0]);   // partId 用 ix71Panel：'frontPanel' 是掃描頭的白色前板，撞名會互相蓋掉說明
   // 圓形藍色 OLYMPUS IX71 徽章（正面左側，左立臂下方；直徑約 6 cm）
   const badge = mesh(new THREE.CircleGeometry(3.0, 48), ix71LabelMat(ix71Tex(['OLYMPUS', 'IX71'], 256, 256, { bg: '#2748b4', fg: '#f4f6ff', size: 54, round: true })), -9.5, 16.5, 8.06, { shadow: false });
   base.add(badge); tag(badge, 'ix71');
@@ -846,8 +945,13 @@ const ix71Anod = M.dark(0x1f2227);
   clip.add(mesh(box(1.8, 0.18, 2.8), M.metal(0xb8bfcc), -0.6, 0.62, 0));
   clip.add(mesh(box(0.5, 0.12, 2.4), ix71Blk, -1.2, 0.58, 0));
   tag(clip, 'stage');
-  const specimen = mesh(cyl(0.95, 0.95, 0.14), new THREE.MeshStandardMaterial({ color: 0xff9bd0, transparent: true, opacity: 0.55, roughness: 0.3, emissive: 0x552244, emissiveIntensity: 0.3 }), AXIS.x, 30.6, AXIS.z);
-  ix.add(tag(specimen, 'sample')); anchor(specimen, '樣品', [0, 2.4, 0]);
+  // 樣品滴：有深度結構——四片薄圓盤各代表一種染料的深度層（y = FOCUS_Y + zc·Z_SCALE，與 2D 影像的 Z 模型一致），外面一層透明培養液
+  const specimen = group(ix, AXIS.x, FOCUS_Y, AXIS.z);
+  specimen.add(mesh(cyl(0.98, 1.06, 0.82, 32), new THREE.MeshStandardMaterial({ color: 0xffd0e8, transparent: true, opacity: 0.16, roughness: 0.2, depthWrite: false }), 0, 0.08, 0));   // 30.53–31.35（包住四層）
+  { const R = { dapi: 0.62, fitc: 0.9, tritc: 0.78, cy5: 0.94 };
+    for (const d in DYE_Z) { const L = DYE_Z[d];
+      specimen.add(mesh(cyl(R[d], R[d], Math.max(0.05, L.thick * Z_SCALE), 32), new THREE.MeshStandardMaterial({ color: L.color, emissive: L.color, emissiveIntensity: 0.3, transparent: true, opacity: 0.72, roughness: 0.4 }), 0, L.zc * Z_SCALE, 0)); } }
+  tag(specimen, 'sample'); anchor(specimen, '樣品', [0, 2.4, 0]);
 
   // ---------- 雙目鏡筒：從本體右前方朝 +z 伸出，兩支目鏡筒向上傾 30° ----------
   const eye = group(ix, 5, 18.5, 8); eye.rotation.y = 0.25;
@@ -866,14 +970,20 @@ const ix71Anod = M.dark(0x1f2227);
   for (const sx of [-1, 1]) {
     const k = group(ix, sx * 13.6, 5.5, 0);                                              // y 5.5：讓左側聯軸器頂 (8.9) 落在側埠法蘭鼓底 (9.0) 之下
     k.add(mesh(cyl(3.2, 3.2, 1.6), ix71Blk, sx * 0.2, 0, 0, { rz: Math.PI / 2 }));       // 粗調：內端面剛好貼機身側面 |x|=13
-    k.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 1.8, 0, 0, { rz: Math.PI / 2 }));
-    k.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 2.7, 0, 0, { rz: Math.PI / 2 }));
+    const fine = group(k, 0, 0, 0);                                                      // 微調鈕（可繞 x 軸轉；animate 依 Z 位置轉動）
+    fine.add(mesh(cyl(2.0, 2.0, 1.6), M.dark(0x4a4f5a), sx * 1.8, 0, 0, { rz: Math.PI / 2 }));
+    fine.add(mesh(cyl(0.8, 0.8, 0.4), M.emissive(0xffffff, 0.2), sx * 2.7, 0, 0, { rz: Math.PI / 2 }));
+    fine.add(mesh(box(0.14, 0.9, 0.22), M.metal(0xd8dde6), sx * 2.66, 1.4, 0));         // 端面刻線：看得出旋鈕在轉
+    focusKnobs.push(fine);
     tag(k, 'focusKnob');
     if (sx > 0) anchor(k, '粗／微調焦', [2, 4.5, 0]);
   }
   const motor = group(ix, -14.2, 5.5, 0);                                                // 整組隨旋鈕內移 0.6，聯軸器仍套住微調鈕（x -20.6..-15.8）
-  motor.add(mesh(cyl(3.4, 3.4, 4.8), ix71Blk, -4.0, 0, 0, { rz: Math.PI / 2 }));         // 聯軸器：套在微調焦旋鈕上 x -15.2..-20
-  motor.add(mesh(cyl(3.5, 3.5, 0.5), M.dark(0x3a3f4a), -6.2, 0, 0, { rz: Math.PI / 2 }));
+  const coupler = group(motor, 0, 0, 0);                                                 // 聯軸器（可繞 x 軸轉；與微調鈕同步）
+  coupler.add(mesh(cyl(3.4, 3.4, 4.8), ix71Blk, -4.0, 0, 0, { rz: Math.PI / 2 }));       // 聯軸器：套在微調焦旋鈕上 x -15.2..-20
+  coupler.add(mesh(cyl(3.5, 3.5, 0.5), M.dark(0x3a3f4a), -6.2, 0, 0, { rz: Math.PI / 2 }));
+  coupler.add(mesh(box(4.4, 0.2, 0.3), M.metal(0xd8dde6), -4.0, 3.42, 0));               // 聯軸器外緣的刻線：看得出馬達在轉
+  focusCoupler = coupler;
   motor.add(mesh(cyl(2.7, 2.7, 7.4), ix71Blk, -4.0, 0, 6.6, { rz: Math.PI / 2 }));       // 馬達本體（並排、在前）x -13.9..-21.3
   motor.add(mesh(cyl(2.8, 2.8, 0.5), M.dark(0x3a3f4a), -7.5, 0, 6.6, { rz: Math.PI / 2 }));
   motor.add(mesh(box(6, 3.2, 6.6), ix71Anod, -4.0, 0, 3.3));                              // 支架把兩個圓筒鎖在一起
@@ -888,7 +998,7 @@ const ix71Anod = M.dark(0x1f2227);
   const port = group(ix, -13, PORT_Y, AXIS.z);
   port.add(mesh(cyl(5.0, 5.0, 4.5), ix71Anod, -2.25, 0, 0, { rz: Math.PI / 2 }));        // 法蘭鼓 x -13..-17.5（直徑約管徑 1.7 倍、深 4.5，photo）
   for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; port.add(mesh(cyl(0.3, 0.3, 0.3, 6), M.metal(0x8a93a3), -4.6, Math.sin(a) * 4.3, Math.cos(a) * 4.3, { rz: Math.PI / 2 })); }   // 鼓面一圈 8 顆螺絲
-  port.add(mesh(cyl(3.0, 3.0, 9.5), ix71Blk, -9.75, 0, 0, { rz: Math.PI / 2 }));         // 連接管 x -17.5..-27.0（末端貼掃描頭右牆）
+  port.add(mesh(cyl(3.0, 3.0, 10.5), ix71Blk, -9.25, 0, 0, { rz: Math.PI / 2 }));        // 連接管 x -17.0..-27.5（一端插進法蘭鼓 0.5、另一端插進掃描頭右牆 0.5：兩邊都不留縫、也不共面閃爍）
   port.add(mesh(cyl(3.15, 3.15, 0.6), M.dark(0x3a3f4a), -7.2, 0, 0, { rz: Math.PI / 2 }));   // 管上固定環
   port.add(ix71Band(3.04, 2.4, 0.3, 1.15, ix71Yellow, -10.5, 0, 0, { rz: Math.PI / 2 }));    // 黃色貼紙（管子左上前方）
   tag(port, 'sidePort'); anchor(port, '側面埠', [-3, 5.5, 0]);
@@ -922,20 +1032,20 @@ const objectiveMeshes = {};
     const ang = i * (Math.PI * 2 / 6);
     turret.add(mesh(cyl(1.6, 1.6, 0.4), M.dark(0x2a2e37), Math.sin(ang) * TURRET_C.r, 0.95, Math.cos(ang) * TURRET_C.r));
   }
-  anchor(turret, '物鏡轉盤', [-2, 3.5, 8]);
+  anchor(turret, '物鏡轉盤', [-2, -2.5, 9], { prio: 1 });   // 起點放轉盤前下方＋優先放置：全景 labels 時避讓只會往上推，才不會被推到載物台上方蓋住聚光鏡
 }
 const OBJ_TOP_Y = TURRET_C.y + 0.75 + 4.6;   // 物鏡前端 y = 29.85（載玻片底 30.38，距約 0.5）
 const OBJ_BACK_Y = TURRET_C.y + 0.75;        // 物鏡後端 y = 25.25
-const FOCUS_Y = 30.6;                        // 樣品面（載玻片 30.38–30.53 上的樣品滴）
+// FOCUS_Y（樣品面 30.72）改到 IX71 區段開頭定義，因為樣品滴的分層要用到；調焦時轉盤、物鏡、焦點都加上 zVis = zOffset·Z_SCALE
 function turretAngleFor(objKey) { return -OBJ_ORDER.indexOf(objKey) * (Math.PI * 2 / 6); }
 turret.rotation.y = turretAngleFor(state.objective);
 
 // ---- 本區段新增零件的說明 ----
 Object.assign(INFO, {
   focusMotor: { kind: 'IX71', zh: '調焦馬達（Z 軸驅動）', en: 'Focus Motor Drive',
-    desc: '套在本體左側微調焦旋鈕上的黑色馬達組：一個圓筒是聯軸器（直接夾住微調焦旋鈕），旁邊並排的圓筒是步進馬達本體，兩者用支架鎖在一起，電纜垂到桌面接控制器。FluoView 做 XYZ／XYZT 序列掃描時由它一步步轉動微調焦，帶動物鏡轉盤沿 Z 移動，逐層取得光學切片。',
-    specs: [['驅動對象', '微調焦旋鈕（經聯軸器）'], ['移動件', '物鏡轉盤（Z）'], ['用途', 'Z 序列（XYZ / XYZT）'], ['步距', '由 FluoView 的 Z Start / Stop / Step 設定']] },
-  frontPanel: { kind: 'IX71', zh: '前面板（OPTION 鍵、照明亮度旋鈕）', en: 'Front Control Panel',
+    desc: '套在本體左側微調焦旋鈕上的黑色馬達組：一個圓筒是聯軸器（直接夾住微調焦旋鈕），旁邊並排的圓筒是步進馬達本體，兩者用支架鎖在一起，電纜垂到桌面接控制器。FluoView 做 XYZ／XYZT 序列掃描時由它一步步轉動微調焦，帶動物鏡轉盤沿 Z 移動，逐層取得光學切片。按側欄的「Z 序列」就是讓它在 Start（−12 μm）與 Stop（+12 μm）之間以 0.5 μm 一步來回走，看聯軸器上的刻線轉動。',
+    specs: [['驅動對象', '微調焦旋鈕（經聯軸器）'], ['移動件', '物鏡轉盤（Z）'], ['用途', 'Z 序列（XYZ / XYZT）'], ['步距', '由 FluoView 的 Z Start / Stop / Step 設定（本頁 −12 / +12 / 0.5 μm）']] },
+  ix71Panel: { kind: 'IX71', zh: '前面板（OPTION 鍵、照明亮度旋鈕）', en: 'Front Control Panel',
     desc: '本體正面下方的斜面板：綠色 OPTION 按鈕、電源指示燈，右邊的大圓旋鈕調整透射光（鹵素燈）亮度。共軛焦掃描時把燈光關到最暗，避免雜光進 PMT。',
     specs: [['旋鈕', '鹵素燈亮度'], ['按鈕', 'OPTION（功能可設定）']] },
 });
@@ -1126,29 +1236,32 @@ const PIN_KX = OPT.pinhole + 3.4;         // pinhole 傳動軸 / CONFOCAL APERTU
   // ============================================================
   //  頂面後緣接頭（固定在後牆頂條上，依 photo2）：兩個 BNC（橘 / 綠線頭）+ 大型多芯接頭 + 兩個方形訊號接頭
   // ============================================================
+  //  幾何約束：上蓋繞後緣樞軸 (y=HW.y1, z=HW.z0) 掀開，蓋板從樞軸前 3.2 起算，所以接頭每個頂角離樞軸線都要 < 3.1
+  //  （conn 局部：樞軸在 y=0, z=-1.6）——各接頭群組放在 conn z=-0.5、高度壓在 2.5 以下，掀蓋中途才不會被蓋板掃到
   const conn = group(head, 0, HW.y1, HW.z0 + 1.6);
+  const CZ = -0.5;                                                       // 接頭群組在 conn 裡的 z（Δz 到樞軸 = 1.1）
   const bnc = (x, color) => {
-    const g = group(conn, x, 0, 0), mc = M.body(color);
+    const g = group(conn, x, 0, CZ), mc = M.body(color);
     g.add(mesh(box(1.3, 0.3, 1.3), mAno2, 0, 0.15, 0));
-    g.add(mesh(cyl(0.5, 0.5, 1.2, 20), mSteel, 0, 0.9, 0));
-    g.add(mesh(cyl(0.68, 0.68, 0.5, 20), mSteelDk, 0, 1.6, 0));         // 卡口環
-    g.add(mesh(cyl(0.6, 0.6, 0.4, 20), mBlack, 0, 2.05, 0));
-    g.add(mesh(cyl(0.44, 0.44, 1.4, 20), mc, 0, 2.95, 0));               // 彩色線頭
-    shTube(g, [[0, 3.6, 0], [0, 4.6, -0.9], [0, 4.3, -2.2], [0, 1.5, -2.9], [0, -12, -3.0], [0, HW.y0 - HW.y1 + 0.3, -3.4]], 0.22, mc, 40);   // 短纜線：翻過後緣、貼後牆垂到桌面
+    g.add(mesh(cyl(0.5, 0.5, 1.0, 20), mSteel, 0, 0.8, 0));
+    g.add(mesh(cyl(0.68, 0.68, 0.45, 20), mSteelDk, 0, 1.525, 0));      // 卡口環（頂角 r≈2.5）
+    g.add(mesh(cyl(0.6, 0.6, 0.3, 20), mBlack, 0, 1.9, 0));
+    g.add(mesh(cyl(0.44, 0.44, 0.45, 20), mc, 0, 2.275, 0));             // 彩色線頭（頂 2.5，頂角 r≈2.94）
+    shTube(g, [[0, 2.5, 0], [0, 2.7, -0.6], [0, 2.4, -1.3], [0, 1.2, -1.9], [0, -12, -2.4], [0, HW.y0 - HW.y1 + 0.3, -2.8]], 0.22, mc, 40);   // 短纜線：貼著線頭往後彎、沿後牆垂到桌面（弧頂 r≈2.97）
     return g;
   };
   bnc(-17.2, 0xe8601c); bnc(-15.0, 0x2e9e5b);
-  const mp = group(conn, -3.5, 0, 0);                                    // 大型多芯接頭（至 FV5-PSU）；x=-3.5 讓垂下的粗纜線避開 x=1 的光纖入口（世界 x -51.5）
-  mp.add(mesh(box(4.4, 2.6, 3.0), mBlack, 0, 1.3, 0));
-  mp.add(mesh(box(4.0, 0.3, 2.6), mSteelDk, 0, 2.75, 0));
-  mp.add(mesh(cyl(0.95, 0.95, 1.6, 20), mRubber, 0, 1.3, -2.2, { rx: R2 }));
-  shTube(mp, [[0, 1.3, -2.9], [0, 1.1, -5.0], [0, -3, -6.0], [0, -12, -6.2], [0, HW.y0 - HW.y1 + 0.6, -7.0]], 0.6, mCable, 40);   // 粗黑纜線往後、垂到桌面
+  const mp = group(conn, -3.5, 0, CZ);                                   // 大型多芯接頭（至 FV5-PSU）；x=-3.5 讓垂下的粗纜線避開 x=1 的光纖入口（世界 x -51.5）
+  mp.add(mesh(box(4.4, 2.0, 2.2), mBlack, 0, 1.0, 0));                   // 後面貼齊後牆外側（Δz 0..2.2）
+  mp.add(mesh(box(4.0, 0.25, 1.9), mSteelDk, 0, 2.125, 0));              // 頂 2.25，頂角 r≈3.04
+  mp.add(mesh(cyl(0.95, 0.95, 1.6, 20), mRubber, 0, 1.0, -1.7, { rx: R2 }));   // 纜線護套伸出後牆外
+  shTube(mp, [[0, 1.0, -2.5], [0, 0.8, -4.5], [0, -3, -5.5], [0, -12, -5.7], [0, HW.y0 - HW.y1 + 0.6, -6.5]], 0.6, mCable, 40);   // 粗黑纜線往後、垂到桌面
   for (const x of [6.5, 9.5]) {                                          // 兩個方形接頭（PMT 訊號 / 高壓），黑纜往後垂下
-    const g = group(conn, x, 0, 0);
-    g.add(mesh(box(2.2, 2.4, 2.2), mBlack, 0, 1.2, 0));
-    g.add(mesh(box(1.9, 0.25, 1.9), mSteelDk, 0, 2.5, 0));
-    g.add(mesh(cyl(0.6, 0.6, 1.0, 16), mRubber, 0, 1.2, -1.5, { rx: R2 }));
-    shTube(g, [[0, 1.2, -2.0], [0, 0.9, -3.8], [0, -3, -4.6], [0, -12, -4.8], [0, HW.y0 - HW.y1 + 0.5, -5.4]], 0.4, mCable, 32);
+    const g = group(conn, x, 0, CZ);
+    g.add(mesh(box(2.2, 1.8, 2.2), mBlack, 0, 0.9, 0));
+    g.add(mesh(box(1.9, 0.25, 1.9), mSteelDk, 0, 1.925, 0));             // 頂 2.05，頂角 r≈2.9
+    g.add(mesh(cyl(0.6, 0.6, 1.0, 16), mRubber, 0, 0.9, -1.5, { rx: R2 }));
+    shTube(g, [[0, 0.9, -2.0], [0, 0.7, -3.6], [0, -3, -4.4], [0, -12, -4.6], [0, HW.y0 - HW.y1 + 0.5, -5.2]], 0.4, mCable, 32);
   }
   tag(conn, 'headConnectors'); anchor(conn, '訊號 / 控制接頭', [-5, 5, 0]);
 
@@ -1415,7 +1528,7 @@ const PIN_KX = OPT.pinhole + 3.4;         // pinhole 傳動軸 / CONFOCAL APERTU
 Object.assign(INFO, {
   scanhead: { kind: '掃描單元', zh: 'FV300 FluoView 掃描頭', en: 'FV300 Confocal Scan Unit', desc: '接在 IX71 左側埠、直接坐在光學桌上的米白色雷射掃描單元。所有光學元件都在同一個水平面上：右端接顯微鏡，雷射從後壁的光纖進來，兩支 PMT 並排躺在左端。正面的白色前板上有 CH2 / CH1 Barrier filter 滑桿、CONFOCAL APERTURE 大旋鈕、DETECTION 小旋鈕與 OLYMPUS FLUOVIEW 銘牌；頂面有 EX. DM 拉鈕，後緣有訊號接頭。按「掀開外殼」看內部。', specs: [['通道', '2（CH1 / CH2）'], ['掃描', 'XY 振鏡，最大 2048 × 2048'], ['Pinhole', '五段手動旋鈕（傘齒輪帶動轉盤）'], ['偵測器', '2 × PMT（側窗型）'], ['外形', '約 54 × 36 × 25 cm']] },
   lid: { kind: '掃描單元', zh: '掃描頭上蓋', en: 'Scan Unit Cover', desc: '遮光上蓋，分成左大右小兩塊面板、四角內六角螺絲鎖住；貼著黃色 CAUTION / CLASS 3B 貼紙。EX. DM 拉桿從激發分光鏡正上方的穿孔伸出（本模型落在接縫左側；實機接縫更靠左，拉鈕在右段面板上）。實機打開前務必關雷射快門——裡面走的是 Class 3B 雷射。', specs: [['警示', 'Class 3B laser radiation when open']] },
-  frontPanel: { kind: '掃描單元', zh: '前面板（操作副面板）', en: 'Front Control Panel', desc: '正面一整片與機殼同色的白色前板（四角內六角螺絲）。由左至右：CH2 / CH1 兩個 BARRIER FILTER 濾片匣，各有一支長金屬滑桿（推入 = 濾片在光軸上，拉出 = 空格）；CONFOCAL APERTURE 大旋鈕（1–5 段，1 在正上方、順時針遞增）；右側的 DETECTION 小旋鈕是偵測分光鏡滑軌的拉桿把手（推到底 DM630、拉出 DM570、再拉出 Mirror，圖示印在大旋鈕左下）；大旋鈕右下方是 OLYMPUS FLUOVIEW 銘牌。', specs: [['滑桿', 'CH2、CH1 各一（兩格）'], ['旋鈕', 'CONFOCAL APERTURE 五段、DETECTION 三段']] },
+  frontPanel: { kind: '掃描單元', zh: '前面板（操作副面板）', en: 'Front Control Panel', desc: '正面一整片與機殼同色的白色前板（四角內六角螺絲）。由左至右：CH2 / CH1 兩個 BARRIER FILTER 濾片匣，各有一支長金屬滑桿（拉出 = 濾片在光軸上，對應面板圖示 IN；推到底 = 空格上光軸，圖示 OUT；側欄選「無」就是把滑桿推到底）；CONFOCAL APERTURE 大旋鈕（1–5 段，1 在正上方、順時針遞增）；右側的 DETECTION 小旋鈕是偵測分光鏡滑軌的拉桿把手（推到底 DM630、拉出 DM570、再拉出 Mirror，圖示印在大旋鈕左下）；大旋鈕右下方是 OLYMPUS FLUOVIEW 銘牌。', specs: [['滑桿', 'CH2、CH1 各一（兩格）'], ['旋鈕', 'CONFOCAL APERTURE 五段、DETECTION 三段']] },
   pinholeKnob: { kind: '掃描單元', zh: 'CONFOCAL APERTURE 旋鈕', en: 'Confocal Aperture Knob', desc: '前面板上的五段旋鈕。旋鈕 → 傳動軸 → 一對 90° 傘齒輪 → pinhole 轉盤，1:1 連動：旋鈕轉 72° 轉盤也轉 72°，下一個孔就轉到光軸上。白色指針在段位 1 時指正上方。', specs: [['段位', '1–5（順時針遞增）'], ['傳動', '傳動軸 + 傘齒輪 1:1']] },
   bevelGear: { kind: '掃描單元', zh: '傘齒輪（90° 傳動）', en: 'Bevel Gear Pair', desc: '一對黃銅傘齒輪把前面板旋鈕（軸沿前後方向）的轉動轉 90° 傳到 pinhole 轉盤的軸（沿左右方向），齒數相同所以 1:1。轉盤上五個孔的圓周角剛好 72° 一格。', specs: [['齒數比', '1:1'], ['軸交角', '90°']] },
   exDMKnob: { kind: '掃描單元', zh: 'EX. DM 拉鈕', en: 'Excitation DM Pull Knob', desc: '頂面的黑色滾花拉鈕，穿過上蓋接到裡面激發分光鏡的垂直拉桿。激發 DM 座是兩段式：兩片分光鏡上下疊在滑座上，壓到底（目前）＝上片在光軸上，拉起 4.2 cm ＝下片換到光軸上（例如 DM405/488 ↔ DM488/543/633），不必開蓋。', specs: [['段數', '2（壓到底 = 上片 / 拉起 = 下片）'], ['操作', '從頂面拉／壓，不必開蓋']] },
@@ -2131,8 +2244,11 @@ function placePhotons(pool, pts, L, spacing, phase, show, keepFn) {
 const reflect = (d, n) => d.clone().sub(n.clone().multiplyScalar(2 * d.dot(n)));
 function planeHit(P, d, Q, n) { const t = Q.clone().sub(P).dot(n) / d.dot(n); return P.clone().add(d.clone().multiplyScalar(t)); }
 
-const scan = { ax: 0, ay: 0, sx: 0, sy: 0, pos: 0, N: 80, linesPerSec: 26 };
+// linesPerSec：3D 動畫裡振鏡一秒掃幾行（80 行 = 一幀），由 SCAN_SPEEDS[state.scanSpeed].lps 決定（比真機慢很多，好看清楚）
+const scan = { ax: 0, ay: 0, sx: 0, sy: 0, pos: 0, N: 80, linesPerSec: SCAN_SPEEDS[state.scanSpeed].lps };
 const paths = { ex: [], exFree: [], exHead: [], em: [], ch1: [], ch2: [], F: new THREE.Vector3(), Q3: new THREE.Vector3() };
+let zVis = 0;                                  // 3D 目前的 Z 位移（單位 = zOffset·Z_SCALE，animate 平滑追蹤）：轉盤、物鏡、焦點一起動
+const zSeq = { pos: 0, dir: 1 };               // Z 序列的連續位置（μm）與方向
 
 function buildPaths() {
   const lg = LASER_GEOM[state.laser];
@@ -2154,8 +2270,8 @@ function buildPaths() {
   paths.Q3.copy(Q3);
   // IX71：側埠 → 稜鏡（轉向上）→ 管鏡 → 物鏡 → 焦點
   const prism = new THREE.Vector3(AXIS.x, PORT_Y, AXIS.z), tube = new THREE.Vector3(AXIS.x, TUBE_Y, AXIS.z);
-  const objBack = new THREE.Vector3(AXIS.x, OBJ_BACK_Y, AXIS.z), objFront = new THREE.Vector3(AXIS.x, OBJ_TOP_Y, AXIS.z);
-  const F = new THREE.Vector3(AXIS.x + scan.sx * 0.6, FOCUS_Y, AXIS.z + scan.sy * 0.6);
+  const objBack = new THREE.Vector3(AXIS.x, OBJ_BACK_Y + zVis, AXIS.z), objFront = new THREE.Vector3(AXIS.x, OBJ_TOP_Y + zVis, AXIS.z);   // 物鏡隨轉盤上下
+  const F = new THREE.Vector3(AXIS.x + scan.sx * 0.6, FOCUS_Y + zVis, AXIS.z + scan.sy * 0.6);                                          // 焦點跟著物鏡走（載物台不動）
   paths.F.copy(F);
   ex.push(coll, exDM, P1, Q2, Q3, prism, tube, objBack, objFront, F);
   paths.ex = ex; paths.exFree = ex.slice(0, 2); paths.exHead = ex.slice(-10);
@@ -2209,32 +2325,98 @@ const scanCtx = scanCanvas.getContext('2d');
 const scanImg = scanCtx.createImageData(N, N);
 let dyeSplit = {};
 let optics = computeOptics();
+
+// ---------- Z 軸：每種染料相對目前焦平面的軸向權重（每次 Z / pinhole / 物鏡 / 雷射改變時算一次，所有像素共用）----------
+// 「有多少光通過」與「有多清楚」是兩件事，分開算：
+// wIn  ：這一層落在光學切片內的比例，高斯 exp(−½((z−zc)/σ)²)，σ² = (切片厚度/2.355)² + (層厚/2.355)²（隨 pinhole 變）
+// geo  ：離焦層的光斑（幾何直徑 ≈ 2·Δz·tanα + Airy 直徑，α = asin(NA/n) 邊緣光線半角）被 pinhole 放行的面積比例 (pinhole投影/光斑直徑)²
+// W    ：總通過量 = max(wIn, geo)——取大不取和，dz = 切片厚度/2 處 W ≈ 0.5，與卡片上的切片厚度（FWHM）自洽；wOut = W − wIn 是「離焦霧」那部分
+// sharp：這一層有多清楚，只看離焦量：exp(−½(dz/σd)²)，σd 由軸向 PSF 與層厚決定、與 pinhole 無關
+//        → pinhole 小：離焦層幾乎全擋掉（真正的光學切片）；pinhole 大：相鄰層以「模糊的離焦霧」疊進來（像寬視野），不會變成第二張清晰圖
+let zw = {};
+function refreshZWeights() {
+  const r = optics, z = state.zOffset, sS = r.sliceThickness / 2.355, sP = r.axialPSF / 2.355;
+  const tanA = Math.tan(Math.asin(Math.min(0.999, r.effectiveNA / r.n)));   // 不用小角度近似：高 NA（60x oil NA/n≈0.89）時 tanα ≈ 2.0，離焦光斑比 NA/n 估的大 2 倍
+  for (const d in DYE_Z) {
+    const { zc, thick } = DYE_Z[d];
+    const sT = thick / 2.355, dz = Math.abs(z - zc);
+    const wIn = Math.exp(-0.5 * (dz / Math.sqrt(sS * sS + sT * sT)) ** 2);
+    const blurDia = 2 * tanA * Math.max(0, dz - thick / 2) + 2 * r.airyRadius;
+    const geo = Math.min(1, (r.pinholeInSample / blurDia) ** 2);
+    const W = Math.max(wIn, geo), wOut = W - wIn;
+    const sharp = Math.exp(-0.5 * (dz / Math.sqrt(sP * sP + sT * sT)) ** 2);
+    zw[d] = { wIn, wOut, W, sharp, dz };
+  }
+}
+// 目前切片內（wIn ≥ 0.5）的結構名稱；short = 只列縮寫（即時數值卡用）
+function inSliceNames(short = false) {
+  const exc = EXC[state.laser], a = [];
+  for (const d in DYE_Z) {
+    if (!zw[d] || zw[d].wIn < 0.5) continue;
+    if (short) { a.push(DYE_Z[d].tag); continue; }
+    const seen = dyeSplit[d] ? dyeSplit[d].ch1 + dyeSplit[d].ch2 : 1;   // 兩通道合計收到的發射比例（濾片全開 = 1）：在切片內但被 BA 濾片擋掉大半時提醒（例：405 看 DAPI，BA505-525 只剩約 10 %）
+    a.push(DYE_Z[d].zh + (exc[d] < 0.1 ? '（本雷射不激發）' : seen < 0.2 ? '（發射大多被 BA 濾片擋住，CH1/CH2 濾片選「無」才看得清）' : ''));
+  }
+  if (short) return a.length >= 3 ? `${a.length} 層` : (a.length ? a.join('·') : '—');   // 即時數值卡格子只有 ~72 px：三層以上改寫層數，完整清單在 Z 卡的 zNote 與說明面板
+  return a.length ? a.join('、') : '無（離焦，影像只剩霧）';
+}
 function refreshOptics() {
   optics = computeOptics();
   for (const k in DYES) dyeSplit[k] = spectralSplit(DYES[k].em, DYES[k].sigma);
+  refreshZWeights();
 }
 refreshOptics();
 
+// ---------- 雜訊模型：PMT 光子計數（Poisson）----------
+function randn() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function poisson(lambda) {                                     // λ 小用 Knuth 乘法，λ 大用高斯近似
+  if (lambda <= 0) return 0;
+  if (lambda > 40) return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * randn()));
+  const L = Math.exp(-lambda); let k = 0, p = 1;
+  do { k++; p *= Math.random(); } while (p > L);
+  return k - 1;
+}
+// 理想訊號 I（0–1）→ 依像素停留時間累積光子（訊號 + 暗計數）→ Poisson 取樣 → 扣掉暗計數平均 → 回到 0–1
+// 光子數 ∝ dwell，雜訊 ∝ √光子數，所以相對雜訊 ∝ 1/√dwell：Fast 顆粒粗、Slow 幾乎乾淨
+function detect(I) {
+  const dwell = SCAN_SPEEDS[state.scanSpeed].dwell, k = dwell * PHOTONS_PER_US, dark = DARK_PER_US * dwell;
+  const n = poisson(I * k + dark);
+  return Math.max(0, Math.min(1, (n - dark) / k));
+}
+// 影像亮度增益：雷射功率 × pinhole 收光效率（samplePixel 與 SNR 卡共用，兩者才會一起變）
+function pixelGain() { return 8 * (state.power / 100) * optics.pinholeEff; }
+// 代表性 SNR（示意）：理想訊號 0.5（中等亮度）的像素在目前功率／pinhole／停留時間下收到的光子數，取 √（側欄卡片用）
+function snrEstimate() { const dwell = SCAN_SPEEDS[state.scanSpeed].dwell; return Math.sqrt(0.5 * pixelGain() * dwell * PHOTONS_PER_US); }
+
 function samplePixel(i, j) {
   const exc = EXC[state.laser], idx = j * N + i;
-  const h = 0.6 * (optics.pinholeD - 60) / 240;
+  const h = 0.3 * (optics.pinholeD - 60) / 240;                  // 切片內那一層本身的殘餘霧（層內離焦部分被放行）：pinhole 越大越多
   let I1 = 0, I2 = 0;
   for (const d in DYES) {
     const e = exc[d]; if (!e) continue;
-    const v = (1 - h) * maps[d][idx] + h * blurMaps[d][idx];
+    const w = zw[d];                                              // Z 軸權重：W = 通過量（隨 pinhole），sharp = 清晰度（只隨離焦量）
+    const v = w.W * (w.sharp * ((1 - h) * maps[d][idx] + h * blurMaps[d][idx]) + (1 - w.sharp) * blurMaps[d][idx]);
     I1 += e * v * dyeSplit[d].ch1; I2 += e * v * dyeSplit[d].ch2;
   }
-  const gain = 8 * (state.power / 100) * optics.pinholeEff;
-  I1 *= gain; I2 *= gain;
-  const n1 = (Math.random() - 0.5) * 0.08 * Math.sqrt(I1 + 0.02), n2 = (Math.random() - 0.5) * 0.08 * Math.sqrt(I2 + 0.02);
-  return [Math.max(0, Math.min(1, I1 + n1)), Math.max(0, Math.min(1, I2 + n2))];
+  const gain = pixelGain();
+  return [detect(I1 * gain), detect(I2 * gain)];
 }
 function writePixel(i, j) {
   const [a, b] = samplePixel(i, j), o = (j * N + i) * 4, D = scanImg.data;
   D[o] = Math.round(255 * Math.pow(b, 0.8)); D[o + 1] = Math.round(255 * Math.pow(a, 0.8)); D[o + 2] = Math.round(255 * (0.12 * a + 0.05 * b)); D[o + 3] = 255;
 }
+function redrawImage() { for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) writePixel(i, j); }   // 整張重寫但不打斷掃描線
+function rescanAll() { scan.pos = 0; redrawImage(); }
+// 改 Z 位置：夾到 ±Z_RANGE、量化到 Z_STEP；權重重算、整張影像立刻重取樣（像 FluoView 改焦後下一幀），UI 同步
+function setZ(z) {
+  state.zOffset = Math.max(-Z_RANGE, Math.min(Z_RANGE, Math.round(z / Z_STEP) * Z_STEP));
+  if (Object.is(state.zOffset, -0)) state.zOffset = 0;
+  syncUI(); redrawImage();
+}
+// 改掃描速度：振鏡行速跟著變，並像 FluoView 一樣重新開始掃描（整張影像用新的停留時間重取樣）
+function applyScanSpeed() { scan.linesPerSec = SCAN_SPEEDS[state.scanSpeed].lps; rescanAll(); }
 // 初始先掃一整張，接著由動畫逐行更新
-for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) writePixel(i, j);
+rescanAll();
 
 // ============================================================
 //  螢幕畫面：FLUOVIEW v.5.0 on Windows XP（photo3）
@@ -2432,12 +2614,13 @@ function scrLeftPanelStatic(g) {                                         // 左�
   g.fillStyle = '#c9c4b0'; g.fillRect(16, 446, 22, 5); g.fillStyle = '#9e9880'; g.fillRect(18, 451, 18, 4); g.fillStyle = '#7b7663'; g.fillRect(16, 455, 22, 3);   // 載物台 / Z 驅動示意
   g.fillStyle = '#5e5a4a'; g.beginPath(); g.ellipse(27, 468, 10, 4, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#8a8570'; g.fillRect(17, 468, 20, 10); g.fillStyle = '#5e5a4a'; g.beginPath(); g.ellipse(27, 478, 10, 4, 0, 0, Math.PI * 2); g.fill();
   g.strokeStyle = '#d02020'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(44, 448); g.lineTo(44, 480); g.moveTo(41, 451); g.lineTo(44, 448); g.lineTo(47, 451); g.moveTo(41, 477); g.lineTo(44, 480); g.lineTo(47, 477); g.stroke();
-  xpText(g, 'Stop Z', 58, 434, { px: 7, color: XP.dim }); xpSunken(g, 96, 429, 46, 11); xpText(g, '50.0 µm', 139, 434.5, { px: 7, align: 'right' });
-  xpButton(g, 96, 441, 20, 9, 'Go', { px: 6 }); xpButton(g, 118, 441, 24, 9, 'Set', { px: 6 });
-  xpText(g, 'Current Pos.', 58, 456, { px: 7, color: XP.dim });
-  xpButton(g, 96, 462, 46, 9, 'Set Zero', { px: 6 });
-  xpText(g, 'Start Z', 58, 477, { px: 7, color: XP.dim }); xpSunken(g, 96, 472, 46, 11); xpText(g, '0.0 µm', 139, 477.5, { px: 7, align: 'right' });
-  xpText(g, 'Step 50.0 µm   Slices 2', 58, 485, { px: 6, color: XP.dim });
+  // Z 面板：Stop / Start / Step 是本頁常數（±Z_RANGE、Z_STEP），直接畫在靜態層；整組比原版上移 3–5 px，讓最底的 Step 行不貼到面板底邊
+  xpText(g, 'Stop Z', 58, 431.5, { px: 7, color: XP.dim }); xpSunken(g, 96, 426, 46, 11); xpText(g, '+' + Z_RANGE.toFixed(1) + ' µm', 139, 431.5, { px: 7, align: 'right' });
+  xpButton(g, 96, 438, 20, 9, 'Go', { px: 6 }); xpButton(g, 118, 438, 24, 9, 'Set', { px: 6 });
+  xpText(g, 'Current Pos.', 56, 452.5, { px: 7, color: XP.dim });
+  xpButton(g, 96, 458, 46, 9, 'Set Zero', { px: 6 });
+  xpText(g, 'Start Z', 58, 472.5, { px: 7, color: XP.dim }); xpSunken(g, 96, 467, 46, 11); xpText(g, (-Z_RANGE).toFixed(1) + ' µm', 139, 472.5, { px: 7, align: 'right' });
+  xpText(g, `Step ${Z_STEP.toFixed(1)} µm   Slices ${Math.round(2 * Z_RANGE / Z_STEP) + 1}`, 58, 480, { px: 6.5, color: XP.dim });
 }
 function scrMidPanelStatic(g) {                                          // 中間面板骨架（x 174..302）
   xpRaised(g, 174, 64, 128, 424);
@@ -2539,14 +2722,20 @@ function scrLeftPanelLive(g) {
   xpMeter(g, 16, 109, 14, 56, pmtV / 1000, '#3ec83e'); xpMeter(g, 44, 109, 14, 56, 0.28, '#3ec83e'); xpMeter(g, 74, 109, 14, 56, 0.06, '#3ec83e');
   g.fillStyle = XP.face; g.fillRect(12, 166, 84, 10);
   xpText(g, pmtV + 'v', 23, 171, { px: 7, align: 'center' }); xpText(g, '1.0x', 51, 171, { px: 7, align: 'center' }); xpText(g, '5%', 81, 171, { px: 7, align: 'center' });
-  const secs = N / scan.linesPerSec, f = Math.min(1, Math.max(0, (secs - 0.5) / 5));
+  const sp = SCAN_SPEEDS[state.scanSpeed], secs = sp.frame, f = (state.scanSpeed - 1) / 4;   // Scan Speed 滑桿：Fast(1) … Slow(5)
   g.fillStyle = XP.face; g.fillRect(34, 369, 96, 12);
   g.fillStyle = XP.shadow; g.fillRect(38, 374, 88, 2); g.fillStyle = XP.white; g.fillRect(38, 376, 88, 1);
+  for (let i = 0; i < 5; i++) { g.fillStyle = XP.dark; g.fillRect(41 + i * 20.5, 378, 1, 2); }
   xpRaised(g, 38 + f * 82, 370, 6, 10);
   xpSunken(g, 14, 383, 70, 11, XP.face); xpText(g, secs.toFixed(2) + ' s / Scan', 49, 388.5, { px: 6.5, align: 'center', color: XP.dim });
   xpSunken(g, 88, 383, 74, 11, XP.face); xpText(g, secs.toFixed(2) + ' s / Image', 125, 388.5, { px: 6.5, align: 'center', color: XP.dim });
   xpCombo(g, 14, 409, 88, 13, OBJECTIVES[state.objective].label, 7.5); xpCombo(g, 106, 409, 56, 13, 'Use C.A. ' + state.pinhole, 7.5);
-  xpSunken(g, 96, 451, 46, 11); xpText(g, state.zOffset.toFixed(1) + ' µm', 139, 456.5, { px: 7, align: 'right' });
+  // Z 面板：Start / Stop / Step 對應側欄的 ±Z_RANGE、Z_STEP；Current Pos 跟 Z 滑桿；Z 序列進行中 XYZ 按鈕壓下、Z 圖示閃紅
+  xpButton(g, 14, 185, 36, 11, 'XY', { pressed: !state.zSeq, px: 7 }); xpButton(g, 14 + 2 * 38, 185, 36, 11, 'XYZ', { pressed: state.zSeq, px: 7 });
+  const zs = (state.zOffset > 0 ? '+' : '') + state.zOffset.toFixed(1);
+  xpSunken(g, 96, 447, 46, 11); xpText(g, zs + ' µm', 139, 452.5, { px: 7, align: 'right' });   // Current Pos.（Stop / Start / Step 為常數，已在 scrLeftPanelStatic 畫好）
+  g.fillStyle = XP.face; g.fillRect(14, 431, 14, 14);
+  xpText(g, 'Z', 16, 438, { px: 12, bold: true, color: state.zSeq && Math.sin(performance.now() / 150) > 0 ? '#d02020' : '#1f4fc8' });
 }
 function scrMidPanelLive(g) {
   const L = LASERS[state.laser];
@@ -2592,9 +2781,20 @@ function syncUI() {
   const L = LASERS[state.laser], r = optics;
   $('sSpot').textContent = fmt(r.spotRadius); $('sAiry').textContent = fmt(r.airyRadius);
   $('sSlice').textContent = fmt(r.sliceThickness, 1); $('sAU').textContent = fmt(r.airyUnits, 1);
+  const sp = SCAN_SPEEDS[state.scanSpeed];
+  $('sDwell').textContent = sp.dwell; $('sFrame').textContent = fmt(sp.frame, 2); $('sSNR').textContent = fmt(snrEstimate(), 0);
   $('sCh1').textContent = Math.round(r.ch1Signal * 100) + '%'; $('sCh2').textContent = Math.round(r.ch2Signal * 100) + '%';
-  $('objNote').textContent = `${r.obj.label}：NA ${r.obj.na}，WD ${r.obj.wd} mm，瞳孔 ${r.obj.pupil} mm；光束填充率 ${Math.round(r.fillFactor * 100)}%`;
-  $('scanMeta').innerHTML = `<b>${L.name}</b> → ${L.dye}<br><span class="sw" style="background:#7ee787"></span>CH1 ${FILTERS[state.ch1Filter].label}<br><span class="sw" style="background:#ff7b72"></span>CH2 ${FILTERS[state.ch2Filter].label}<br>${DMS[state.detDM].label.split('（')[0]} · pinhole ${state.pinhole}`;
+  $('objNote').textContent = `${r.obj.label}：NA ${r.obj.na}，WD ${r.obj.wd} mm，瞳孔 ${r.obj.pupil} mm；光束填充率 ${Math.round(r.fillFactor * 100)}%，有效 NA ${fmt(r.effectiveNA)}`;
+  $('speedOut').textContent = `${state.scanSpeed} / 5 · ${sp.name}`;
+  $('speedNote').textContent = `像素停留 ${sp.dwell} μs，256 × 256 一幀 ${fmt(sp.frame, 2)} s。慢掃每像素收到的光子多、雜訊小（SNR ∝ √停留時間）；快掃顆粒明顯但能看即時動態。`;
+  // Z 軸卡 + 即時數值
+  const zs = (state.zOffset > 0 ? '+' : '') + state.zOffset.toFixed(1);
+  $('zOut').textContent = zs + ' μm'; $('zSlider').value = state.zOffset;
+  $('sZ').textContent = zs; $('sZBand').textContent = '±' + fmt(r.sliceThickness / 2, 1); $('sZIn').textContent = inSliceNames(true);
+  $('zSeqBtn').classList.toggle('on', state.zSeq); $('zSeqBtn').textContent = state.zSeq ? '■ 停止 Z 序列' : '▶ Z 序列';
+  $('zNote').textContent = state.zSeq ? `XYZ 掃描中：−${Z_RANGE} → +${Z_RANGE} μm 來回，每步 ${Z_STEP} μm、每層 ${fmt(zSeqLayerSec(), 2)} s${sp.frame > Z_SEQ_MAX_LAYER_S ? `（實機要等一幀 ${fmt(sp.frame, 2)} s，本頁加速示意）` : '（= 一幀）'}` : `切片內：${inSliceNames()}`;
+  drawZProfile();
+  $('scanMeta').innerHTML = `<b>${L.name}</b> → ${L.dye}<br><span class="sw" style="background:#7ee787"></span>CH1 ${FILTERS[state.ch1Filter].label}<br><span class="sw" style="background:#ff7b72"></span>CH2 ${FILTERS[state.ch2Filter].label}<br>${DMS[state.detDM].label.split('（')[0]} · pinhole ${state.pinhole}<br>速度 ${state.scanSpeed} · ${fmt(sp.frame, 2)} s/幀 · Z ${zs} μm`;
   $('legEx').style.background = L.color; $('legEm').style.background = L.fluorColor;
   $('hud').innerHTML = `<b>${L.name}</b> · ${r.obj.label} · pinhole ${state.pinhole} · <b>點擊</b>零件看說明`;
   // 3D 材質顏色
@@ -2617,17 +2817,73 @@ function syncUI() {
   $('lidBtn').classList.toggle('on', state.lidOpen); $('lidBtn').textContent = state.lidOpen ? '關上外殼' : '掀開外殼';
   $('xrayBtn').classList.toggle('on', state.xray); $('labelBtn').classList.toggle('on', state.labels);
   $('pinOut').textContent = state.pinhole; $('powerOut').textContent = state.power;
+  $('pinSlider').value = state.pinhole; $('speedSlider').value = state.scanSpeed;
   if (currentInfo) showInfo(currentInfo.part, currentInfo.objKey, false);
 }
 
 // 控制事件
-document.querySelectorAll('#laserChips button').forEach(b => b.addEventListener('click', () => { const wl = +b.dataset.laser; if (!LASERS[wl].installed) return; state.laser = wl; syncUI(); }));
-document.querySelectorAll('#dmChips button').forEach(b => b.addEventListener('click', () => { state.detDM = b.dataset.dm; syncUI(); }));
-document.querySelectorAll('#ch1Chips button').forEach(b => b.addEventListener('click', () => { state.ch1Filter = b.dataset.f; syncUI(); }));
-document.querySelectorAll('#ch2Chips button').forEach(b => b.addEventListener('click', () => { state.ch2Filter = b.dataset.f; syncUI(); }));
-document.querySelectorAll('#objChips button').forEach(b => b.addEventListener('click', () => { state.objective = b.dataset.obj; syncUI(); }));
-$('pinSlider').addEventListener('input', e => { state.pinhole = +e.target.value; syncUI(); });
-$('powerSlider').addEventListener('input', e => { state.power = +e.target.value; syncUI(); });
+document.querySelectorAll('#laserChips button').forEach(b => b.addEventListener('click', () => { const wl = +b.dataset.laser; if (!LASERS[wl].installed) return; state.laser = wl; syncUI(); redrawImage(); }));
+document.querySelectorAll('#dmChips button').forEach(b => b.addEventListener('click', () => { state.detDM = b.dataset.dm; syncUI(); redrawImage(); }));
+document.querySelectorAll('#ch1Chips button').forEach(b => b.addEventListener('click', () => { state.ch1Filter = b.dataset.f; syncUI(); redrawImage(); }));
+document.querySelectorAll('#ch2Chips button').forEach(b => b.addEventListener('click', () => { state.ch2Filter = b.dataset.f; syncUI(); redrawImage(); }));
+document.querySelectorAll('#objChips button').forEach(b => b.addEventListener('click', () => { state.objective = b.dataset.obj; syncUI(); redrawImage(); }));
+$('pinSlider').addEventListener('input', e => { state.pinhole = +e.target.value; syncUI(); redrawImage(); });
+$('speedSlider').addEventListener('input', e => { state.scanSpeed = +e.target.value; syncUI(); applyScanSpeed(); });
+$('speedInfo').addEventListener('click', e => { e.preventDefault(); showInfo('scanSpeed'); });
+$('zSlider').addEventListener('input', e => { state.zSeq = false; setZ(+e.target.value); });      // 手動拉 Z 就停掉 Z 序列
+$('zSeqBtn').addEventListener('click', () => {
+  state.zSeq = !state.zSeq;
+  if (state.zSeq) { zSeq.pos = state.zOffset; zSeq.dir = state.zOffset >= Z_RANGE ? -1 : 1; }
+  syncUI();
+});
+$('zInfo').addEventListener('click', e => { e.preventDefault(); showInfo('zProfile'); });
+window.addEventListener('resize', () => drawZProfile());
+
+// ---------- Z 剖面小圖：橫向 = 深度 z；四條染料深度帶、目前焦平面（豎線）、目前光學切片厚度（半透明帶）----------
+const zpCanvas = $('zProfile'), zpCtx = zpCanvas.getContext('2d');
+// 版面（CSS 像素，畫布高 ZP_H = 92）：左側 ZP_NAME_W 專用欄放染料名（豎線／切片帶只畫在右側色帶區，永遠不壓字）；
+// 頂列 0..12 = 焦平面三角標記 + 「切片 x.x μm」（不壓到色帶）；四條 15 px 色帶；底部軸線與 9 px 刻度
+const ZP_H = 92, ZP_NAME_W = 104, ZP_FONT = '"Noto Sans TC", "PingFang TC", system-ui, sans-serif';
+function drawZProfile() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), W = zpCanvas.clientWidth || 300, Hh = ZP_H;
+  const pw = Math.round(W * dpr), ph = Math.round(Hh * dpr);
+  if (zpCanvas.width !== pw || zpCanvas.height !== ph) { zpCanvas.width = pw; zpCanvas.height = ph; }
+  const g = zpCtx, r = optics, exc = EXC[state.laser], z = state.zOffset;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh);
+  const x0 = 6 + ZP_NAME_W, x1 = W - 8, zMin = -Z_RANGE - 2.5, zMax = Z_RANGE + 2.5, X = v => x0 + (v - zMin) / (zMax - zMin) * (x1 - x0);   // 兩端多留 2.5 μm，讓「+12 μm」刻度不貼右緣
+  const laneTop = 13, laneH = 15, lanesBot = laneTop + 4 * laneH;
+  g.textBaseline = 'middle';
+  // 光學切片帶（FWHM）：只畫在色帶區（x0 起），頂列留給標籤、名字欄不畫
+  const bx0 = Math.max(x0, X(z - r.sliceThickness / 2)), bx1 = Math.min(x1, X(z + r.sliceThickness / 2)), bTop = laneTop - 2, bH = lanesBot - bTop;
+  g.fillStyle = 'rgba(110,198,255,0.16)'; g.fillRect(bx0, bTop, bx1 - bx0, bH);
+  g.fillStyle = 'rgba(110,198,255,0.45)'; g.fillRect(bx0, bTop, 1, bH); g.fillRect(bx1 - 1, bTop, 1, bH);
+  // 染料深度帶：亮 = 目前雷射能激發；淡 + 名字後綴「不激發」= 本雷射幾乎不激發。外圈淡帶 = ±厚度（高斯尾巴），內圈 = FWHM
+  let i = 0;
+  for (const d in DYE_Z) {
+    const L = DYE_Z[d], y = laneTop + i * laneH, on = exc[d] >= 0.1, inS = zw[d] && zw[d].wIn >= 0.5;
+    g.globalAlpha = on ? 0.18 : 0.07; g.fillStyle = L.color;
+    g.beginPath(); g.roundRect(X(L.zc - L.thick), y + 2, X(L.zc + L.thick) - X(L.zc - L.thick), laneH - 4, 3); g.fill();
+    g.globalAlpha = on ? 0.95 : 0.3;
+    g.beginPath(); g.roundRect(X(L.zc - L.thick / 2), y + 2, X(L.zc + L.thick / 2) - X(L.zc - L.thick / 2), laneH - 4, 3); g.fill();
+    g.globalAlpha = 1; g.textAlign = 'left'; g.font = `10px ${ZP_FONT}`;
+    g.fillStyle = inS && on ? '#e8e9ee' : (on ? '#98a0b0' : '#5f6878'); g.fillText(L.zh, 6, y + laneH / 2);
+    if (!on) { const nw = g.measureText(L.zh).width; g.font = `8px ${ZP_FONT}`; g.fillText('不激發', Math.min(6 + nw + 4, x0 - 26), y + laneH / 2); }
+    i++;
+  }
+  // 目前焦平面：豎線 + 頂端三角標記；「切片 x.x μm」放在頂列標記旁（靠右時改放左邊）
+  const zx = X(z), right = zx > W - 72;
+  g.fillStyle = '#6ec6ff'; g.fillRect(zx - 0.75, 4, 1.5, lanesBot - 3);
+  g.beginPath(); g.moveTo(zx - 4, 1); g.lineTo(zx + 4, 1); g.lineTo(zx, 6); g.closePath(); g.fill();
+  g.font = `bold 10px ${ZP_FONT}`; g.textAlign = right ? 'right' : 'left';
+  g.fillText(`切片 ${fmt(r.sliceThickness, 1)} μm`, zx + (right ? -7 : 7), 6);
+  // 軸：單位併進最後一個刻度（「+12 μm」），不再另外右對齊寫 μm 而與 +12 重疊
+  g.font = `9px ${ZP_FONT}`; g.fillStyle = '#5c6474'; g.fillRect(x0, lanesBot + 3, x1 - x0, 1);
+  for (const v of [-12, -6, 0, 6, 12]) {
+    const x = X(v); g.fillStyle = '#5c6474'; g.fillRect(x - 0.5, lanesBot + 3, 1, 3);
+    g.fillStyle = '#7a8394'; g.textAlign = 'center'; g.fillText((v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + (v === Z_RANGE ? ' μm' : ''), x, lanesBot + 13);
+  }
+}
+$('powerSlider').addEventListener('input', e => { state.power = +e.target.value; syncUI(); redrawImage(); });
 $('exToggle').addEventListener('change', e => { state.showEx = e.target.checked; });
 $('emToggle').addEventListener('change', e => { state.showEm = e.target.checked; });
 $('scanToggle').addEventListener('change', e => { state.scanning = e.target.checked; });
@@ -2682,17 +2938,25 @@ function highlight(part, objKey) {
     o.renderOrder = 2; m.parent.add(o); outlines.push(o);
   }
 }
+function zStr() { return (state.zOffset > 0 ? '+' : '') + state.zOffset.toFixed(1) + ' μm'; }
 function liveRows(part, objKey) {
   const r = optics, L = LASERS[state.laser], rows = [];
   switch (part) {
     case 'objective': { const o = OBJECTIVES[objKey || state.objective]; rows.push(['型號', o.label], ['NA', o.na], ['工作距離 WD', o.wd + ' mm'], ['瞳孔直徑', o.pupil + ' mm'], ['浸液', o.oil ? '油 (n=1.515)' : '空氣']); if ((objKey || state.objective) === state.objective) rows.push(['焦點光斑半徑', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break; }
-    case 'focus': case 'sample': rows.push(['雷射', L.name], ['有效 NA', fmt(r.effectiveNA)], ['光斑半徑 (1/e²)', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['主要染料', L.dye]); break;
-    case 'pinhole': case 'pinholeKnob': case 'confocalLens': case 'collLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break;
+    case 'focus': case 'sample': rows.push(['雷射', L.name], ['有效 NA', fmt(r.effectiveNA)], ['光斑半徑 (1/e²)', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['主要染料', L.dye], ['Z 位置', zStr()], ['切片內結構', inSliceNames()]); break;
+    case 'pinhole': case 'pinholeKnob': case 'confocalLens': case 'collLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU（以螢光 ' + L.emPeak + ' nm 計）'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm（1 AU = ' + fmt(2 * r.airyAtPinhole, 0) + ' μm 孔徑）'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['Z 位置', zStr()], ['切片內結構', inSliceNames()]); break;
+    case 'focusKnob': case 'focusMotor': case 'turret': case 'zProfile': {
+      // 每層：切片內比例 wIn；大 pinhole 時主導影像的離焦霧 wOut 也一起列，才對得上影像裡的模糊層
+      const off = []; for (const d in DYE_Z) { const w = zw[d] || { wIn: 0, wOut: 0 }; off.push(`${DYE_Z[d].tag} ${Math.round(w.wIn * 100)}%` + (w.wOut >= 0.05 ? `（+離焦霧 ${Math.round(w.wOut * 100)}%）` : '')); }
+      rows.push(['Z 位置', zStr()], ['Z 序列', state.zSeq ? `進行中（${zSeq.dir > 0 ? '↑ 往深' : '↓ 往物鏡'}，每層 ${fmt(zSeqLayerSec(), 2)} s ≈ ${fmt(zSeqRate(), 1)} μm/s）` : `停止（啟動後每層等 ${fmt(zSeqLayerSec(), 2)} s，隨掃描速度；示意）`], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm（pinhole ' + state.pinhole + '，' + fmt(r.airyUnits, 1) + ' AU）'], ['切片內結構', inSliceNames()], ['各層在切片內的比例（+離焦霧）', off.join(' · ')], ['3D 位移', fmt(state.zOffset * Z_SCALE, 2) + ' 單位（1 μm = ' + Z_SCALE + '，放大示意）'], ['旋鈕轉角', fmt(state.zOffset * KNOB_RAD_PER_UM * 180 / Math.PI, 0) + '°']);
+      if (part === 'turret') rows.unshift(['目前物鏡', OBJECTIVES[state.objective].label]);
+      break; }
     case 'detDM': rows.push(['目前', DMS[state.detDM].label], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['→ CH1', Math.round(r.ch1Frac / 0.9 * 100) + ' %（含 BA）'], ['→ CH2', Math.round(r.ch2Frac / 0.9 * 100) + ' %（含 BA）']); break;
     case 'ba1': case 'pmt1': case 'foldMirror': rows.push(['目前濾片', FILTERS[state.ch1Filter].label], ['通帶', FILTERS[state.ch1Filter].type === 'open' ? '全開' : FILTERS[state.ch1Filter].type === 'lp' ? `> ${FILTERS[state.ch1Filter].lo} nm` : `${FILTERS[state.ch1Filter].lo}–${FILTERS[state.ch1Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH1 訊號', Math.round(r.ch1Signal * 100) + ' %']); break;
     case 'ba2': case 'pmt2': rows.push(['目前濾片', FILTERS[state.ch2Filter].label], ['通帶', FILTERS[state.ch2Filter].type === 'open' ? '全開' : FILTERS[state.ch2Filter].type === 'lp' ? `> ${FILTERS[state.ch2Filter].lo} nm` : `${FILTERS[state.ch2Filter].lo}–${FILTERS[state.ch2Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH2 訊號', Math.round(r.ch2Signal * 100) + ' %']); break;
     case 'exDM': case 'fiber': case 'fiberPort': case 'combiner': rows.push(['目前雷射', L.name], ['激發', L.dyes], ['功率', state.power + ' %'], ['瞳孔填充率', Math.round(r.fillFactor * 100) + ' %']); break;
-    case 'galvoX': case 'galvoY': rows.push(['掃描', state.scanning ? '進行中' : '停止'], ['影像', `${N} × ${N} px（示意）`], ['行時間', (1000 / scan.linesPerSec).toFixed(0) + ' ms'], ['幀時間', (N / scan.linesPerSec).toFixed(1) + ' s']); break;
+    case 'galvoX': case 'galvoY': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push(['掃描', state.scanning ? '進行中' : '停止'], ['掃描速度', `${state.scanSpeed}（${sp.name}）`], ['影像', '256 × 256 px'], ['像素停留', sp.dwell + ' μs'], ['行時間', (sp.frame / 256 * 1000).toFixed(1) + ' ms'], ['幀時間', fmt(sp.frame, 2) + ' s'], ['3D 動畫', `${scan.linesPerSec} 行/s（放慢示意）`]); break; }
+    case 'scanSpeed': case 'monitor': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push(['掃描速度', `${state.scanSpeed} / 5（${sp.name}）`], ['像素停留', sp.dwell + ' μs'], ['幀時間 (256²)', fmt(sp.frame, 2) + ' s'], ['SNR（示意，中等亮度像素）', fmt(snrEstimate(), 0) + `（功率 ${state.power} %、收光 ${Math.round(r.pinholeEff * 100)} %）`], ['Pinhole', `${state.pinhole}（${fmt(r.airyUnits, 1)} AU）`], ['Z 序列每層', fmt(zSeqLayerSec(), 2) + ' s（= 一幀，上限 1 s）']); break; }
   }
   if (part.startsWith('laser')) { const wl = +part.slice(5); const l = LASERS[wl]; rows.push(['狀態', l.installed ? (wl === state.laser ? '已安裝 · 使用中' : '已安裝') : '未安裝（預留）'], ['光束直徑', l.beamDia + ' mm'], ['發射峰 (' + l.dye + ')', l.emPeak + ' nm']); }
   return rows;
@@ -2740,8 +3004,11 @@ for (const wl of [543, 633]) laserGroups[wl].traverse(m => { if (m.isMesh) m.use
 // 3D 標籤
 const labelLayer = $('labels');
 const _wp = new THREE.Vector3();
+const _lblVis = [], _lblPlaced = [];
+const _lblOverlap = (r, s) => r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h;
 function updateLabels() {
   const show = state.labels;
+  _lblVis.length = 0;
   for (const a of labelAnchors) {
     if (!a.el) { a.el = document.createElement('div'); a.el.className = 'lbl3d'; a.el.textContent = a.text; labelLayer.appendChild(a.el); }
     if (!show || (a.interior && !state.lidOpen && !state.xray)) { a.el.style.display = 'none'; continue; }
@@ -2750,9 +3017,23 @@ function updateLabels() {
     _wp.project(camera);
     if (_wp.z > 1 || Math.abs(_wp.x) > 1.1 || Math.abs(_wp.y) > 1.1) { a.el.style.display = 'none'; continue; }
     a.el.style.display = 'block';
-    a.el.style.left = ((_wp.x + 1) / 2 * viewport.clientWidth) + 'px';
-    a.el.style.top = ((1 - _wp.y) / 2 * viewport.clientHeight) + 'px';
-    a.el.classList.toggle('dim', dist > 220);
+    if (!a.w) { a.w = a.el.offsetWidth || 80; a.h = a.el.offsetHeight || 18; }   // 文字不變，量一次就好
+    _lblVis.push({ a, dist, x: (_wp.x + 1) / 2 * viewport.clientWidth, y: (1 - _wp.y) / 2 * viewport.clientHeight });
+  }
+  // 螢幕空間避讓：離相機近的先放；跟已放好的重疊就往上推一格（最多 4 格），仍推不開就先藏起來
+  // （全景時雷射區一堆小標籤才不會疊成一團；拉近看時距離變大、自然各自分開）
+  _lblVis.sort((p, q) => (q.a.prio - p.a.prio) || (p.dist - q.dist));   // 先看優先權，再看距離
+  _lblPlaced.length = 0;
+  for (const v of _lblVis) {
+    const a = v.a, w = a.w + 4, h = a.h + 6;                        // 含指示線與一點間距
+    const r = { x: v.x - w / 2, y: v.y - h, w, h };
+    let k = 0;
+    while (k < 4 && _lblPlaced.some(p => _lblOverlap(p, r))) { r.y -= h + 2; k++; }
+    if (_lblPlaced.some(p => _lblOverlap(p, r))) { a.el.style.display = 'none'; continue; }
+    _lblPlaced.push(r);
+    a.el.style.left = v.x + 'px';
+    a.el.style.top = (r.y + h) + 'px';
+    a.el.classList.toggle('dim', v.dist > 220);
   }
 }
 
@@ -2795,6 +3076,17 @@ function animate() {
 
   // 轉盤 / pinhole / DM 滑軌
   turretAngle = angleLerp(turretAngle, turretAngleFor(state.objective), k); turret.rotation.y = turretAngle;
+  // Z 軸：Z 序列自動來回（連續位置，每過一個 Z_STEP 才更新影像／UI）；轉盤（含物鏡）上下、微調鈕與馬達聯軸器轉動；載物台不動
+  if (state.zSeq) {
+    zSeq.pos += zSeq.dir * zSeqRate() * dt;      // 速度隨掃描速度：每層等一幀（上限 Z_SEQ_MAX_LAYER_S）
+    if (zSeq.pos >= Z_RANGE) { zSeq.pos = Z_RANGE; zSeq.dir = -1; } else if (zSeq.pos <= -Z_RANGE) { zSeq.pos = -Z_RANGE; zSeq.dir = 1; }
+    const q = Math.round(zSeq.pos / Z_STEP) * Z_STEP;
+    if (q !== state.zOffset) setZ(q);
+  }
+  zVis = lerp(zVis, state.zOffset * Z_SCALE, k); turret.position.y = TURRET_C.y + zVis;
+  const knobAngle = zVis / Z_SCALE * KNOB_RAD_PER_UM;
+  for (const f of focusKnobs) f.rotation.x = knobAngle;
+  if (focusCoupler) focusCoupler.rotation.x = knobAngle;
   wheelAngle = angleLerp(wheelAngle, (state.pinhole - 1) * Math.PI * 2 / 5, k); pinWheel.rotation.x = wheelAngle;
   pinKnob.rotation.z = -wheelAngle;   // 傘齒輪 1:1 連動：段位 1 指針朝正上方，每段順時針 72°（目標 = -(pinhole-1)·2π/5）
   sdmZ = lerp(sdmZ, -OPT.slot * DM_ORDER.indexOf(state.detDM), k); sdmSlider.position.z = sdmZ;
@@ -2858,12 +3150,22 @@ function animate() {
   const v = VIEWS[location.hash.replace('#', '').split(',')[0]];
   if (v) { camera.position.set(...v.pos); controls.target.set(...v.tgt); if (v.lid) { state.lidOpen = true; lidAngle = -2.05; wallOpacity = 0.12; } if (v.xray) { state.xray = true; xrayMix = 1; } }
   if (location.hash.includes('labels')) state.labels = true;
-  const infoTok = location.hash.split(',').find(t => t.startsWith('info='));
+  const toks = location.hash.replace(/^#/, '').split(',');   // 先去掉 '#'，否則 info=/z=/pin=/zseq 放在第一個 token 時比對不到
+  const infoTok = toks.find(t => t.startsWith('info='));
   if (infoTok) setTimeout(() => showInfo(infoTok.slice(5)), 0);
+  // #focus,z=4,pin=1：直接指定 Z 位置與 pinhole 段位（教材連結／截圖用）
+  const zTok = toks.find(t => t.startsWith('z=')), pinTok = toks.find(t => t.startsWith('pin='));
+  if (pinTok && PINHOLE_DIAMETERS[+pinTok.slice(4)]) state.pinhole = +pinTok.slice(4);
+  if (zTok && Number.isFinite(+zTok.slice(2))) state.zOffset = Math.max(-Z_RANGE, Math.min(Z_RANGE, Math.round(+zTok.slice(2) / Z_STEP) * Z_STEP));
+  if (toks.includes('zseq')) { state.zSeq = true; zSeq.pos = state.zOffset; }
 }
 syncUI();
+redrawImage();          // 依網址指定的 Z / pinhole 重畫一次（rescanAll 在解析網址前已跑過）
 $('loading').remove();
 animate();
+// window.__fv：有意保留的公開測試介面（playwright 自動測試 scratchpad/pw/*.js 與 console 除錯用，例如 window.__fv.scan.pos、window.__fv.setZ(4)）。
+// 頁面本身不依賴它；改名或移除前請同步更新測試腳本。
+window.__fv = { state, scan, optics: () => optics, SCAN_SPEEDS, computeOptics, syncUI, applyScanSpeed, setZ, redrawImage, DYE_Z, zw: () => zw, zVis: () => zVis, turret, focusKnobs };
 </script>
 </body>
 </html>
