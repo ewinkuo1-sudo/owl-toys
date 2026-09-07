@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I/Q 零差解調遊樂場 🦉</title>
+<style>
+  :root {
+    --bg: #14161c; --panel: #1d2028; --panel2: #262b36; --ink: #e6e6ec; --muted: #9aa0ae; --faint: #5c6270;
+    --accent: #6ec6ff; --ref: #ffb86c; --green: #7ee787; --pink: #ff7eb6; --red: #ff6b6b; --violet: #c9a5ff;
+    --grid: #2e3340; --raman: #7ee787; --fluo: #ff7eb6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px; background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  p.sub { color: var(--muted); font-size: 0.82rem; margin: 0; max-width: 900px; text-align: center; line-height: 1.7; }
+  p.sub b { color: var(--ink); }
+  p.sub code { color: var(--accent); background: none; }
+  .tabs { display: flex; gap: 0; margin-top: 2px; }
+  .tabs button {
+    background: transparent; color: var(--muted); border: 1px solid var(--grid);
+    padding: 7px 16px; font-size: 0.85rem; cursor: pointer; font-family: inherit; transition: all .15s;
+  }
+  .tabs button:first-child { border-radius: 8px 0 0 8px; }
+  .tabs button:last-child { border-radius: 0 8px 8px 0; }
+  .tabs button.active { background: var(--panel2); color: var(--ink); border-color: var(--accent); }
+  .section { display: none; width: 100%; max-width: 1060px; }
+  .section.active { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: flex-start; width: 100%; }
+  .col { display: flex; flex-direction: column; gap: 12px; flex: 1 1 400px; min-width: 0; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .panel h2 { font-size: 0.9rem; margin: 0 0 8px 2px; font-weight: 600; }
+  .panel h2 small { color: var(--muted); font-weight: 400; font-size: 0.73rem; }
+  canvas { display: block; width: 100%; border-radius: 8px; }
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px; width: 280px; flex: 0 0 280px;
+  }
+  .sec { font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 2px; gap: 6px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); cursor: pointer; }
+  .toggle input { accent-color: var(--ref); }
+  .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 0.8rem; }
+  .readout div { display: flex; justify-content: space-between; gap: 6px; border-bottom: 1px dashed var(--grid); padding: 2px 0; }
+  .readout span:last-child { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .readout .hl span:last-child { color: var(--ref); }
+  .info { font-size: 0.78rem; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--grid); padding-top: 8px; margin-top: 4px; }
+  .info b { color: var(--ink); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.74rem; cursor: pointer; font-family: inherit;
+  }
+  .presets button:hover { border-color: var(--ref); }
+  @media (max-width: 700px) {
+    body { padding: 10px; }
+    .controls { width: 100%; flex: 1 1 100%; }
+    .col { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<h1>I/Q 零差解調遊樂場</h1>
+<p class="sub">
+  卓 lab 偵測鏈的核心：PMT 收到的 80 MHz 載波裡，<b>拉曼光子</b>（τ≈0）和<b>螢光光子</b>（τ>0）的相位不同。
+  兩顆混頻器搭 90° 正交參考做 I/Q 解調，算出 <code>振幅 √(I²+Q²)</code> 和 <code>相位 φ = atan2(Q, I)</code>，
+  就能在同一張影像裡把兩者分開——<b>不需要光學濾片</b>。
+</p>
+
+<div class="tabs" id="tabBar">
+  <button class="active" data-tab="chain">訊號鏈</button>
+  <button data-tab="phasor">I-Q 平面</button>
+  <button data-tab="image">合成影像</button>
+</div>
+
+<!-- ===== TAB 1: Signal Chain ===== -->
+<div class="section active" id="sec-chain">
+  <div class="wrap">
+    <div class="col" style="flex:1 1 620px">
+      <div class="panel">
+        <h2>① PMT 輸出 <small>80 MHz 載波 × 螢光衰減包絡</small></h2>
+        <canvas id="cPmt" height="150"></canvas>
+      </div>
+      <div class="panel">
+        <h2>② 混頻器輸出 <small>訊號 × 參考（藍=I路 0°, 橘=Q路 90°）</small></h2>
+        <canvas id="cMix" height="150"></canvas>
+      </div>
+      <div class="panel">
+        <h2>③ 低通後 → SR570 <small>只剩 DC 分量（I 和 Q 值）</small></h2>
+        <canvas id="cDC" height="120"></canvas>
+      </div>
+    </div>
+    <div class="controls" id="ctrlChain">
+      <div class="sec">樣品參數</div>
+      <div class="ctl">
+        <label>螢光壽命 τ <output id="oTau1">2.0 ns</output></label>
+        <input type="range" id="sTau1" min="0" max="8" step="0.1" value="2">
+      </div>
+      <div class="ctl">
+        <label>拉曼佔比 <output id="oRaman1">30%</output></label>
+        <input type="range" id="sRaman1" min="0" max="100" step="1" value="30">
+      </div>
+      <div class="sec">儀器</div>
+      <div class="ctl">
+        <label>φ₀ 儀器偏移 <output id="oPhi0">0°</output></label>
+        <input type="range" id="sPhi0" min="-90" max="90" step="1" value="0">
+      </div>
+      <div class="ctl">
+        <label>雜訊 <output id="oNoise1">低</output></label>
+        <input type="range" id="sNoise1" min="0" max="100" step="1" value="15">
+      </div>
+      <div class="sec">預設情境</div>
+      <div class="presets" id="presets1">
+        <button data-p="raman">純拉曼</button>
+        <button data-p="fluo">純螢光</button>
+        <button data-p="mix">混合</button>
+        <button data-p="nadh">NADH</button>
+      </div>
+      <div class="sec">讀數</div>
+      <div class="readout" id="readout1"></div>
+      <div class="info">
+        <b>重點：</b>拉曼 τ≈0 → Q≈0，螢光 τ>0 → Q>0。
+        φ₀ 是電纜和電路的延遲，沒校正前相位圖不能當 τ 用。
+        調 φ₀ 滑桿看看整個訊號怎麼旋轉。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 2: I-Q Phasor ===== -->
+<div class="section" id="sec-phasor">
+  <div class="wrap">
+    <div class="col" style="flex:1 1 500px">
+      <div class="panel">
+        <h2>I-Q 平面 <small>每個點 = 一個像素的 (I, Q) 值</small></h2>
+        <canvas id="cIQ" width="500" height="500"></canvas>
+        <div class="legend" style="margin-top:8px">
+          <span><span class="dot" style="background:var(--raman)"></span> 拉曼 (τ≈0)</span>
+          <span><span class="dot" style="background:var(--fluo)"></span> 螢光 (τ>0)</span>
+          <span><span class="dot" style="background:var(--ref)"></span> 混合</span>
+          <span><span class="dot" style="background:var(--violet)"></span> 加上 φ₀ 後</span>
+        </div>
+      </div>
+    </div>
+    <div class="controls" id="ctrlPhasor">
+      <div class="sec">螢光</div>
+      <div class="ctl">
+        <label>τ <output id="oTau2">2.0 ns</output></label>
+        <input type="range" id="sTau2" min="0.1" max="8" step="0.1" value="2">
+      </div>
+      <div class="sec">混合比</div>
+      <div class="ctl">
+        <label>拉曼佔比 <output id="oRaman2">30%</output></label>
+        <input type="range" id="sRaman2" min="0" max="100" step="1" value="30">
+      </div>
+      <div class="sec">儀器偏移</div>
+      <div class="ctl">
+        <label>φ₀ <output id="oPhi02">0°</output></label>
+        <input type="range" id="sPhi02" min="-90" max="90" step="1" value="0">
+      </div>
+      <div class="sec">顯示</div>
+      <label class="toggle"><input type="checkbox" id="cbSweep" checked> τ 掃描軌跡 (0→8 ns)</label>
+      <label class="toggle"><input type="checkbox" id="cbUC"> 萬用半圓</label>
+      <div class="sec">讀數</div>
+      <div class="readout" id="readout2"></div>
+      <div class="info">
+        <b>觀察：</b>拉曼在 I 軸上（φ=0），螢光隨 τ 增加沿半圓移動。
+        混合訊號落在兩者的連線上。
+        φ₀ 把所有點繞原點旋轉 — 校正就是把拉曼點轉回 I 軸。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: Synthetic Image ===== -->
+<div class="section" id="sec-image">
+  <div class="wrap">
+    <div class="col" style="flex:1 1 620px">
+      <div class="panel" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+        <div style="text-align:center">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Ch1 (I)</div>
+          <canvas id="cI" width="200" height="200"></canvas>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Ch2 (Q)</div>
+          <canvas id="cQ" width="200" height="200"></canvas>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">振幅 √(I²+Q²)</div>
+          <canvas id="cAmp" width="200" height="200"></canvas>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">相位 φ</div>
+          <canvas id="cPhi" width="200" height="200"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>合成組織 <small>綠=拉曼區、粉=螢光區、橘=混合區</small></h2>
+        <canvas id="cTissue" width="600" height="200"></canvas>
+      </div>
+    </div>
+    <div class="controls" id="ctrlImage">
+      <div class="sec">組織參數</div>
+      <div class="ctl">
+        <label>螢光區 τ <output id="oTau3">3.0 ns</output></label>
+        <input type="range" id="sTau3" min="0.5" max="8" step="0.1" value="3">
+      </div>
+      <div class="ctl">
+        <label>混合區拉曼% <output id="oMix3">50%</output></label>
+        <input type="range" id="sMix3" min="0" max="100" step="1" value="50">
+      </div>
+      <div class="ctl">
+        <label>φ₀ <output id="oPhi03">0°</output></label>
+        <input type="range" id="sPhi03" min="-90" max="90" step="1" value="0">
+      </div>
+      <div class="ctl">
+        <label>光子雜訊 <output id="oNoise3">中</output></label>
+        <input type="range" id="sNoise3" min="0" max="100" step="1" value="30">
+      </div>
+      <div class="info">
+        <b>Fiji 重建步驟：</b><br>
+        ① Ch2 ÷ Ch1 → atan → ×57.3 = 相位(°)<br>
+        ② Ch1² + Ch2² → √ = 振幅<br>
+        拉曼區 φ≈0（暗色），螢光區 φ>0（亮色）。<br>
+        <b>調 φ₀ 看「沒校正的相位圖」會怎樣。</b>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const TAU_2PI = 2 * Math.PI;
+const F_MOD = 80e6;
+const OMEGA = TAU_2PI * F_MOD;
+const T_PERIOD = 1 / F_MOD;
+
+// --- Tab switching ---
+document.getElementById('tabBar').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sec-' + btn.dataset.tab).classList.add('active');
+  draw();
+});
+
+// --- Presets ---
+const PRESETS = {
+  raman:  { tau: 0, raman: 100, phi0: 0, noise: 15 },
+  fluo:   { tau: 3.5, raman: 0, phi0: 0, noise: 15 },
+  mix:    { tau: 2, raman: 30, phi0: 0, noise: 15 },
+  nadh:   { tau: 0.4, raman: 10, phi0: 0, noise: 25 },
+};
+document.getElementById('presets1').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const p = PRESETS[btn.dataset.p];
+  sTau1.value = p.tau; sRaman1.value = p.raman; sPhi0.value = p.phi0; sNoise1.value = p.noise;
+  updateOutputs(); draw();
+});
+
+// --- Slider refs ---
+const sTau1 = document.getElementById('sTau1'), sRaman1 = document.getElementById('sRaman1');
+const sPhi0 = document.getElementById('sPhi0'), sNoise1 = document.getElementById('sNoise1');
+const sTau2 = document.getElementById('sTau2'), sRaman2 = document.getElementById('sRaman2');
+const sPhi02 = document.getElementById('sPhi02');
+const sTau3 = document.getElementById('sTau3'), sMix3 = document.getElementById('sMix3');
+const sPhi03 = document.getElementById('sPhi03'), sNoise3 = document.getElementById('sNoise3');
+const cbSweep = document.getElementById('cbSweep'), cbUC = document.getElementById('cbUC');
+
+function noiseLabel(v) { return v < 20 ? '低' : v < 50 ? '中' : v < 80 ? '高' : '極高'; }
+
+function updateOutputs() {
+  document.getElementById('oTau1').textContent = (+sTau1.value).toFixed(1) + ' ns';
+  document.getElementById('oRaman1').textContent = sRaman1.value + '%';
+  document.getElementById('oPhi0').textContent = sPhi0.value + '°';
+  document.getElementById('oNoise1').textContent = noiseLabel(+sNoise1.value);
+  document.getElementById('oTau2').textContent = (+sTau2.value).toFixed(1) + ' ns';
+  document.getElementById('oRaman2').textContent = sRaman2.value + '%';
+  document.getElementById('oPhi02').textContent = sPhi02.value + '°';
+  document.getElementById('oTau3').textContent = (+sTau3.value).toFixed(1) + ' ns';
+  document.getElementById('oMix3').textContent = sMix3.value + '%';
+  document.getElementById('oPhi03').textContent = sPhi03.value + '°';
+  document.getElementById('oNoise3').textContent = noiseLabel(+sNoise3.value);
+}
+
+document.querySelectorAll('input[type=range], input[type=checkbox]').forEach(el => {
+  el.addEventListener('input', () => { updateOutputs(); draw(); });
+});
+
+// --- Physics ---
+function iqForTau(tau_ns, phi0_deg) {
+  const tau = tau_ns * 1e-9;
+  const phi_signal = Math.atan(OMEGA * tau);
+  const m = 1 / Math.sqrt(1 + (OMEGA * tau) ** 2);
+  const phi0 = phi0_deg * Math.PI / 180;
+  const phi_total = phi_signal + phi0;
+  return { I: m * Math.cos(phi_total), Q: m * Math.sin(phi_total), phi_signal, m };
+}
+
+function iqMixed(tau_ns, ramanFrac, phi0_deg) {
+  const rF = ramanFrac;
+  const rR = 1 - rF;
+  const fluo = iqForTau(tau_ns, phi0_deg);
+  const raman = iqForTau(0, phi0_deg);
+  return {
+    I: rR * raman.I + rF * fluo.I,
+    Q: rR * raman.Q + rF * fluo.Q,
+  };
+}
+
+// --- Drawing helpers ---
+function setupCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width || rect.width;
+  const h = canvas.height || rect.height;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+function getCS(id) {
+  return getComputedStyle(document.documentElement).getPropertyValue(id).trim();
+}
+
+function drawGrid(ctx, w, h, xLabel, yLabel) {
+  ctx.strokeStyle = getCS('--grid');
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += w / 8) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  for (let y = 0; y <= h; y += h / 4) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+  if (xLabel) {
+    ctx.fillStyle = getCS('--faint');
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(xLabel, w - 4, h - 4);
+  }
+  if (yLabel) {
+    ctx.fillStyle = getCS('--faint');
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(yLabel, 4, 12);
+  }
+}
+
+// --- Tab 1: Signal Chain ---
+function drawChain() {
+  const tau_ns = +sTau1.value;
+  const ramanPct = +sRaman1.value;
+  const phi0_deg = +sPhi0.value;
+  const noiseAmt = +sNoise1.value / 100;
+  const tau = tau_ns * 1e-9;
+  const phi0 = phi0_deg * Math.PI / 180;
+  const ramanFrac = ramanPct / 100;
+
+  const N = 800;
+  const tMax = 3 * T_PERIOD;
+
+  // PMT canvas
+  {
+    const c = document.getElementById('cPmt');
+    c.width = 800; c.height = 150;
+    const { ctx, w, h } = setupCanvas(c);
+    ctx.fillStyle = getCS('--panel');
+    ctx.fillRect(0, 0, w, h);
+    drawGrid(ctx, w, h, 't (ns)', 'PMT signal');
+
+    const mid = h / 2;
+    const amp = h * 0.35;
+
+    // draw signal
+    ctx.beginPath();
+    ctx.strokeStyle = getCS('--accent');
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * tMax;
+      const tInPeriod = t % (1 / 40e6);
+      const envelope_fluo = Math.exp(-tInPeriod / (tau || 1e-15));
+      const envelope = ramanFrac > 0.999 ? 1 : (1 - ramanFrac) * 1 + ramanFrac * envelope_fluo;
+      const carrier = Math.cos(OMEGA * t + phi0);
+      const noise = noiseAmt * (Math.random() - 0.5) * 2;
+      const sig = envelope * carrier + noise * 0.5;
+      const x = (i / N) * w;
+      const y = mid - sig * amp;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // envelope
+    ctx.beginPath();
+    ctx.strokeStyle = getCS('--fluo');
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    for (let i = 0; i < N; i++) {
+      const t = (i / N) * tMax;
+      const tInPeriod = t % (1 / 40e6);
+      const env = ramanFrac > 0.999 ? 1 : (1 - ramanFrac) * 1 + ramanFrac * Math.exp(-tInPeriod / (tau || 1e-15));
+      const x = (i / N) * w;
+      const y = mid - env * amp;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // time labels
+    ctx.fillStyle = getCS('--faint');
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 3; i++) {
+      const tNs = (i * T_PERIOD * 1e9).toFixed(1);
+      ctx.fillText(tNs, (i / 3) * w, h - 2);
+    }
+  }
+
+  // Mixer canvas
+  {
+    const c = document.getElementById('cMix');
+    c.width = 800; c.height = 150;
+    const { ctx, w, h } = setupCanvas(c);
+    ctx.fillStyle = getCS('--panel');
+    ctx.fillRect(0, 0, w, h);
+    drawGrid(ctx, w, h, 't (ns)', 'mixer out');
+
+    const mid = h / 2, amp = h * 0.3;
+
+    for (let ch = 0; ch < 2; ch++) {
+      ctx.beginPath();
+      ctx.strokeStyle = ch === 0 ? getCS('--accent') : getCS('--ref');
+      ctx.lineWidth = 1.2;
+      const refPhase = ch * Math.PI / 2;
+      for (let i = 0; i < N; i++) {
+        const t = (i / N) * tMax;
+        const tInPeriod = t % (1 / 40e6);
+        const env_fluo = Math.exp(-tInPeriod / (tau || 1e-15));
+        const sig_fluo = env_fluo * Math.cos(OMEGA * t);
+        const sig_raman = Math.cos(OMEGA * t);
+        const sig = (1 - ramanFrac) * sig_raman + ramanFrac * sig_fluo;
+        const ref = Math.cos(OMEGA * t + phi0 + refPhase);
+        const mixed = sig * ref;
+        const noise = noiseAmt * (Math.random() - 0.5) * 0.3;
+        const x = (i / N) * w;
+        const y = mid - (mixed + noise) * amp;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // DC output canvas
+  {
+    const c = document.getElementById('cDC');
+    c.width = 800; c.height = 120;
+    const { ctx, w, h } = setupCanvas(c);
+    ctx.fillStyle = getCS('--panel');
+    ctx.fillRect(0, 0, w, h);
+
+    const iq = iqMixed(tau_ns, ramanFrac, phi0_deg);
+    const ampVal = Math.sqrt(iq.I ** 2 + iq.Q ** 2);
+    const phiVal = Math.atan2(iq.Q, iq.I) * 180 / Math.PI;
+
+    const barW = w * 0.35;
+    const barH = 20;
+    const maxBar = 1;
+
+    // I bar
+    const iX = w * 0.08;
+    ctx.fillStyle = getCS('--grid');
+    ctx.fillRect(iX, 20, barW, barH);
+    ctx.fillStyle = getCS('--accent');
+    ctx.fillRect(iX, 20, barW * Math.max(0, iq.I) / maxBar, barH);
+    ctx.fillStyle = getCS('--ink');
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('I = ' + iq.I.toFixed(3), iX, 60);
+
+    // Q bar
+    const qX = w * 0.55;
+    ctx.fillStyle = getCS('--grid');
+    ctx.fillRect(qX, 20, barW, barH);
+    ctx.fillStyle = getCS('--ref');
+    ctx.fillRect(qX, 20, barW * Math.max(0, iq.Q) / maxBar, barH);
+    ctx.fillStyle = getCS('--ink');
+    ctx.fillText('Q = ' + iq.Q.toFixed(3), qX, 60);
+
+    // Results
+    ctx.fillStyle = getCS('--green');
+    ctx.font = 'bold 13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(`振幅 = ${ampVal.toFixed(3)}    相位 φ = ${phiVal.toFixed(1)}°`, w / 2, 95);
+
+    if (Math.abs(phi0_deg) > 2) {
+      const truePhiDeg = Math.atan2(
+        iqMixed(tau_ns, ramanFrac, 0).Q,
+        iqMixed(tau_ns, ramanFrac, 0).I
+      ) * 180 / Math.PI;
+      ctx.fillStyle = getCS('--faint');
+      ctx.font = '11px system-ui';
+      ctx.fillText(`（真實 φ_signal = ${truePhiDeg.toFixed(1)}°，差值就是 φ₀ = ${phi0_deg}°）`, w / 2, 112);
+    }
+  }
+
+  // Readout
+  {
+    const iq = iqMixed(tau_ns, ramanFrac, phi0_deg);
+    const ampVal = Math.sqrt(iq.I ** 2 + iq.Q ** 2);
+    const phiVal = Math.atan2(iq.Q, iq.I) * 180 / Math.PI;
+    const truePhi = Math.atan(OMEGA * tau_ns * 1e-9) * 180 / Math.PI;
+    const tauRecov = Math.tan((phiVal - phi0_deg) * Math.PI / 180) / OMEGA * 1e9;
+
+    document.getElementById('readout1').innerHTML = `
+      <div><span>I</span><span>${iq.I.toFixed(3)}</span></div>
+      <div><span>Q</span><span>${iq.Q.toFixed(3)}</span></div>
+      <div><span>振幅</span><span>${ampVal.toFixed(3)}</span></div>
+      <div class="hl"><span>相位 φ</span><span>${phiVal.toFixed(1)}°</span></div>
+      <div><span>真實 φ_sig</span><span>${truePhi.toFixed(1)}°</span></div>
+      <div><span>τ 反推</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
+    `;
+  }
+}
+
+// --- Tab 2: I-Q Phasor ---
+function drawPhasor() {
+  const c = document.getElementById('cIQ');
+  c.width = 500; c.height = 500;
+  const { ctx, w, h } = setupCanvas(c);
+  ctx.fillStyle = getCS('--panel');
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2;
+  const R = w * 0.4;
+
+  // axes
+  ctx.strokeStyle = getCS('--grid');
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, cy); ctx.lineTo(w, cy);
+  ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
+  ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = getCS('--faint');
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'right'; ctx.fillText('I →', w - 6, cy - 6);
+  ctx.textAlign = 'center'; ctx.fillText('Q ↑', cx + 14, 14);
+
+  // scale ticks
+  ctx.fillStyle = getCS('--faint');
+  ctx.font = '9px system-ui';
+  ctx.textAlign = 'center';
+  for (let v = -1; v <= 1; v += 0.5) {
+    if (v === 0) continue;
+    const x = cx + v * R;
+    ctx.fillText(v.toFixed(1), x, cy + 14);
+    const y = cy - v * R;
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(1), cx - 6, y + 4);
+    ctx.textAlign = 'center';
+  }
+
+  const phi0_deg = +sPhi02.value;
+  const phi0 = phi0_deg * Math.PI / 180;
+  const tau_ns = +sTau2.value;
+  const ramanPct = +sRaman2.value;
+  const ramanFrac = ramanPct / 100;
+
+  // universal semicircle
+  if (cbUC.checked) {
+    ctx.beginPath();
+    ctx.strokeStyle = getCS('--faint');
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    const ucR = R * 0.5;
+    ctx.arc(cx + ucR * Math.cos(phi0), cy - ucR * Math.sin(phi0), ucR, 0, TAU_2PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // tau sweep trace
+  if (cbSweep.checked) {
+    ctx.beginPath();
+    ctx.strokeStyle = getCS('--violet');
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 2;
+    for (let t = 0; t <= 8; t += 0.05) {
+      const p = iqForTau(t, phi0_deg);
+      const x = cx + p.I * R;
+      const y = cy - p.Q * R;
+      t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // tick marks
+    ctx.fillStyle = getCS('--violet');
+    ctx.font = '9px system-ui';
+    ctx.textAlign = 'left';
+    for (let t of [0, 0.5, 1, 2, 4, 8]) {
+      const p = iqForTau(t, phi0_deg);
+      const x = cx + p.I * R;
+      const y = cy - p.Q * R;
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, TAU_2PI);
+      ctx.fill();
+      ctx.fillText(t + 'ns', x + 5, y - 3);
+    }
+  }
+
+  // Raman point (tau=0)
+  {
+    const p = iqForTau(0, phi0_deg);
+    const x = cx + p.I * R, y = cy - p.Q * R;
+    ctx.beginPath();
+    ctx.arc(x, y, 7, 0, TAU_2PI);
+    ctx.fillStyle = getCS('--raman');
+    ctx.fill();
+    ctx.fillStyle = getCS('--raman');
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('拉曼 τ=0', x + 10, y + 4);
+  }
+
+  // Fluo point
+  {
+    const p = iqForTau(tau_ns, phi0_deg);
+    const x = cx + p.I * R, y = cy - p.Q * R;
+    ctx.beginPath();
+    ctx.arc(x, y, 7, 0, TAU_2PI);
+    ctx.fillStyle = getCS('--fluo');
+    ctx.fill();
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(`螢光 τ=${tau_ns.toFixed(1)}`, x + 10, y + 4);
+  }
+
+  // Mixed point
+  {
+    const iq = iqMixed(tau_ns, ramanFrac, phi0_deg);
+    const x = cx + iq.I * R, y = cy - iq.Q * R;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, TAU_2PI);
+    ctx.fillStyle = getCS('--ref');
+    ctx.fill();
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(`混合 ${ramanPct}%R`, x + 10, y + 4);
+
+    // line from origin
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = getCS('--ref');
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // phi arc
+    const phiVal = Math.atan2(iq.Q, iq.I);
+    if (Math.abs(phiVal) > 0.02) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 30, -phiVal, 0, phiVal > 0);
+      ctx.strokeStyle = getCS('--ref');
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      ctx.stroke();
+      ctx.fillStyle = getCS('--ref');
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`φ=${(phiVal * 180 / Math.PI).toFixed(1)}°`, cx + 42, cy - 8);
+    }
+  }
+
+  // Readout
+  {
+    const iq = iqMixed(tau_ns, ramanFrac, phi0_deg);
+    const ampVal = Math.sqrt(iq.I ** 2 + iq.Q ** 2);
+    const phiVal = Math.atan2(iq.Q, iq.I) * 180 / Math.PI;
+    const tauRecov = Math.tan((phiVal - phi0_deg) * Math.PI / 180) / OMEGA * 1e9;
+    document.getElementById('readout2').innerHTML = `
+      <div><span>I</span><span>${iq.I.toFixed(3)}</span></div>
+      <div><span>Q</span><span>${iq.Q.toFixed(3)}</span></div>
+      <div><span>振幅</span><span>${ampVal.toFixed(3)}</span></div>
+      <div class="hl"><span>φ 量測</span><span>${phiVal.toFixed(1)}°</span></div>
+      <div><span>φ − φ₀</span><span>${(phiVal - phi0_deg).toFixed(1)}°</span></div>
+      <div><span>τ 反推</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
+    `;
+  }
+}
+
+// --- Tab 3: Synthetic Image ---
+function drawImage() {
+  const SIZE = 200;
+  const tau_ns = +sTau3.value;
+  const mixRaman = +sMix3.value / 100;
+  const phi0_deg = +sPhi03.value;
+  const noiseAmt = +sNoise3.value / 100;
+
+  // generate tissue map: 3 zones
+  const imgI = new Float32Array(SIZE * SIZE);
+  const imgQ = new Float32Array(SIZE * SIZE);
+  const zoneMap = new Uint8Array(SIZE * SIZE);
+
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const idx = y * SIZE + x;
+      let ramanFrac, localTau;
+
+      // zone layout: left=Raman fibers, center=mixed, right=fluorescence
+      const nx = x / SIZE;
+      const fibNoise = Math.sin(y * 0.15 + x * 0.05) * 0.08 + Math.sin(y * 0.08) * 0.05;
+
+      if (nx < 0.3 + fibNoise) {
+        ramanFrac = 0.95;
+        localTau = 0.05;
+        zoneMap[idx] = 0;
+      } else if (nx < 0.65 + fibNoise) {
+        ramanFrac = mixRaman;
+        localTau = tau_ns;
+        zoneMap[idx] = 1;
+      } else {
+        ramanFrac = 0.05;
+        localTau = tau_ns;
+        zoneMap[idx] = 2;
+      }
+
+      const intensity = 0.5 + 0.5 * Math.sin(y * 0.12 + x * 0.08) * Math.cos(x * 0.05 - y * 0.03);
+      const iq = iqMixed(localTau, ramanFrac, phi0_deg);
+      const noise1 = noiseAmt * (Math.random() - 0.5) * 0.3;
+      const noise2 = noiseAmt * (Math.random() - 0.5) * 0.3;
+      imgI[idx] = (iq.I * intensity + noise1);
+      imgQ[idx] = (iq.Q * intensity + noise2);
+    }
+  }
+
+  // helper: draw float array as image
+  function drawFloatImg(canvasId, data, cmap) {
+    const c = document.getElementById(canvasId);
+    c.width = SIZE; c.height = SIZE;
+    const ctx = c.getContext('2d');
+    const imgData = ctx.createImageData(SIZE, SIZE);
+
+    let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] < mn) mn = data[i];
+      if (data[i] > mx) mx = data[i];
+    }
+    const range = mx - mn || 1;
+
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - mn) / range;
+      const [r, g, b] = cmap(v);
+      imgData.data[i * 4] = r;
+      imgData.data[i * 4 + 1] = g;
+      imgData.data[i * 4 + 2] = b;
+      imgData.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // fire colormap
+  function fireCmap(v) {
+    v = Math.max(0, Math.min(1, v));
+    if (v < 0.25) return [v * 4 * 128, 0, v * 4 * 40];
+    if (v < 0.5) return [128 + (v - 0.25) * 4 * 127, (v - 0.25) * 4 * 100, 40 - (v - 0.25) * 4 * 40];
+    if (v < 0.75) return [255, 100 + (v - 0.5) * 4 * 155, 0];
+    return [255, 255, (v - 0.75) * 4 * 255];
+  }
+
+  // blue-white-red
+  function phaseCmap(v) {
+    v = Math.max(0, Math.min(1, v));
+    if (v < 0.5) {
+      const t = v * 2;
+      return [30 + t * 225, 30 + t * 225, 150 + t * 105];
+    } else {
+      const t = (v - 0.5) * 2;
+      return [255, 255 - t * 200, 255 - t * 200];
+    }
+  }
+
+  drawFloatImg('cI', imgI, fireCmap);
+  drawFloatImg('cQ', imgQ, fireCmap);
+
+  // amplitude
+  const ampData = new Float32Array(SIZE * SIZE);
+  for (let i = 0; i < ampData.length; i++) {
+    ampData[i] = Math.sqrt(imgI[i] ** 2 + imgQ[i] ** 2);
+  }
+  drawFloatImg('cAmp', ampData, fireCmap);
+
+  // phase
+  const phiData = new Float32Array(SIZE * SIZE);
+  for (let i = 0; i < phiData.length; i++) {
+    phiData[i] = Math.atan2(imgQ[i], imgI[i]) * 180 / Math.PI;
+  }
+  drawFloatImg('cPhi', phiData, phaseCmap);
+
+  // tissue ground truth
+  {
+    const c = document.getElementById('cTissue');
+    c.width = 600; c.height = 200;
+    const { ctx, w, h } = setupCanvas(c);
+    ctx.fillStyle = getCS('--panel');
+    ctx.fillRect(0, 0, w, h);
+
+    const scaleX = w / SIZE, scaleY = h / SIZE;
+    const imgData = ctx.createImageData(w, h);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const sx = Math.floor(x / scaleX);
+        const sy = Math.floor(y / scaleY);
+        const zone = zoneMap[sy * SIZE + sx];
+        let r, g, b;
+        if (zone === 0) { r = 126; g = 231; b = 135; }
+        else if (zone === 1) { r = 255; g = 184; b = 108; }
+        else { r = 255; g = 126; b = 182; }
+        const idx = (y * w + x) * 4;
+        const intensity = 0.5 + 0.5 * Math.sin(sy * 0.12 + sx * 0.08) * Math.cos(sx * 0.05 - sy * 0.03);
+        imgData.data[idx] = r * intensity;
+        imgData.data[idx + 1] = g * intensity;
+        imgData.data[idx + 2] = b * intensity;
+        imgData.data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    ctx.font = 'bold 14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillText('拉曼區', w * 0.15, h / 2 + 5);
+    ctx.fillText('混合區', w * 0.47, h / 2 + 5);
+    ctx.fillText('螢光區', w * 0.82, h / 2 + 5);
+  }
+}
+
+// --- Main draw ---
+function draw() {
+  const activeTab = document.querySelector('.tabs button.active').dataset.tab;
+  if (activeTab === 'chain') drawChain();
+  else if (activeTab === 'phasor') drawPhasor();
+  else if (activeTab === 'image') drawImage();
+}
+
+updateOutputs();
+draw();
+window.addEventListener('resize', draw);
+</script>
+</body>
+</html>
