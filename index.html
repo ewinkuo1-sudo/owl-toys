@@ -5,27 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🦉 Owl Toys</title>
 <style>
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --dim: #4a4f5c; --grid: #2e3340; --accent: #6ec6ff;
+    --card-shadow: none; --card-shadow-hover: none;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --ink: #1c1f27; --muted: #5b6272;
+    --dim: #8b91a0; --grid: #dfe2e9; --accent: #1e6fc0;
+    --card-shadow: 0 1px 3px rgba(20,24,40,0.06);
+    --card-shadow-hover: 0 3px 10px rgba(20,24,40,0.10);
+  }
   body {
     margin: 0; min-height: 100vh; padding: 48px 24px;
-    background: #14161c; color: #e6e6ec;
+    background: var(--bg); color: var(--ink);
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   h1 { font-size: 1.6rem; margin: 0; }
-  p.sub { color: #9aa0ae; margin: 0 0 24px; font-size: 0.9rem; }
+  p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
   a.card {
     display: block; width: min(560px, 100%);
-    background: #1d2028; border-radius: 12px; padding: 18px 20px;
+    background: var(--panel); border-radius: 12px; padding: 18px 20px;
     text-decoration: none; color: inherit; margin-bottom: 12px;
-    border: 1px solid #2e3340; transition: border-color 0.15s;
+    border: 1px solid var(--grid); box-shadow: var(--card-shadow);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  a.card:hover { border-color: #6ec6ff; }
-  .card h2 { margin: 0 0 6px; font-size: 1.05rem; color: #6ec6ff; }
-  .card p { margin: 0; font-size: 0.85rem; color: #9aa0ae; line-height: 1.6; }
-  footer { margin-top: auto; padding-top: 32px; color: #4a4f5c; font-size: 0.78rem; }
+  a.card:hover { border-color: var(--accent); box-shadow: var(--card-shadow-hover); }
+  .card h2 { margin: 0 0 6px; font-size: 1.05rem; color: var(--accent); }
+  .card p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+  footer { margin-top: auto; padding-top: 32px; color: var(--dim); font-size: 0.78rem; }
+  button.chip {
+    position: fixed; top: 14px; right: 16px; z-index: 5;
+    background: var(--panel); color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
 </style>
 </head>
 <body>
+<button class="chip" id="theme" title="切換深色／淺色"></button>
+<script>
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = document.getElementById('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+</script>
 <h1>🦉 Owl Toys</h1>
 <p class="sub">貓頭鷹隨手做的互動小玩具。不為發表，純粹讓抽象的東西變得可以玩。</p>
 

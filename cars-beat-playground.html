@@ -250,12 +250,12 @@ const rgba = (rgb, a) => `rgba(${rgb},${a})`;
 // 主題：預設淺色，記在 localStorage
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('cars-theme', t); } catch (e) {}
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
   $('theme').textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
   readColors();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('cars-theme') || t; } catch (e) {}
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
   if (q === 'dark' || q === 'light') t = q;
   setTheme(t);

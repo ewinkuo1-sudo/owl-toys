@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FV300 3D 互動顯微鏡 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #0f1116;
     --panel: #171a21;
     --panel2: #1e222b;
@@ -23,6 +24,39 @@
     --laser-488: #00bbff;
     --laser-543: #8aff5a;
     --laser-633: #ff4444;
+    --on-ink: #0c1219;                 /* 選中按鈕上的文字色 */
+    --panel-rgb: 23,26,33;             /* = --panel，給 rgba() 用 */
+    --accent-rgb: 110,198,255;         /* = --accent，給 rgba() 用 */
+    --zp-off: #5f6878;                 /* Z 剖面圖：不激發染料名 */
+    --zp-tick: #7a8394;                /* Z 剖面圖：刻度文字 */
+    --info-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    --card-shadow: none;
+    /* 3D 視窗上的疊層（標籤、HUD、載入字）永遠在深色場景上，兩主題共用同一組 */
+    --vp-ink: #e8e9ee;
+    --vp-muted: #98a0b0;
+    --vp-faint: #5c6474;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6;
+    --panel: #ffffff;
+    --panel2: #eceef3;
+    --line: #dfe2e9;
+    --ink: #1c1f27;
+    --muted: #5b6272;
+    --faint: #8b91a0;
+    --accent: #1e6fc0;
+    --accent-dim: rgba(30,111,192,0.12);
+    --green: #1f8f55;
+    --amber: #d4741a;
+    --red: #c9403a;
+    --on-ink: #ffffff;
+    --panel-rgb: 255,255,255;
+    --accent-rgb: 30,111,192;
+    --zp-off: #9aa0ae;
+    --zp-tick: #6b7280;
+    --info-shadow: 0 12px 40px rgba(20,24,40,0.18);
+    --card-shadow: 0 1px 3px rgba(20,24,40,0.06);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -56,30 +90,31 @@
   }
   .side::-webkit-scrollbar { width: 6px; }
   .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-  .viewport { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+  .viewport { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #0f1116; }   /* 3D 場景固定深色 */
   #c3d { display: block; width: 100%; height: 100%; touch-action: none; }
 
   /* ---------- cards / controls ---------- */
-  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--card-shadow); }
   .card h2 { font-size: 0.92rem; margin: 0 0 8px; font-weight: 650; display: flex; align-items: baseline; gap: 8px; }
   .card h2 small { font-size: 0.72rem; color: var(--muted); font-weight: 400; }
   h3 { font-size: 0.74rem; margin: 8px 0 6px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips button, .btn {
+  .chips button, .btn, .chip {
     padding: 5px 10px; cursor: pointer; font: inherit; font-size: 0.78rem;
     background: var(--panel); color: var(--muted);
     border: 1px solid var(--line); border-radius: 999px; transition: all .12s;
   }
-  .chips button:hover, .btn:hover { color: var(--ink); border-color: var(--faint); }
-  .chips button.on { background: var(--accent); color: #0c1219; border-color: var(--accent); font-weight: 600; }
+  .chips button:hover, .btn:hover, .chip:hover { color: var(--ink); border-color: var(--faint); }
+  .topbar .chip { white-space: nowrap; flex: 0 0 auto; }
+  .chips button.on { background: var(--accent); color: var(--on-ink); border-color: var(--accent); font-weight: 600; }
   .chips button[disabled] { opacity: 0.45; cursor: not-allowed; border-style: dashed; }
   .chips button[disabled]:hover { color: var(--muted); border-color: var(--line); }
   .chips button.l405.on { background: var(--laser-405); border-color: var(--laser-405); color: #fff; }
-  .chips button.l488.on { background: var(--laser-488); border-color: var(--laser-488); }
-  .chips button.l543.on { background: var(--laser-543); border-color: var(--laser-543); }
+  .chips button.l488.on { background: var(--laser-488); border-color: var(--laser-488); color: #0c1219; }   /* 雷射色固定，文字維持深色 */
+  .chips button.l543.on { background: var(--laser-543); border-color: var(--laser-543); color: #0c1219; }
   .chips button.l633.on { background: var(--laser-633); border-color: var(--laser-633); color: #fff; }
-  .btn.primary { background: var(--accent-dim); border-color: rgba(110,198,255,0.4); color: var(--accent); }
-  .btn.primary.on { background: var(--accent); color: #0c1219; }
+  .btn.primary { background: var(--accent-dim); border-color: rgba(var(--accent-rgb),0.4); color: var(--accent); }
+  .btn.primary.on { background: var(--accent); color: var(--on-ink); }
   .views { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .views .btn { border-radius: 8px; text-align: left; padding: 7px 10px; }
   .views .btn b { display: block; font-size: 0.8rem; color: var(--ink); font-weight: 600; }
@@ -93,13 +128,13 @@
   .ticks.tri span:nth-child(2) { text-align: center; }
   .ticks.tri span:last-child { text-align: right; }
   .note { font-size: 0.72rem; color: var(--faint); line-height: 1.5; margin-top: 4px; }
-  .note a { color: var(--accent); border-bottom: 1px dotted rgba(110,198,255,0.5); }
+  .note a { color: var(--accent); border-bottom: 1px dotted rgba(var(--accent-rgb),0.5); }
   .toggles { display: flex; flex-wrap: wrap; gap: 6px 14px; }
   .toggles label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
   .toggles input { accent-color: var(--accent); }
 
   .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }   /* minmax(0,…) + min-width:0：格子不被 nowrap 內容撐開，ellipsis 才會生效 */
-  .stat { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .stat { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; text-align: center; box-shadow: var(--card-shadow); }
   .stat .val { font-size: 1.0rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .stat .lbl { font-size: 0.66rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
   .stat.ch1 .val { color: var(--green); }
@@ -125,9 +160,9 @@
   .info {
     position: absolute; top: 14px; right: 14px; width: min(360px, calc(100% - 28px));
     max-height: calc(100% - 28px); overflow-y: auto;
-    background: rgba(23,26,33,0.93); backdrop-filter: blur(8px);
+    background: rgba(var(--panel-rgb),0.93); backdrop-filter: blur(8px);
     border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 14px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.45); display: none; scrollbar-width: thin;
+    box-shadow: var(--info-shadow); display: none; scrollbar-width: thin;
   }
   .info.show { display: block; animation: pop .18s ease-out; }
   @keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
@@ -151,15 +186,15 @@
   .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .lbl3d {
     position: absolute; transform: translate(-50%, -100%); padding: 2px 7px; border-radius: 6px;
-    background: rgba(15,17,22,0.72); border: 1px solid rgba(110,198,255,0.25); color: var(--ink);
+    background: rgba(15,17,22,0.72); border: 1px solid rgba(110,198,255,0.25); color: var(--vp-ink);
     font-size: 0.68rem; white-space: nowrap; pointer-events: none;
   }
   .lbl3d::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 1px; height: 5px; background: rgba(110,198,255,0.5); }
   .lbl3d.dim { opacity: 0.55; }
 
-  .hud { position: absolute; left: 14px; bottom: 12px; font-size: 0.72rem; color: var(--faint); pointer-events: none; }
-  .hud b { color: var(--muted); font-weight: 600; }
-  .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; pointer-events: none; }
+  .hud { position: absolute; left: 14px; bottom: 12px; font-size: 0.72rem; color: var(--vp-faint); pointer-events: none; }
+  .hud b { color: var(--vp-muted); font-weight: 600; }
+  .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--vp-muted); font-size: 0.9rem; pointer-events: none; }
 
   .sidebtn { display: none; }
   @media (max-width: 900px) {
@@ -179,8 +214,29 @@
     <p>共軛焦顯微鏡的工程透視模型：轉動觀察、掀開掃描頭、點任何零件看它是什麼、看雷射怎麼走到樣品又怎麼回到 PMT。</p>
   </div>
   <div class="hint">拖曳旋轉 · 滾輪縮放 · 右鍵平移 · 點擊零件看說明</div>
+  <button class="chip" id="theme" title="切換深色／淺色"></button>
   <a class="back" href="index.html">← Owl Toys</a>
 </header>
+
+<script>
+// 主題：預設淺色、localStorage 'owl-theme' 全站共用、?theme=dark|light 可覆寫（只讀不寫）。
+// 必須在 module script 之前同步執行，避免先閃深色；readColors / redrawAll 由下方 module 掛到 window。
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = document.getElementById('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (typeof readColors === 'function') readColors();
+  if (typeof redrawAll === 'function') redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+</script>
 
 <div class="main">
   <aside class="side">
@@ -2841,6 +2897,16 @@ window.addEventListener('resize', () => drawZProfile());
 
 // ---------- Z 剖面小圖：橫向 = 深度 z；四條染料深度帶、目前焦平面（豎線）、目前光學切片厚度（半透明帶）----------
 const zpCanvas = $('zProfile'), zpCtx = zpCanvas.getContext('2d');
+// Z 剖面圖的 chrome 色（文字、軸、切片帶）跟著主題：從 CSS 變數讀進 ZPC，切主題時由 setTheme 呼叫 readColors 重讀。染料色帶 DYE_Z[*].color 有語意，不動。
+const ZPC = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+  ZPC.ink = v('--ink'); ZPC.muted = v('--muted'); ZPC.faint = v('--faint'); ZPC.off = v('--zp-off'); ZPC.tick = v('--zp-tick');
+  ZPC.accent = v('--accent'); ZPC.accentRgb = v('--accent-rgb');
+}
+readColors();
+window.readColors = readColors;
+window.redrawAll = () => drawZProfile();
 // 版面（CSS 像素，畫布高 ZP_H = 92）：左側 ZP_NAME_W 專用欄放染料名（豎線／切片帶只畫在右側色帶區，永遠不壓字）；
 // 頂列 0..12 = 焦平面三角標記 + 「切片 x.x μm」（不壓到色帶）；四條 15 px 色帶；底部軸線與 9 px 刻度
 const ZP_H = 92, ZP_NAME_W = 104, ZP_FONT = '"Noto Sans TC", "PingFang TC", system-ui, sans-serif';
@@ -2855,8 +2921,8 @@ function drawZProfile() {
   g.textBaseline = 'middle';
   // 光學切片帶（FWHM）：只畫在色帶區（x0 起），頂列留給標籤、名字欄不畫
   const bx0 = Math.max(x0, X(z - r.sliceThickness / 2)), bx1 = Math.min(x1, X(z + r.sliceThickness / 2)), bTop = laneTop - 2, bH = lanesBot - bTop;
-  g.fillStyle = 'rgba(110,198,255,0.16)'; g.fillRect(bx0, bTop, bx1 - bx0, bH);
-  g.fillStyle = 'rgba(110,198,255,0.45)'; g.fillRect(bx0, bTop, 1, bH); g.fillRect(bx1 - 1, bTop, 1, bH);
+  g.fillStyle = `rgba(${ZPC.accentRgb},0.16)`; g.fillRect(bx0, bTop, bx1 - bx0, bH);
+  g.fillStyle = `rgba(${ZPC.accentRgb},0.45)`; g.fillRect(bx0, bTop, 1, bH); g.fillRect(bx1 - 1, bTop, 1, bH);
   // 染料深度帶：亮 = 目前雷射能激發；淡 + 名字後綴「不激發」= 本雷射幾乎不激發。外圈淡帶 = ±厚度（高斯尾巴），內圈 = FWHM
   let i = 0;
   for (const d in DYE_Z) {
@@ -2866,21 +2932,21 @@ function drawZProfile() {
     g.globalAlpha = on ? 0.95 : 0.3;
     g.beginPath(); g.roundRect(X(L.zc - L.thick / 2), y + 2, X(L.zc + L.thick / 2) - X(L.zc - L.thick / 2), laneH - 4, 3); g.fill();
     g.globalAlpha = 1; g.textAlign = 'left'; g.font = `10px ${ZP_FONT}`;
-    g.fillStyle = inS && on ? '#e8e9ee' : (on ? '#98a0b0' : '#5f6878'); g.fillText(L.zh, 6, y + laneH / 2);
+    g.fillStyle = inS && on ? ZPC.ink : (on ? ZPC.muted : ZPC.off); g.fillText(L.zh, 6, y + laneH / 2);
     if (!on) { const nw = g.measureText(L.zh).width; g.font = `8px ${ZP_FONT}`; g.fillText('不激發', Math.min(6 + nw + 4, x0 - 26), y + laneH / 2); }
     i++;
   }
   // 目前焦平面：豎線 + 頂端三角標記；「切片 x.x μm」放在頂列標記旁（靠右時改放左邊）
   const zx = X(z), right = zx > W - 72;
-  g.fillStyle = '#6ec6ff'; g.fillRect(zx - 0.75, 4, 1.5, lanesBot - 3);
+  g.fillStyle = ZPC.accent; g.fillRect(zx - 0.75, 4, 1.5, lanesBot - 3);
   g.beginPath(); g.moveTo(zx - 4, 1); g.lineTo(zx + 4, 1); g.lineTo(zx, 6); g.closePath(); g.fill();
   g.font = `bold 10px ${ZP_FONT}`; g.textAlign = right ? 'right' : 'left';
   g.fillText(`切片 ${fmt(r.sliceThickness, 1)} μm`, zx + (right ? -7 : 7), 6);
   // 軸：單位併進最後一個刻度（「+12 μm」），不再另外右對齊寫 μm 而與 +12 重疊
-  g.font = `9px ${ZP_FONT}`; g.fillStyle = '#5c6474'; g.fillRect(x0, lanesBot + 3, x1 - x0, 1);
+  g.font = `9px ${ZP_FONT}`; g.fillStyle = ZPC.faint; g.fillRect(x0, lanesBot + 3, x1 - x0, 1);
   for (const v of [-12, -6, 0, 6, 12]) {
-    const x = X(v); g.fillStyle = '#5c6474'; g.fillRect(x - 0.5, lanesBot + 3, 1, 3);
-    g.fillStyle = '#7a8394'; g.textAlign = 'center'; g.fillText((v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + (v === Z_RANGE ? ' μm' : ''), x, lanesBot + 13);
+    const x = X(v); g.fillStyle = ZPC.faint; g.fillRect(x - 0.5, lanesBot + 3, 1, 3);
+    g.fillStyle = ZPC.tick; g.textAlign = 'center'; g.fillText((v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + (v === Z_RANGE ? ' μm' : ''), x, lanesBot + 13);
   }
 }
 $('powerSlider').addEventListener('input', e => { state.power = +e.target.value; syncUI(); redrawImage(); });

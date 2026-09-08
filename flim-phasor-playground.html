@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FLIM Phasor 遊樂場 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #14161c;
     --panel: #1d2028;
     --ink: #e6e6ec;
@@ -14,6 +15,21 @@
     --ref: #ffb86c;
     --sel: #ff6bd6;
     --grid: #2e3340;
+    --muted-rgb: 154,160,174;
+    --sel-rgb: 255,107,214;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6;
+    --panel: #ffffff;
+    --ink: #1c1f27;
+    --muted: #5b6272;
+    --accent: #1e6fc0;
+    --ref: #d4741a;
+    --sel: #c0268f;
+    --grid: #dfe2e9;
+    --muted-rgb: 91,98,114;
+    --sel-rgb: 192,38,143;
   }
   * { box-sizing: border-box; }
   body {
@@ -22,11 +38,20 @@
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
+  .head { position: relative; width: 100%; max-width: 1260px; text-align: center; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  button.chip {
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    color: var(--muted); border: 1px solid var(--grid); border-radius: 999px;
+    padding: 4px 10px; font-size: 0.78rem;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); background: transparent; }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 760px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; max-width: 1260px; }
   canvas { background: var(--panel); border-radius: 12px; max-width: 100%; height: auto; display: block; }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls,
+  :root[data-theme="light"] .stats, :root[data-theme="light"] .hint { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   #phasor { touch-action: none; cursor: crosshair; }
   .col { display: flex; flex-direction: column; gap: 16px; }
   .controls {
@@ -43,7 +68,7 @@
     background: transparent; color: var(--sel); border: 1px solid var(--sel);
     border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; cursor: pointer;
   }
-  button:hover { background: rgba(255,107,214,0.12); }
+  button:hover { background: rgba(var(--sel-rgb),0.12); }
   .stats { background: var(--panel); border-radius: 12px; padding: 14px 18px; width: 440px; max-width: 100%; font-size: 0.83rem; color: var(--muted); line-height: 1.75; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .stats .sel { color: var(--sel); }
@@ -62,7 +87,10 @@
 </style>
 </head>
 <body>
-<h1>FLIM Phasor 遊樂場</h1>
+<div class="head">
+  <h1>FLIM Phasor 遊樂場</h1>
+  <button class="chip" id="theme" title="切換深色／淺色"></button>
+</div>
 <p class="sub">
   這裡的相量不是套公式算的：右上圖那條 TCSPC 衰減直方圖 I(t) 在雷射重複頻率 f 上取第一諧波，
   <code>g = ΣI·cos ωt / ΣI</code>、<code>s = ΣI·sin ωt / ΣI</code>，
@@ -177,7 +205,28 @@ const ictx = im.getContext('2d');
 const $ = id => document.getElementById(id);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), sel: css('--sel'), grid: css('--grid') };
+const C = {};
+function readColors() {
+  for (const k of ['ink', 'muted', 'accent', 'ref', 'sel', 'grid']) C[k] = css('--' + k);
+  C.mutedRgb = css('--muted-rgb');
+}
+// 主題：預設淺色，記在 localStorage（key 全站共用 owl-theme），?theme=dark|light 可覆寫；只讀不寫 URL
+let redrawAll = null;   // 在 state 建好後指定，切主題時重畫
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = $('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  readColors();
+  if (typeof redrawAll === 'function') redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
 // ---------- 時間域模型 ----------
 const NB = 256;            // 每個雷射週期的時間箱數
@@ -508,7 +557,7 @@ function drawDecay(st, selH) {
   // IRF（填色）
   {
     let mx = 0; for (let k = 0; k < NB; k++) mx = Math.max(mx, st.irf[k]);
-    dctx.fillStyle = 'rgba(154,160,174,0.18)';
+    dctx.fillStyle = `rgba(${C.mutedRgb},0.18)`;
     dctx.beginPath(); dctx.moveTo(X(0), Y(0));
     for (let k = 0; k < NB; k++) dctx.lineTo(X((k + 0.5) * dt), Y(st.irf[k] / mx));
     dctx.lineTo(X(T), Y(0)); dctx.closePath(); dctx.fill();
@@ -633,6 +682,7 @@ function redrawViews() {
   drawDecay(state, selectedHist(state));
   stats(state, cnt);
 }
+redrawAll = () => { if (state) redrawViews(); };
 
 function render() {
   state = readState();

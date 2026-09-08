@@ -5,9 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>P-SHG 影像實驗室 🦉</title>
 <style>
-  :root {
-    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161c; --panel: #1d2028; --panel2: #262b36; --ink: #e6e6ec; --muted: #9aa0ae;
     --accent: #6ec6ff; --data: #f5e663; --grid: #2e3340; --warn: #ffb86c;
+    --on-ink: #14161c;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --panel2: #eceef3; --ink: #1c1f27; --muted: #5b6272;
+    --accent: #1e6fc0; --data: #b8860b; --grid: #dfe2e9; --warn: #d4741a;
+    --on-ink: #ffffff;
   }
   * { box-sizing: border-box; }
   body {
@@ -19,6 +27,7 @@
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 860px; text-align: center; line-height: 1.6; }
   .wrap, .maps { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px; max-width: 100%; }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls, :root[data-theme="light"] .inspbox { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .mapbox { text-align: center; }
   .mapbox canvas { width: 300px; height: 300px; image-rendering: pixelated; cursor: crosshair; }
   .mapbox .cap { font-size: 0.8rem; color: var(--muted); margin-top: 6px; line-height: 1.5; }
@@ -26,6 +35,7 @@
     width: 220px; height: 10px; border-radius: 5px; margin: 4px auto 0;
     background: linear-gradient(90deg, #3b6bff, #e8e8e8, #ff5544);
   }
+  :root[data-theme="light"] .rhobar { box-shadow: 0 0 0 1px var(--grid); }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 18px;
     display: flex; flex-direction: column; gap: 14px; width: min(340px, 100%);
@@ -34,14 +44,22 @@
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   select {
-    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--grid);
     border-radius: 8px; padding: 6px; font-family: inherit; font-size: 0.85rem;
   }
   button {
-    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--grid);
     border-radius: 8px; padding: 8px; font-size: 0.85rem; cursor: pointer; font-family: inherit;
   }
   button:hover { border-color: var(--accent); }
+  .head { display: flex; justify-content: space-between; align-items: center; }
+  .head .title { font-size: 0.88rem; }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; line-height: 1.2;
+    transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--muted); }
   .toggle input { accent-color: var(--warn); }
   .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.9; border-top: 1px solid var(--grid); padding-top: 10px; }
@@ -84,6 +102,10 @@
     <div class="cap" id="inspCap">👆 點上面任何一張圖，檢視該像素的 I(θ) 數據與擬合</div>
   </div>
   <div class="controls">
+    <div class="head">
+      <span class="title">參數</span>
+      <button class="chip" id="theme" title="切換深色／淺色"></button>
+    </div>
     <div class="ctl">
       <label>偏振角度數（0–180° 均分）</label>
       <select id="nAng">
@@ -115,6 +137,29 @@
 </div>
 <script>
 const $ = id => document.getElementById(id);
+// --- 主題：預設淺色，記在 localStorage（owl-theme）；canvas 的 UI 色從 CSS 變數重讀 ------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = {};
+let inited = false;                       // runAll 跑過之後才允許 redrawAll 重畫
+function readColors() {
+  for (const k of ['ink', 'muted', 'accent', 'data', 'grid', 'panel']) C[k] = css('--' + k);
+}
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = $('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  readColors();
+  if (typeof redrawAll === 'function') redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
 const D2R = Math.PI / 180;
 const SIZE = 160, NPIX = SIZE * SIZE;
 
@@ -338,7 +383,7 @@ function drawInspector() {
   }
   const yMax = Math.max(dMax, cMax) * 1.1 || 1;
 
-  ctx.strokeStyle = '#2e3340'; ctx.fillStyle = '#9aa0ae';
+  ctx.strokeStyle = C.grid; ctx.fillStyle = C.muted;
   ctx.font = '10px sans-serif'; ctx.lineWidth = 1;
   for (let g = 0; g <= 3; g++) {
     const y = mT + ph2 - ph2 * g / 3;
@@ -352,14 +397,14 @@ function drawInspector() {
   }
   ctx.fillText('偏振角 θ（光子數）', w / 2 - 40, h - 2);
 
-  ctx.strokeStyle = '#6ec6ff'; ctx.lineWidth = 2;
+  ctx.strokeStyle = C.accent; ctx.lineWidth = 2;
   ctx.beginPath();
   curve.forEach(([a, v], j) => {
     const x = mL + pw * a / 180, y = mT + ph2 - ph2 * v / yMax;
     j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
   ctx.stroke();
-  ctx.fillStyle = '#f5e663';
+  ctx.fillStyle = C.data;
   for (const [a, v] of data) {
     const x = mL + pw * a / 180, y = mT + ph2 - ph2 * v / yMax;
     ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
@@ -382,6 +427,8 @@ for (const id of ['mInt', 'mPhi', 'mRho']) {
 }
 
 // --- 主流程 -----------------------------------------------------------------
+// 切主題後只需重畫檢視器（三張假色圖是語意色，不隨主題變）
+function redrawAll() { if (inited) drawInspector(); }
 function runAll() {
   $('phOut').textContent = Math.round(Math.pow(10, parseFloat($('photons').value)));
   simulate();
@@ -400,6 +447,7 @@ $('truth').addEventListener('change', () => { drawMaps(); });
 
 makeTissue();
 runAll();
+inited = true;
 </script>
 </body>
 </html>

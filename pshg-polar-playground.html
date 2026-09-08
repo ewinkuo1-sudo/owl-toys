@@ -5,11 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>P-SHG 偏振極座標遊樂場 v2.3 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #14161c;
     --panel: #1d2028;
+    --panel2: #262b36;
+    --panel3: #2a3040;
+    --input-bg: #12141a;
+    --border: #232734;
     --ink: #e6e6ec;
     --muted: #9aa0ae;
+    --dim: #6a7080;
     --accent: #6ec6ff;
     --ref: #ffb86c;
     --myo: #d2a8ff;
@@ -18,6 +24,42 @@
     --data: #f5e663;
     --warn: #ffb86c;
     --grid: #2e3340;
+    --pt: #ffffff;
+    --on-ink: #14161c;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    --ink-rgb: 230,230,236;
+    --muted-rgb: 154,160,174;
+    --accent-rgb: 110,198,255;
+    --ref-rgb: 255,184,108;
+    --grid-rgb: 46,51,64;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6;
+    --panel: #ffffff;
+    --panel2: #eceef3;
+    --panel3: #e2e5ec;
+    --input-bg: #f7f8fa;
+    --border: #e3e6ec;
+    --ink: #1c1f27;
+    --muted: #5b6272;
+    --dim: #8b91a0;
+    --accent: #1e6fc0;
+    --ref: #d4741a;
+    --myo: #7648cf;
+    --ix: #1f8f55;
+    --iy: #c9403a;
+    --data: #b8860b;
+    --warn: #d4741a;
+    --grid: #dfe2e9;
+    --pt: #1c1f27;
+    --on-ink: #ffffff;
+    --shadow: 0 1px 3px rgba(20, 24, 40, 0.06);
+    --ink-rgb: 28,31,39;
+    --muted-rgb: 91,98,114;
+    --accent-rgb: 30,111,192;
+    --ref-rgb: 212,116,26;
+    --grid-rgb: 223,226,233;
   }
   * { box-sizing: border-box; }
   html { scrollbar-gutter: stable both-edges; }
@@ -28,12 +70,24 @@
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .titlebar { position: relative; width: 100%; max-width: 1152px; display: flex; align-items: center; justify-content: center; }
+  .titlebar #theme { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
+  @media (max-width: 720px) {
+    .titlebar { flex-wrap: wrap; gap: 8px; }
+    .titlebar #theme { position: static; transform: none; }
+  }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 860px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px; }
   canvas, .controls, .formulabox, .helixbox {
-    border: 1px solid #232734; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--border); box-shadow: var(--shadow);
   }
   .helixbox canvas { border: none; box-shadow: none; }
   .controls {
@@ -47,12 +101,12 @@
   .toggle input { accent-color: var(--ref); }
   .presets { display: flex; gap: 8px; }
   .presets button, .expbar button {
-    flex: 1; background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    flex: 1; background: var(--panel2); color: var(--ink); border: 1px solid var(--grid);
     border-radius: 8px; padding: 7px 6px; font-size: 0.82rem; cursor: pointer;
     font-family: inherit;
   }
   .presets button, .expbar button { transition: border-color 0.15s ease, background 0.15s ease; }
-  .presets button:hover, .expbar button:hover { border-color: var(--accent); background: #2a3040; }
+  .presets button:hover, .expbar button:hover { border-color: var(--accent); background: var(--panel3); }
   .expbar { display: flex; gap: 8px; }
   .expmsg { font-size: 0.82rem; color: var(--data); line-height: 1.6; min-height: 0; }
   .stats { font-size: 0.83rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 10px; min-height: 8em; font-variant-numeric: tabular-nums; }
@@ -68,7 +122,7 @@
   details.csv { font-size: 0.82rem; color: var(--muted); }
   details.csv summary { cursor: pointer; }
   details.csv textarea {
-    width: 100%; margin: 8px 0 2px; background: #12141a; color: var(--ink);
+    width: 100%; margin: 8px 0 2px; background: var(--input-bg); color: var(--ink);
     border: 1px solid var(--grid); border-radius: 8px; padding: 8px;
     font-size: 0.78rem; font-family: monospace; resize: vertical;
   }
@@ -87,7 +141,10 @@
 </style>
 </head>
 <body>
-<h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2.3</span></h1>
+<div class="titlebar">
+  <h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2.3</span></h1>
+  <button class="chip" id="theme" title="切換深色／淺色"></button>
+</div>
 <p class="sub">
   纖維狀組織（C₆ 圓柱對稱）的偏振解析 SHG 模型。單軸分子模型下
   <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>，把花瓣形狀直接連到螺旋等效傾角 θe
@@ -211,8 +268,30 @@ const cctx = ctx2d(cart, CART_W, CART_H);
 const fctx = ctx2d(fiber, FIBER_W, FIBER_H);
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'),
-            myo: css('--myo'), ix: css('--ix'), iy: css('--iy'), data: css('--data'), grid: css('--grid') };
+const C = {};
+function readColors() {
+  for (const k of ['ink', 'muted', 'accent', 'ref', 'myo', 'ix', 'iy', 'data', 'grid', 'pt']) C[k] = css('--' + k);
+  for (const k of ['ink', 'muted', 'accent', 'ref', 'grid']) C[k + 'Rgb'] = css('--' + k + '-rgb');
+}
+const rgba = (rgb, a) => `rgba(${rgb},${a})`;
+// 主題：預設淺色，記在 localStorage（owl-theme，全站共用），?theme=dark|light 可覆寫
+let booted = false;
+function redrawAll() { if (booted) render(); }
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = document.getElementById('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  readColors();
+  redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
 const RHO_COL = 1.4, RHO_MYO = 0.57;
 const D2R = Math.PI / 180;
@@ -432,7 +511,7 @@ function drawPolar(st) {
 
   const main = st.main;
   if (st.split) {
-    tracePolar(main.pts, 3, main.max, cx, cy, R, 'rgba(110,198,255,0.35)', 1.5, false);
+    tracePolar(main.pts, 3, main.max, cx, cy, R, rgba(C.accentRgb, 0.35), 1.5, false);
     tracePolar(main.pts, 1, main.max, cx, cy, R, C.ix, 2, false);
     tracePolar(main.pts, 2, main.max, cx, cy, R, C.iy, 2, false);
   } else {
@@ -449,7 +528,7 @@ function drawPolar(st) {
     }
   }
   if (st.csv) {
-    pctx.fillStyle = '#ffffff';
+    pctx.fillStyle = C.pt;
     for (const [t, v] of st.csv.pts) {
       const r = R * Math.min(1.1, v / main.max);
       pctx.beginPath();
@@ -521,7 +600,7 @@ function drawCart(st) {
   if (refC) trace(refC.pts, 3, C.ref, 1.4, true);
   if (refM) trace(refM.pts, 3, C.myo, 1.4, true);
   if (st.split) {
-    trace(main.pts, 3, 'rgba(110,198,255,0.35)', 1.5, false);
+    trace(main.pts, 3, rgba(C.accentRgb, 0.35), 1.5, false);
     trace(main.pts, 1, C.ix, 2, false);
     trace(main.pts, 2, C.iy, 2, false);
   } else {
@@ -537,7 +616,7 @@ function drawCart(st) {
     }
   }
   if (st.csv) {
-    cctx.fillStyle = '#ffffff';
+    cctx.fillStyle = C.pt;
     for (const [t, v] of st.csv.pts) {
       const x = mL + pw * t / (2 * Math.PI);
       const y = mT + ph - ph * v / yMax;
@@ -560,7 +639,7 @@ function drawFiber(st, teDeg) {
   };
 
   fctx.lineWidth = 1;
-  fctx.strokeStyle = 'rgba(46,51,64,0.9)';
+  fctx.strokeStyle = rgba(C.gridRgb, 0.9);
   for (let g = -2; g <= 2; g++) {
     const q = g * 0.5;
     let a0 = P(q, -1, 0), b0 = P(q, 1, 0);
@@ -569,7 +648,7 @@ function drawFiber(st, teDeg) {
     fctx.beginPath(); fctx.moveTo(a0[0], a0[1]); fctx.lineTo(b0[0], b0[1]); fctx.stroke();
   }
   const z0 = P(0, 0, 0), z1 = P(0, 0, 1.05);
-  fctx.strokeStyle = 'rgba(154,160,174,0.5)';
+  fctx.strokeStyle = rgba(C.mutedRgb, 0.5);
   fctx.setLineDash([3, 4]);
   fctx.beginPath(); fctx.moveTo(z0[0], z0[1]); fctx.lineTo(z1[0], z1[1]); fctx.stroke();
   fctx.setLineDash([]);
@@ -586,7 +665,7 @@ function drawFiber(st, teDeg) {
   const czv = L * sd;                       // 抬高讓下端剛好落在影像平面上
 
   const s0 = P(-L * a[0], -L * a[1], 0), s1 = P(L * a[0], L * a[1], 0);
-  fctx.strokeStyle = 'rgba(255,184,108,0.55)';
+  fctx.strokeStyle = rgba(C.refRgb, 0.55);
   fctx.setLineDash([5, 4]);
   fctx.lineWidth = 1.4;
   fctx.beginPath(); fctx.moveTo(s0[0], s0[1]); fctx.lineTo(s1[0], s1[1]); fctx.stroke();
@@ -594,7 +673,7 @@ function drawFiber(st, teDeg) {
 
   const e0 = P(-L * a[0], -L * a[1], czv - L * a[2]);
   const e1 = P(L * a[0], L * a[1], czv + L * a[2]);
-  fctx.strokeStyle = 'rgba(110,198,255,0.18)';
+  fctx.strokeStyle = rgba(C.accentRgb, 0.18);
   fctx.lineWidth = 2 * r * S;
   fctx.lineCap = 'round';
   fctx.beginPath(); fctx.moveTo(e0[0], e0[1]); fctx.lineTo(e1[0], e1[1]); fctx.stroke();
@@ -607,8 +686,8 @@ function drawFiber(st, teDeg) {
   const n = Math.min(1400, Math.max(240, Math.round(T / 0.06)));
   const pass = front => {
     fctx.strokeStyle = front
-      ? (chiral ? C.accent : 'rgba(154,160,174,0.9)')
-      : (chiral ? 'rgba(110,198,255,0.25)' : 'rgba(154,160,174,0.25)');
+      ? (chiral ? C.accent : rgba(C.mutedRgb, 0.9))
+      : (chiral ? rgba(C.accentRgb, 0.25) : rgba(C.mutedRgb, 0.25));
     fctx.lineWidth = front ? 2.2 : 1.1;
     let drawing = false;
     fctx.beginPath();
@@ -638,7 +717,7 @@ function fiberCap(st, te) {
     : 'χ₁₄=0（旋向不影響訊號）';
   return `纖維幾何：φ=${Math.round(phiDeg)}°、δ=${Math.round(st.delta / D2R)}°｜`
        + `螺旋 θe=${te.toFixed(1)}°、${handTxt}<br>`
-       + `<span style="color:#6a7080">橘虛線＝纖維在影像平面上的投影（φ 方向）</span>`;
+       + `<span style="color:var(--dim)">橘虛線＝纖維在影像平面上的投影（φ 方向）</span>`;
 }
 
 // --- 公式板 -----------------------------------------------------------------
@@ -828,7 +907,7 @@ $('csvFit').addEventListener('click', () => {
     `擬合：ρ=<b>${fit.rho.toFixed(2)}</b>、φ=${Math.round(phiDeg)}°、θe=${thetaE(fit.rho).toFixed(1)}°、`
     + `殘差 RMS ${(fit.rms * 100).toFixed(1)}%<br>`
     + `Fourier：a₂/a₀=${fit.fourier.r2.toFixed(2)}、a₄/a₀=${fit.fourier.r4.toFixed(2)}`
-    + `（白點＝你的數據，已換算到 χ₁₅² 單位）`;
+    + `（實心圓點＝你的數據，已換算到 χ₁₅² 單位）`;
   setRho(fit.rho);
 });
 $('csvClear').addEventListener('click', () => { csv = null; $('csvMsg').textContent = ''; render(); });
@@ -839,6 +918,7 @@ $('expClear').addEventListener('click', () => {
   render();
 });
 
+booted = true;
 render();
 </script>
 </body>

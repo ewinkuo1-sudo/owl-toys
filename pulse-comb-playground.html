@@ -5,10 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>脈衝串 ↔ 頻率梳遊樂場 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
     --accent: #6ec6ff; --comb: #6ec6ff; --sum: #7ee787; --life: #ffb86c;
     --mark1: #7ee787; --mark2: #ff7eb6; --grid: #2e3340;
+    --btn: #262b36;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --ink: #1c1f27; --muted: #5b6272;
+    --accent: #1e6fc0; --comb: #1e6fc0; --sum: #1f8f55; --life: #d4741a;
+    --mark1: #1f8f55; --mark2: #c2316f; --grid: #dfe2e9;
+    --btn: #eceef3;
   }
   * { box-sizing: border-box; }
   body {
@@ -17,7 +26,14 @@
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 14px;
   }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   p.sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 760px; text-align: center; line-height: 1.7; }
   p.sub code { color: var(--accent); }
   .wrap { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: flex-start; }
@@ -26,12 +42,13 @@
   .panel h2 { font-size: 0.92rem; margin: 0 0 8px 4px; font-weight: 600; color: var(--ink); }
   canvas { display: block;  max-width: 100%; height: auto; }
   .controls { background: var(--panel); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 15px; width: 300px; }
+  :root[data-theme="light"] .panel, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 5px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .presets { display: flex; gap: 8px; flex-wrap: wrap; }
   .presets button {
-    background: #262b36; color: var(--ink); border: 1px solid var(--grid);
+    background: var(--btn); color: var(--ink); border: 1px solid var(--grid);
     border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer;
     font-family: inherit;
   }
@@ -47,7 +64,10 @@
 </style>
 </head>
 <body>
-<h1>脈衝串 ↔ 頻率梳遊樂場</h1>
+<div class="head">
+  <h1>脈衝串 ↔ 頻率梳遊樂場</h1>
+  <button class="chip" id="theme" title="切換深色／淺色"></button>
+</div>
 <p class="sub">
   週期 <code>T</code> 的脈衝串 ⇔ 間距 <code>1/T</code> 的頻率梳。左上：時域脈衝串與「疊諧波長出尖脈衝」；
   左下：頻域梳齒、螢光壽命低通 <code>m = 1/√(1+(2πfτ)²)</code>，與 1f／2f 取頻位置。
@@ -97,11 +117,33 @@
 </div>
 <script>
 const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = {};
+function readColors() {
+  const map = { ink: '--ink', muted: '--muted', comb: '--comb', sum: '--sum',
+                life: '--life', m1: '--mark1', m2: '--mark2', grid: '--grid' };
+  for (const k in map) C[k] = css(map[k]);
+}
+let booted = false;
+function redrawAll() { if (booted) render(); }   // 非 rAF 迴圈：切主題後主動重畫
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = document.getElementById('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (typeof readColors === 'function') readColors();
+  if (typeof redrawAll === 'function') redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
 const tc = $('time').getContext('2d');
 const fc = $('freq').getContext('2d');
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), comb: css('--comb'), sum: css('--sum'),
-            life: css('--life'), m1: css('--mark1'), m2: css('--mark2'), grid: css('--grid') };
 
 // Gaussian pulse train, sigma as fraction of period: comb tooth n has c_n = exp(-2(pi n sigma/T)^2)
 const tooth = (n, sig) => Math.exp(-2 * Math.PI * Math.PI * n * n * sig * sig);
@@ -245,6 +287,7 @@ document.querySelectorAll('.presets button').forEach(b =>
   b.addEventListener('click', () => { $('tau').value = b.dataset.tau; render(); }));
 
 render();
+booted = true;
 </script>
 </body>
 </html>

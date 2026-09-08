@@ -5,13 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>I/Q 零差解調遊樂場 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #14161c; --panel: #1d2028; --panel2: #262b36; --ink: #e6e6ec; --muted: #9aa0ae; --faint: #5c6270;
     --accent: #6ec6ff; --ref: #ffb86c; --green: #7ee787; --pink: #ff7eb6; --red: #ff6b6b; --violet: #c9a5ff;
     --grid: #2e3340; --raman: #7ee787; --fluo: #ff7eb6;
+    --on-ink: #14161c;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --panel2: #eceef3; --ink: #1c1f27; --muted: #5b6272; --faint: #8b91a0;
+    --accent: #1e6fc0; --ref: #d4741a; --green: #1f8f55; --pink: #c2337a; --red: #c9403a; --violet: #7648cf;
+    --grid: #dfe2e9; --raman: #1f8f55; --fluo: #c2337a;
+    --on-ink: #ffffff;
   }
   * { box-sizing: border-box; }
   body {
+    position: relative;
     margin: 0; padding: 20px; background: var(--bg); color: var(--ink);
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -61,8 +71,17 @@
     border-radius: 8px; padding: 4px 10px; font-size: 0.74rem; cursor: pointer; font-family: inherit;
   }
   .presets button:hover { border-color: var(--ref); }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
+  #theme { position: absolute; top: 16px; right: 16px; }
+  :root[data-theme="light"] .panel, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   @media (max-width: 700px) {
     body { padding: 10px; }
+    #theme { top: 8px; right: 8px; }
     .controls { width: 100%; flex: 1 1 100%; }
     .col { flex: 1 1 100%; }
   }
@@ -70,6 +89,7 @@
 </head>
 <body>
 
+<button class="chip" id="theme" title="切換深色／淺色"></button>
 <h1>I/Q 零差解調遊樂場</h1>
 <p class="sub">
   卓 lab 偵測鏈的核心：PMT 收到的 80 MHz 載波裡，<b>拉曼光子</b>（τ≈0）和<b>螢光光子</b>（τ>0）的相位不同。
@@ -240,6 +260,31 @@
 
 <script>
 "use strict";
+// --- Theme: 預設淺色，記在 localStorage('owl-theme')，?theme=dark|light 可覆寫 ---
+const C = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['bg', 'panel', 'panel2', 'ink', 'muted', 'faint', 'accent', 'ref', 'green', 'pink', 'red', 'violet', 'grid', 'raman', 'fluo'])
+    C[k] = cs.getPropertyValue('--' + k).trim();
+}
+let uiReady = false;   // 初次 draw() 之後才允許主題切換觸發重畫
+function redrawAll() { if (uiReady) draw(); }
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+  const b = document.getElementById('theme');
+  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  readColors();
+  redrawAll();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
 const TAU_2PI = 2 * Math.PI;
 const F_MOD = 80e6;
 const OMEGA = TAU_2PI * F_MOD;
@@ -323,38 +368,39 @@ function iqMixed(tau_ns, ramanFrac, phi0_deg) {
 
 // --- Drawing helpers ---
 function setupCanvas(canvas) {
-  const rect = canvas.getBoundingClientRect();
+  // 邏輯尺寸只在第一次記下（否則 HiDPI 下每次重畫都會放大 dpr 倍）
+  if (!canvas.dataset.w) {
+    const rect = canvas.getBoundingClientRect();
+    canvas.dataset.w = canvas.width || rect.width;
+    canvas.dataset.h = canvas.height || rect.height;
+  }
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.width || rect.width;
-  const h = canvas.height || rect.height;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
+  const w = +canvas.dataset.w, h = +canvas.dataset.h;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = '100%';          // 跟著面板縮放，不超出
+  canvas.style.maxWidth = w + 'px';
+  canvas.style.height = 'auto';
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w, h };
 }
 
-function getCS(id) {
-  return getComputedStyle(document.documentElement).getPropertyValue(id).trim();
-}
-
 function drawGrid(ctx, w, h, xLabel, yLabel) {
-  ctx.strokeStyle = getCS('--grid');
+  ctx.strokeStyle = C.grid;
   ctx.lineWidth = 0.5;
   ctx.beginPath();
   for (let x = 0; x <= w; x += w / 8) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
   for (let y = 0; y <= h; y += h / 4) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
   ctx.stroke();
   if (xLabel) {
-    ctx.fillStyle = getCS('--faint');
+    ctx.fillStyle = C.faint;
     ctx.font = '10px system-ui';
     ctx.textAlign = 'right';
     ctx.fillText(xLabel, w - 4, h - 4);
   }
   if (yLabel) {
-    ctx.fillStyle = getCS('--faint');
+    ctx.fillStyle = C.faint;
     ctx.font = '10px system-ui';
     ctx.textAlign = 'left';
     ctx.fillText(yLabel, 4, 12);
@@ -379,7 +425,7 @@ function drawChain() {
     const c = document.getElementById('cPmt');
     c.width = 800; c.height = 150;
     const { ctx, w, h } = setupCanvas(c);
-    ctx.fillStyle = getCS('--panel');
+    ctx.fillStyle = C.panel;
     ctx.fillRect(0, 0, w, h);
     drawGrid(ctx, w, h, 't (ns)', 'PMT signal');
 
@@ -388,7 +434,7 @@ function drawChain() {
 
     // draw signal
     ctx.beginPath();
-    ctx.strokeStyle = getCS('--accent');
+    ctx.strokeStyle = C.accent;
     ctx.lineWidth = 1.2;
     for (let i = 0; i < N; i++) {
       const t = (i / N) * tMax;
@@ -406,7 +452,7 @@ function drawChain() {
 
     // envelope
     ctx.beginPath();
-    ctx.strokeStyle = getCS('--fluo');
+    ctx.strokeStyle = C.fluo;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     for (let i = 0; i < N; i++) {
@@ -421,7 +467,7 @@ function drawChain() {
     ctx.setLineDash([]);
 
     // time labels
-    ctx.fillStyle = getCS('--faint');
+    ctx.fillStyle = C.faint;
     ctx.font = '10px system-ui';
     ctx.textAlign = 'center';
     for (let i = 0; i <= 3; i++) {
@@ -435,7 +481,7 @@ function drawChain() {
     const c = document.getElementById('cMix');
     c.width = 800; c.height = 150;
     const { ctx, w, h } = setupCanvas(c);
-    ctx.fillStyle = getCS('--panel');
+    ctx.fillStyle = C.panel;
     ctx.fillRect(0, 0, w, h);
     drawGrid(ctx, w, h, 't (ns)', 'mixer out');
 
@@ -443,7 +489,7 @@ function drawChain() {
 
     for (let ch = 0; ch < 2; ch++) {
       ctx.beginPath();
-      ctx.strokeStyle = ch === 0 ? getCS('--accent') : getCS('--ref');
+      ctx.strokeStyle = ch === 0 ? C.accent : C.ref;
       ctx.lineWidth = 1.2;
       const refPhase = ch * Math.PI / 2;
       for (let i = 0; i < N; i++) {
@@ -469,7 +515,7 @@ function drawChain() {
     const c = document.getElementById('cDC');
     c.width = 800; c.height = 120;
     const { ctx, w, h } = setupCanvas(c);
-    ctx.fillStyle = getCS('--panel');
+    ctx.fillStyle = C.panel;
     ctx.fillRect(0, 0, w, h);
 
     const iq = iqMixed(tau_ns, ramanFrac, phi0_deg);
@@ -482,26 +528,26 @@ function drawChain() {
 
     // I bar
     const iX = w * 0.08;
-    ctx.fillStyle = getCS('--grid');
+    ctx.fillStyle = C.grid;
     ctx.fillRect(iX, 20, barW, barH);
-    ctx.fillStyle = getCS('--accent');
+    ctx.fillStyle = C.accent;
     ctx.fillRect(iX, 20, barW * Math.max(0, iq.I) / maxBar, barH);
-    ctx.fillStyle = getCS('--ink');
+    ctx.fillStyle = C.ink;
     ctx.font = '13px system-ui';
     ctx.textAlign = 'left';
     ctx.fillText('I = ' + iq.I.toFixed(3), iX, 60);
 
     // Q bar
     const qX = w * 0.55;
-    ctx.fillStyle = getCS('--grid');
+    ctx.fillStyle = C.grid;
     ctx.fillRect(qX, 20, barW, barH);
-    ctx.fillStyle = getCS('--ref');
+    ctx.fillStyle = C.ref;
     ctx.fillRect(qX, 20, barW * Math.max(0, iq.Q) / maxBar, barH);
-    ctx.fillStyle = getCS('--ink');
+    ctx.fillStyle = C.ink;
     ctx.fillText('Q = ' + iq.Q.toFixed(3), qX, 60);
 
     // Results
-    ctx.fillStyle = getCS('--green');
+    ctx.fillStyle = C.green;
     ctx.font = 'bold 13px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText(`振幅 = ${ampVal.toFixed(3)}    相位 φ = ${phiVal.toFixed(1)}°`, w / 2, 95);
@@ -511,7 +557,7 @@ function drawChain() {
         iqMixed(tau_ns, ramanFrac, 0).Q,
         iqMixed(tau_ns, ramanFrac, 0).I
       ) * 180 / Math.PI;
-      ctx.fillStyle = getCS('--faint');
+      ctx.fillStyle = C.faint;
       ctx.font = '11px system-ui';
       ctx.fillText(`（真實 φ_signal = ${truePhiDeg.toFixed(1)}°，差值就是 φ₀ = ${phi0_deg}°）`, w / 2, 112);
     }
@@ -541,14 +587,14 @@ function drawPhasor() {
   const c = document.getElementById('cIQ');
   c.width = 500; c.height = 500;
   const { ctx, w, h } = setupCanvas(c);
-  ctx.fillStyle = getCS('--panel');
+  ctx.fillStyle = C.panel;
   ctx.fillRect(0, 0, w, h);
 
   const cx = w / 2, cy = h / 2;
   const R = w * 0.4;
 
   // axes
-  ctx.strokeStyle = getCS('--grid');
+  ctx.strokeStyle = C.grid;
   ctx.lineWidth = 0.5;
   ctx.beginPath();
   ctx.moveTo(0, cy); ctx.lineTo(w, cy);
@@ -556,13 +602,13 @@ function drawPhasor() {
   ctx.stroke();
 
   // axis labels
-  ctx.fillStyle = getCS('--faint');
+  ctx.fillStyle = C.faint;
   ctx.font = '11px system-ui';
   ctx.textAlign = 'right'; ctx.fillText('I →', w - 6, cy - 6);
   ctx.textAlign = 'center'; ctx.fillText('Q ↑', cx + 14, 14);
 
   // scale ticks
-  ctx.fillStyle = getCS('--faint');
+  ctx.fillStyle = C.faint;
   ctx.font = '9px system-ui';
   ctx.textAlign = 'center';
   for (let v = -1; v <= 1; v += 0.5) {
@@ -584,7 +630,7 @@ function drawPhasor() {
   // universal semicircle
   if (cbUC.checked) {
     ctx.beginPath();
-    ctx.strokeStyle = getCS('--faint');
+    ctx.strokeStyle = C.faint;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     const ucR = R * 0.5;
@@ -596,7 +642,7 @@ function drawPhasor() {
   // tau sweep trace
   if (cbSweep.checked) {
     ctx.beginPath();
-    ctx.strokeStyle = getCS('--violet');
+    ctx.strokeStyle = C.violet;
     ctx.globalAlpha = 0.4;
     ctx.lineWidth = 2;
     for (let t = 0; t <= 8; t += 0.05) {
@@ -609,7 +655,7 @@ function drawPhasor() {
     ctx.globalAlpha = 1;
 
     // tick marks
-    ctx.fillStyle = getCS('--violet');
+    ctx.fillStyle = C.violet;
     ctx.font = '9px system-ui';
     ctx.textAlign = 'left';
     for (let t of [0, 0.5, 1, 2, 4, 8]) {
@@ -629,9 +675,9 @@ function drawPhasor() {
     const x = cx + p.I * R, y = cy - p.Q * R;
     ctx.beginPath();
     ctx.arc(x, y, 7, 0, TAU_2PI);
-    ctx.fillStyle = getCS('--raman');
+    ctx.fillStyle = C.raman;
     ctx.fill();
-    ctx.fillStyle = getCS('--raman');
+    ctx.fillStyle = C.raman;
     ctx.font = 'bold 11px system-ui';
     ctx.textAlign = 'left';
     ctx.fillText('拉曼 τ=0', x + 10, y + 4);
@@ -643,7 +689,7 @@ function drawPhasor() {
     const x = cx + p.I * R, y = cy - p.Q * R;
     ctx.beginPath();
     ctx.arc(x, y, 7, 0, TAU_2PI);
-    ctx.fillStyle = getCS('--fluo');
+    ctx.fillStyle = C.fluo;
     ctx.fill();
     ctx.font = 'bold 11px system-ui';
     ctx.textAlign = 'left';
@@ -656,7 +702,7 @@ function drawPhasor() {
     const x = cx + iq.I * R, y = cy - iq.Q * R;
     ctx.beginPath();
     ctx.arc(x, y, 6, 0, TAU_2PI);
-    ctx.fillStyle = getCS('--ref');
+    ctx.fillStyle = C.ref;
     ctx.fill();
     ctx.font = '11px system-ui';
     ctx.textAlign = 'left';
@@ -666,7 +712,7 @@ function drawPhasor() {
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = getCS('--ref');
+    ctx.strokeStyle = C.ref;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.stroke();
@@ -677,11 +723,11 @@ function drawPhasor() {
     if (Math.abs(phiVal) > 0.02) {
       ctx.beginPath();
       ctx.arc(cx, cy, 30, -phiVal, 0, phiVal > 0);
-      ctx.strokeStyle = getCS('--ref');
+      ctx.strokeStyle = C.ref;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
       ctx.stroke();
-      ctx.fillStyle = getCS('--ref');
+      ctx.fillStyle = C.ref;
       ctx.font = '10px system-ui';
       ctx.textAlign = 'center';
       ctx.fillText(`φ=${(phiVal * 180 / Math.PI).toFixed(1)}°`, cx + 42, cy - 8);
@@ -818,7 +864,7 @@ function drawImage() {
     const c = document.getElementById('cTissue');
     c.width = 600; c.height = 200;
     const { ctx, w, h } = setupCanvas(c);
-    ctx.fillStyle = getCS('--panel');
+    ctx.fillStyle = C.panel;
     ctx.fillRect(0, 0, w, h);
 
     const scaleX = w / SIZE, scaleY = h / SIZE;
@@ -861,6 +907,7 @@ function draw() {
 }
 
 updateOutputs();
+uiReady = true;
 draw();
 window.addEventListener('resize', draw);
 </script>
