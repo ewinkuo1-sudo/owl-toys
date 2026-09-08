@@ -126,14 +126,8 @@
 </style>
 </head>
 <body>
-<h1>CARS 拍頻遊樂場 🦉</h1>
-<p class="sub">
-  兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後的<b>拍頻</b>
-  <span class="m">Δ = ω<sub>p</sub> − ω<sub>s</sub></span> 才是真正推分子的那隻手。
-  當 Δ 對上化學鍵振動頻率 <span class="m">Ω</span>，整片分子像被準時推的鞦韆一起盪起來，
-  訊號跑到 <span class="m">ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub></span>——比 pump 更藍，天生避開螢光。
-  用「技術模式」切換自發拉曼 / CARS / SRS，三種拉曼技術擺在同一組座標下比。
-</p>
+<h1 data-i18n="title"></h1>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <div class="stack">
     <canvas id="beat"></canvas>
@@ -142,40 +136,41 @@
   </div>
   <aside class="controls">
     <div class="head">
-      <span class="title">技術模式</span>
+      <span class="title" data-i18n="ctl.mode"></span>
       <span class="btns">
-        <button class="chip" id="theme" title="切換深色／淺色"></button>
-        <button class="chip" id="reset" title="回到預設值">重設</button>
+        <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+        <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+        <button class="chip" id="reset" data-i18n="btn.reset" data-i18n-title="btn.reset.title"></button>
       </span>
     </div>
     <div class="presets" id="modes"></div>
     <div class="ctl">
-      <label><span>pump 波長 <span class="m">λ<sub>p</sub></span></span><output id="pOut"></output></label>
+      <label><span data-i18n="lbl.pump"></span><output id="pOut"></output></label>
       <input type="range" id="pump" min="700" max="1100" step="5" value="800">
     </div>
     <div class="ctl" id="deltaCtl">
-      <label><span>拍頻 <span class="m">Δ</span>（拉曼位移）</span><output id="dOut"></output></label>
+      <label><span data-i18n="lbl.delta"></span><output id="dOut"></output></label>
       <div class="row2">
         <input type="range" id="delta" min="0" max="3600" step="5" value="2000">
-        <button class="chip" id="lock" title="把 Δ 設成 Ω">對準 Ω</button>
+        <button class="chip" id="lock" data-i18n="btn.lock" data-i18n-title="btn.lock.title"></button>
       </div>
     </div>
     <div class="ctl">
-      <label><span>分子振動 <span class="m">Ω</span></span><output id="omOut"></output></label>
+      <label><span data-i18n="lbl.omega"></span><output id="omOut"></output></label>
       <input type="range" id="omega" min="400" max="3600" step="5" value="2845">
       <div class="presets" id="presets" style="margin-top:8px"></div>
     </div>
     <div class="ctl">
-      <label><span>線寬 <span class="m">Γ</span>（HWHM）</span><output id="gOut"></output></label>
+      <label><span data-i18n="lbl.gamma"></span><output id="gOut"></output></label>
       <input type="range" id="gamma" min="2" max="200" step="1" value="12">
     </div>
     <div class="ctl" id="nrCtl">
-      <label><span>非共振背景 <span class="m">χ<sub>NR</sub></span>／<span class="m">A</span></span><output id="nrOut"></output></label>
+      <label><span data-i18n="lbl.nr"></span><output id="nrOut"></output></label>
       <input type="range" id="nr" min="0" max="1" step="0.02" value="0.3">
     </div>
     <div class="toggle">
       <input type="checkbox" id="anim" checked>
-      <label for="anim">動畫：兩道波以光速前進，看拍包絡滾動</label>
+      <label for="anim" data-i18n="lbl.anim"></label>
     </div>
     <div class="stats" id="stats"></div>
   </aside>
@@ -183,62 +178,255 @@
 
 <section class="notes">
   <div class="card">
-    <h3>三種拉曼技術比一比</h3>
+    <h3 data-i18n="cmp.title"></h3>
     <div class="tblwrap">
       <table class="cmp" id="cmp">
         <thead><tr>
           <th></th>
-          <th class="c-spont" data-m="spont">自發拉曼</th>
+          <th class="c-spont" data-m="spont" data-i18n="mode.spont"></th>
           <th class="c-cars" data-m="cars">CARS</th>
           <th class="c-srs" data-m="srs">SRS</th>
         </tr></thead>
-        <tbody>
-          <tr><td>雷射</td><td data-m="spont">一束（連續或脈衝皆可）</td><td data-m="cars">pump＋Stokes，兩束同步 ps 脈衝</td><td data-m="srs">pump＋Stokes，其中一束高頻調變（MHz）</td></tr>
-          <tr><td>驅動分子的方式</td><td data-m="spont">沒有驅動：分子自發散射，相位各自隨機</td><td data-m="cars">拍頻 Δ 同調驅動，整片分子同相振動</td><td data-m="srs">同 CARS，拍頻同調驅動</td></tr>
-          <tr><td>訊號量級</td><td data-m="spont">∝ <span class="m">N</span>，不相干疊加，極弱</td><td data-m="cars">∝ <span class="m">N²·I<sub>p</sub>²·I<sub>s</sub></span>，比自發強數個數量級</td><td data-m="srs">∝ <span class="m">N·I<sub>p</sub>·I<sub>s</sub></span>，但 <span class="m">ΔI/I</span> 只有 10⁻⁴～10⁻⁶</td></tr>
-          <tr><td>訊號在哪裡</td><td data-m="spont">紅側新頻率（Stokes），跟螢光疊在一起</td><td data-m="cars">藍側新頻率 <span class="m">ω<sub>as</sub></span>，濾鏡就分得開，避開螢光</td><td data-m="srs">雷射本身：pump 變弱（SRL）／Stokes 變強（SRG）</td></tr>
-          <tr><td>線型</td><td data-m="spont">Im <span class="m">χ<sub>R</sub></span>：對稱 Lorentzian</td><td data-m="cars">|<span class="m">χ<sub>NR</sub></span>＋<span class="m">χ<sub>R</sub></span>|²：色散形，峰偏移、高波數側凹陷</td><td data-m="srs">Im <span class="m">χ<sub>R</sub></span>：對稱 Lorentzian，<span class="m">χ<sub>NR</sub></span> 進不來</td></tr>
-          <tr><td>背景</td><td data-m="spont">螢光、雜散光</td><td data-m="cars">非共振四波混頻（<span class="m">χ<sub>NR</sub></span>），無法濾掉</td><td data-m="srs">交叉相位調變、熱透鏡、雙光子吸收（小）</td></tr>
-          <tr><td>定量</td><td data-m="spont">線性、可定量，但需長積分</td><td data-m="cars">非線性（<span class="m">N²</span>）且被干涉扭曲，定量困難</td><td data-m="srs">線性、可直接定量濃度</td></tr>
-          <tr><td>偵測</td><td data-m="spont">光譜儀＋CCD，一次拿整條光譜</td><td data-m="cars">帶通濾鏡＋PMT，可前向或後向（epi）</td><td data-m="srs">光電二極體＋鎖相放大器，多為前向</td></tr>
-          <tr><td>方向性</td><td data-m="spont">四面八方（4π）</td><td data-m="cars">相位匹配，主要向前發射</td><td data-m="srs">與雷射同向（本來就是雷射）</td></tr>
-        </tbody>
+        <tbody id="cmpBody"></tbody>
       </table>
     </div>
   </div>
 
   <div class="card">
     <details open>
-      <summary>玩法提示</summary>
-      <p><b>沒有拍就沒有訊號。</b>把 Δ 拉到 0，兩束同色、差頻為零，第二列的包絡整條攤平——推不動鞦韆，共振訊號消失；
-      掃描曲線上剩下的非零基線，就是 <span class="m">χ<sub>NR</sub></span> 的非共振四波混頻背景（把 <span class="m">χ<sub>NR</sub></span> 歸零它才真的是零）。</p>
-      <p><b>對準共振。</b>按「對準 Ω」或把 Δ 拉到 Ω（例如脂質 2845 cm⁻¹），第三列的分子振幅 |A| 到 100%，
-      而且注意它<b>落後驅動 90°</b>——這是任何受驅振子在共振時的指紋。Δ 遠低於 Ω 時分子跟著推力同相；遠高於 Ω 時反相。
-      整片分子同步振動，訊號 ∝ <span class="m">N²</span>（同調疊加）而且往前方射出，比自發拉曼亮好幾個數量級。</p>
-      <p><b>χ<sub>NR</sub> 的代價。</b>把 <span class="m">χ<sub>NR</sub></span> 拉大，掃描曲線會從對稱的 Lorentzian 變成不對稱的色散線型：
-      峰往低波數偏移 <span class="m">Γ·x₊</span>、高波數側在 <span class="m">Ω + Γ|x₋|</span> 出現一個掉到基線以下的凹陷
-      （右側統計會即時算出這兩個位置），其中 <span class="m">x<sub>±</sub> = (−1 ± √(1+4χ<sub>NR</sub>²)) / 2χ<sub>NR</sub></span>。
-      這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。</p>
-      <p><b>Γ 與雷射脈寬。</b>這裡的 Γ 是分子振動本身的半高半寬（HWHM；凝態典型 5–15 cm⁻¹，水的 O–H 帶則寬到 ~150）。
-      統計裡同時算出「頻寬等於 2Γ 的變換極限高斯脈衝」有多長，落在 0.5–1.5 ps 附近——
-      ps 雷射的頻寬剛好跟線寬同量級，光譜解析度與激發效率都不浪費，這是 CARS/SRS 常用 ps 而非 fs 雷射的原因。</p>
-      <p><b>自發拉曼的 anti-Stokes 為什麼幾乎沒有？</b>切到自發模式，統計會算出 anti-Stokes／Stokes 的 Boltzmann 比值
-      <span class="m">e<sup>−hcΩ/k<sub>B</sub>T</sup></span>（300 K）：2845 cm⁻¹ 只有 10⁻⁶ 量級。
-      CARS 的 anti-Stokes 不靠熱佈居，靠的是拍頻主動把分子推起來，所以藍側才有訊號。</p>
+      <summary data-i18n="hints.title"></summary>
+      <div id="hints"></div>
     </details>
   </div>
 
-  <p class="model">
-    模型：<span class="m">χ<sub>R</sub>(Δ) = A / (Ω − Δ − iΓ)</span>，共振幅值取 <span class="m">A = Γ</span>（峰值歸一），Γ 為 HWHM；
-    <span class="m">I<sub>CARS</sub> ∝ |χ<sub>NR</sub> + χ<sub>R</sub>|²</span>、<span class="m">ΔI<sub>SRS</sub> ∝ Im χ<sub>R</sub></span>、自發拉曼 ∝ Im <span class="m">χ<sub>R</sub></span>；
-    分子振幅 <span class="m">|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)</span>、相位落後 <span class="m">φ = atan2(Γ, Ω−Δ)</span>。
-    未含雷射脈衝頻寬的摺積、電子共振與相位匹配因子；第一張圖的橫軸比例為真（24 個 pump 週期，拍數 = 24·Δ/ω<sub>p</sub>），
-    但第二張圖 SRS 的 ΔI 為了看得見已放大約 10³ 倍。波長換算 <span class="m">ω [cm⁻¹] = 10⁷ / λ [nm]</span>。
-  </p>
+  <p class="model" data-i18n="model"></p>
 </section>
 
 <script>
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const M = s => `<span class="m">${s}</span>`;
+const I18N = {
+zh: {
+  'title': 'CARS 拍頻遊樂場 🦉',
+  'sub': `兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後的<b>拍頻</b>
+    ${M('Δ = ω<sub>p</sub> − ω<sub>s</sub>')} 才是真正推分子的那隻手。
+    當 Δ 對上化學鍵振動頻率 ${M('Ω')}，整片分子像被準時推的鞦韆一起盪起來，
+    訊號跑到 ${M('ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub>')}——比 pump 更藍，天生避開螢光。
+    用「技術模式」切換自發拉曼 / CARS / SRS，三種拉曼技術擺在同一組座標下比。`,
+  'ctl.mode': '技術模式',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'btn.reset': '重設', 'btn.reset.title': '回到預設值',
+  'lbl.pump': `pump 波長 ${M('λ<sub>p</sub>')}`,
+  'lbl.delta': `拍頻 ${M('Δ')}（拉曼位移）`,
+  'btn.lock': '對準 Ω', 'btn.lock.title': '把 Δ 設成 Ω',
+  'lbl.omega': `分子振動 ${M('Ω')}`,
+  'lbl.gamma': `線寬 ${M('Γ')}（HWHM）`,
+  'lbl.nr': `非共振背景 ${M('χ<sub>NR</sub>')}／${M('A')}`,
+  'lbl.anim': '動畫：兩道波以光速前進，看拍包絡滾動',
+  'mode.spont': '自發拉曼',
+  'preset.lipid': '脂質 CH₂', 'preset.lipid.note': '對稱伸縮',
+  'preset.protein': '蛋白質 CH₃', 'preset.protein.note': '伸縮，帶較寬',
+  'preset.water': '水 O–H', 'preset.water.note': '氫鍵網路，極寬',
+  'preset.cc': 'C=C / Amide I', 'preset.cc.note': '不飽和鍵、蛋白骨架',
+  'preset.phe': 'Phe 苯環', 'preset.phe.note': '環呼吸，極窄',
+  'preset.apatite': '磷灰石 PO₄', 'preset.apatite.note': 'ν₁ 對稱伸縮；牙齒／骨',
+  // 圖 1
+  'b.oneLaser': '（只需一束雷射）',
+  'b.axis': x => `橫軸 = 24 λp ≈ ${x} µm　`,
+  'b.ratio': (x, wide) => `Δ/ωp = ${x}%${wide ? '（比例真實）' : ''}`,
+  'b.single': '單束光：振幅平平，沒有拍包絡 → 沒有那隻推鞦韆的手',
+  'b.sum': n => `兩束相加：拍包絡（${n === null ? '不到半個拍' : n + ' 個拍'}）`,
+  'b.same': '同色 → 沒有拍 → 推不動',
+  'b.random': '分子各抖各的（相位隨機）→ 訊號 ∝ N，往 4π 亂射',
+  'b.coh': (a, p) => `分子同調振動（波向量 k_p − k_s）　|A| = ${a}%　落後 φ = ${p}°`,
+  'b.res': '共振：落後 90°、振幅最大',
+  'b.dash': '灰色虛線＝推力（拍強度）峰位',
+  // 圖 2
+  's.fluo': '螢光背景（紅側）',
+  's.x': '波長 (nm)', 's.y': '強度 (a.u.)',
+  's.resStokes': 'Δ=Ω 時的 Stokes',
+  's.carsHead': d => `偵測窗：anti-Stokes 在 pump 藍側 ${d} nm 處，帶通濾鏡即可分離`,
+  's.srsHead': '訊號＝雷射本身的微小增減（圖上已放大；真實 ΔI/I ~ 10⁻⁴，靠 MHz 調變＋鎖相放大）',
+  's.spontPeak': l => `Stokes 拉曼 ${l} nm（弱 ~10⁵ 倍，線寬照真實 Γ 畫）`,
+  's.boltz': v => `×e^(−hcΩ/kT) = ${v}（300 K）`,
+  's.spontHead': '峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起',
+  // 圖 3
+  'n.xShift': '拉曼位移 (cm⁻¹)', 'n.xBeat': '拍頻 Δ (cm⁻¹)',
+  'n.yCars': 'I_CARS（歸一）', 'n.ySrs': 'ΔI_SRS（歸一）', 'n.ySpont': 'I_Raman（歸一）',
+  'n.baseline': v => `遠離共振的基線 χ_NR² = ${v}`,
+  'n.peak': x => `峰 Ω−${x}`, 'n.dip': x => `谷 Ω+${x}`,
+  'n.legCars1': '含 χ_NR 干涉', 'n.legCars2': '純共振（χ_NR = 0，虛線）',
+  'n.legSrs1': 'SRS ∝ Im χ：純 Lorentzian，χ_NR 進不來', 'n.legSrs2': 'CARS（虛線對照）：被 χ_NR 拉歪',
+  'n.legSpont': '自發拉曼：同樣的 Lorentzian，只是弱 ~10⁵ 倍',
+  // 統計
+  'st.wl': '波長 ↔ 波數', 'st.pump': 'pump ω<sub>p</sub>',
+  'st.stokes': 'Stokes λ<sub>s</sub>', 'st.as': 'anti-Stokes λ<sub>as</sub>',
+  'st.gap': '與 pump 間距（S / aS）', 'st.gapS': 'pump→Stokes 間距',
+  'st.res': '共振', 'st.detune': '失諧 Ω − Δ', 'st.amp': '分子振幅 |A|、落後 φ',
+  'st.relCars': '相對 CARS 訊號',
+  'st.nrHead': 'χ<sub>NR</sub> 干涉', 'st.shift': '峰位偏移（往低波數）', 'st.dip': '凹陷位置', 'st.none': '無',
+  'st.contrast': '峰／遠離共振基線', 'st.dipDepth': '谷底／基線',
+  'st.lw': '線寬與脈寬', 'st.fwhm': 'FWHM = 2Γ', 'st.tl': '同頻寬變換極限脈衝',
+  'st.noteCars': '訊號 ∝ N²·I<sub>p</sub>²·I<sub>s</sub>（同調疊加）；偵測新顏色，濾鏡就分得開。',
+  'st.srsRel': 'SRL / SRG ∝ Im χ', 'st.srsReal': '真實量級 ΔI/I',
+  'st.noteSrs': '訊號 ∝ N·I<sub>p</sub>·I<sub>s</sub>（線性、可直接定量）；沒有 χ<sub>NR</sub> 背景，但要靠 MHz 調變＋鎖相放大把 10⁻⁴ 的變化挖出來。',
+  'st.stokesPeak': 'Stokes 拉曼峰', 'st.asPeak': 'anti-Stokes 拉曼峰',
+  'st.thermal': '熱佈居（300 K）', 'st.kT': 'k<sub>B</sub>T / hc', 'st.omkT': 'Ω / k<sub>B</sub>T', 'st.ratio': 'anti-Stokes / Stokes',
+  'st.lwOnly': '線寬', 'st.fwhmNm': '波長軸上 FWHM',
+  'st.noteSpont': '訊號 ∝ N（不相干疊加），比同調方法弱 ~10⁵ 倍；但只要一束雷射＋光譜儀，一次拿整條光譜。',
+  'st.by': om => `（由 Ω=${om} cm⁻¹ 決定）`,
+  // 比較表
+  'cmp.title': '三種拉曼技術比一比',
+  'cmp.rows': [
+    ['雷射', '一束（連續或脈衝皆可）', 'pump＋Stokes，兩束同步 ps 脈衝', 'pump＋Stokes，其中一束高頻調變（MHz）'],
+    ['驅動分子的方式', '沒有驅動：分子自發散射，相位各自隨機', '拍頻 Δ 同調驅動，整片分子同相振動', '同 CARS，拍頻同調驅動'],
+    ['訊號量級', `∝ ${M('N')}，不相干疊加，極弱`, `∝ ${M('N²·I<sub>p</sub>²·I<sub>s</sub>')}，比自發強數個數量級`, `∝ ${M('N·I<sub>p</sub>·I<sub>s</sub>')}，但 ${M('ΔI/I')} 只有 10⁻⁴～10⁻⁶`],
+    ['訊號在哪裡', '紅側新頻率（Stokes），跟螢光疊在一起', `藍側新頻率 ${M('ω<sub>as</sub>')}，濾鏡就分得開，避開螢光`, '雷射本身：pump 變弱（SRL）／Stokes 變強（SRG）'],
+    ['線型', `Im ${M('χ<sub>R</sub>')}：對稱 Lorentzian`, `|${M('χ<sub>NR</sub>')}＋${M('χ<sub>R</sub>')}|²：色散形，峰偏移、高波數側凹陷`, `Im ${M('χ<sub>R</sub>')}：對稱 Lorentzian，${M('χ<sub>NR</sub>')} 進不來`],
+    ['背景', '螢光、雜散光', `非共振四波混頻（${M('χ<sub>NR</sub>')}），無法濾掉`, '交叉相位調變、熱透鏡、雙光子吸收（小）'],
+    ['定量', '線性、可定量，但需長積分', `非線性（${M('N²')}）且被干涉扭曲，定量困難`, '線性、可直接定量濃度'],
+    ['偵測', '光譜儀＋CCD，一次拿整條光譜', '帶通濾鏡＋PMT，可前向或後向（epi）', '光電二極體＋鎖相放大器，多為前向'],
+    ['方向性', '四面八方（4π）', '相位匹配，主要向前發射', '與雷射同向（本來就是雷射）'],
+  ],
+  // 玩法提示
+  'hints.title': '玩法提示',
+  'hints': [
+    `<b>沒有拍就沒有訊號。</b>把 Δ 拉到 0，兩束同色、差頻為零，第二列的包絡整條攤平——推不動鞦韆，共振訊號消失；
+     掃描曲線上剩下的非零基線，就是 ${M('χ<sub>NR</sub>')} 的非共振四波混頻背景（把 ${M('χ<sub>NR</sub>')} 歸零它才真的是零）。`,
+    `<b>對準共振。</b>按「對準 Ω」或把 Δ 拉到 Ω（例如脂質 2845 cm⁻¹），第三列的分子振幅 |A| 到 100%，
+     而且注意它<b>落後驅動 90°</b>——這是任何受驅振子在共振時的指紋。Δ 遠低於 Ω 時分子跟著推力同相；遠高於 Ω 時反相。
+     整片分子同步振動，訊號 ∝ ${M('N²')}（同調疊加）而且往前方射出，比自發拉曼亮好幾個數量級。`,
+    `<b>χ<sub>NR</sub> 的代價。</b>把 ${M('χ<sub>NR</sub>')} 拉大，掃描曲線會從對稱的 Lorentzian 變成不對稱的色散線型：
+     峰往低波數偏移 ${M('Γ·x₊')}、高波數側在 ${M('Ω + Γ|x₋|')} 出現一個掉到基線以下的凹陷
+     （右側統計會即時算出這兩個位置），其中 ${M('x<sub>±</sub> = (−1 ± √(1+4χ<sub>NR</sub>²)) / 2χ<sub>NR</sub>')}。
+     這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。`,
+    `<b>Γ 與雷射脈寬。</b>這裡的 Γ 是分子振動本身的半高半寬（HWHM；凝態典型 5–15 cm⁻¹，水的 O–H 帶則寬到 ~150）。
+     統計裡同時算出「頻寬等於 2Γ 的變換極限高斯脈衝」有多長，落在 0.5–1.5 ps 附近——
+     ps 雷射的頻寬剛好跟線寬同量級，光譜解析度與激發效率都不浪費，這是 CARS/SRS 常用 ps 而非 fs 雷射的原因。`,
+    `<b>自發拉曼的 anti-Stokes 為什麼幾乎沒有？</b>切到自發模式，統計會算出 anti-Stokes／Stokes 的 Boltzmann 比值
+     ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')}（300 K）：2845 cm⁻¹ 只有 10⁻⁶ 量級。
+     CARS 的 anti-Stokes 不靠熱佈居，靠的是拍頻主動把分子推起來，所以藍側才有訊號。`,
+  ],
+  'model': `模型：${M('χ<sub>R</sub>(Δ) = A / (Ω − Δ − iΓ)')}，共振幅值取 ${M('A = Γ')}（峰值歸一），Γ 為 HWHM；
+    ${M('I<sub>CARS</sub> ∝ |χ<sub>NR</sub> + χ<sub>R</sub>|²')}、${M('ΔI<sub>SRS</sub> ∝ Im χ<sub>R</sub>')}、自發拉曼 ∝ Im ${M('χ<sub>R</sub>')}；
+    分子振幅 ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}、相位落後 ${M('φ = atan2(Γ, Ω−Δ)')}。
+    未含雷射脈衝頻寬的摺積、電子共振與相位匹配因子；第一張圖的橫軸比例為真（24 個 pump 週期，拍數 = 24·Δ/ω<sub>p</sub>），
+    但第二張圖 SRS 的 ΔI 為了看得見已放大約 10³ 倍。波長換算 ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}。`,
+},
+en: {
+  'title': 'CARS Beat-Frequency Playground 🦉',
+  'sub': `Why do the two lasers have to be <b>different colours</b>? Because when pump and Stokes overlap, their <b>beat</b>
+    ${M('Δ = ω<sub>p</sub> − ω<sub>s</sub>')} is the hand that actually pushes the molecules.
+    When Δ matches a bond's vibrational frequency ${M('Ω')}, every molecule swings up together like a swing pushed right on time,
+    and the signal appears at ${M('ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub>')}: bluer than the pump, so it naturally escapes fluorescence.
+    Use the technique buttons to compare spontaneous Raman, CARS and SRS on the same axes.`,
+  'ctl.mode': 'Technique',
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'btn.reset': 'Reset', 'btn.reset.title': 'Back to defaults',
+  'lbl.pump': `Pump wavelength ${M('λ<sub>p</sub>')}`,
+  'lbl.delta': `Beat ${M('Δ')} (Raman shift)`,
+  'btn.lock': 'Set Δ = Ω', 'btn.lock.title': 'Move the beat onto resonance',
+  'lbl.omega': `Vibration ${M('Ω')}`,
+  'lbl.gamma': `Linewidth ${M('Γ')} (HWHM)`,
+  'lbl.nr': `Non-resonant ${M('χ<sub>NR</sub>')} / ${M('A')}`,
+  'lbl.anim': 'Animate: both waves travel at c, watch the beat envelope roll',
+  'mode.spont': 'Spontaneous',
+  'preset.lipid': 'Lipid CH₂', 'preset.lipid.note': 'symmetric stretch',
+  'preset.protein': 'Protein CH₃', 'preset.protein.note': 'stretch, broader band',
+  'preset.water': 'Water O–H', 'preset.water.note': 'hydrogen-bond network, very broad',
+  'preset.cc': 'C=C / Amide I', 'preset.cc.note': 'unsaturated bonds, protein backbone',
+  'preset.phe': 'Phe ring', 'preset.phe.note': 'ring breathing, very narrow',
+  'preset.apatite': 'Apatite PO₄', 'preset.apatite.note': 'ν₁ symmetric stretch; teeth / bone',
+  'b.oneLaser': '(single laser only)',
+  'b.axis': x => `x-axis = 24 λp ≈ ${x} µm   `,
+  'b.ratio': (x, wide) => `Δ/ωp = ${x}%${wide ? ' (true scale)' : ''}`,
+  'b.single': 'One beam: flat amplitude, no beat envelope → nothing to push the swing',
+  'b.sum': n => `Sum of both: beat envelope (${n === null ? 'less than half a beat' : n + ' beats'})`,
+  'b.same': 'Same colour → no beat → no push',
+  'b.random': 'Molecules jiggle on their own (random phase) → signal ∝ N, sprayed into 4π',
+  'b.coh': (a, p) => `Coherent vibration (k_p − k_s)   |A| = ${a}%   lag φ = ${p}°`,
+  'b.res': 'Resonance: 90° lag, max amplitude',
+  'b.dash': 'grey dashes = drive (beat intensity) peaks',
+  's.fluo': 'Fluorescence background (red side)',
+  's.x': 'Wavelength (nm)', 's.y': 'Intensity (a.u.)',
+  's.resStokes': 'Stokes at Δ=Ω',
+  's.carsHead': d => `Detection window: anti-Stokes sits ${d} nm to the blue of the pump — a bandpass filter separates it`,
+  's.srsHead': 'Signal = tiny gain/loss on the lasers (exaggerated; real ΔI/I ~ 10⁻⁴ → MHz modulation + lock-in)',
+  's.spontPeak': l => `Stokes Raman ${l} nm (~10⁵× weaker; true Γ width)`,
+  's.boltz': v => `×e^(−hcΩ/kT) = ${v} (300 K)`,
+  's.spontHead': 'Peak set by Ω (no second laser); red side → buried in fluorescence',
+  'n.xShift': 'Raman shift (cm⁻¹)', 'n.xBeat': 'Beat Δ (cm⁻¹)',
+  'n.yCars': 'I_CARS (normalised)', 'n.ySrs': 'ΔI_SRS (normalised)', 'n.ySpont': 'I_Raman (normalised)',
+  'n.baseline': v => `Off-resonance baseline χ_NR² = ${v}`,
+  'n.peak': x => `peak Ω−${x}`, 'n.dip': x => `dip Ω+${x}`,
+  'n.legCars1': 'with χ_NR interference', 'n.legCars2': 'pure resonance (χ_NR = 0, dashed)',
+  'n.legSrs1': 'SRS ∝ Im χ: pure Lorentzian, χ_NR cannot enter', 'n.legSrs2': 'CARS (dashed, for comparison): distorted by χ_NR',
+  'n.legSpont': 'Spontaneous Raman: the same Lorentzian, just ~10⁵× weaker',
+  'st.wl': 'Wavelength ↔ wavenumber', 'st.pump': 'Pump ω<sub>p</sub>',
+  'st.stokes': 'Stokes λ<sub>s</sub>', 'st.as': 'anti-Stokes λ<sub>as</sub>',
+  'st.gap': 'Offset from pump (S / aS)', 'st.gapS': 'Pump → Stokes spacing',
+  'st.res': 'Resonance', 'st.detune': 'Detuning Ω − Δ', 'st.amp': 'Amplitude |A|, lag φ',
+  'st.relCars': 'Relative CARS signal',
+  'st.nrHead': 'χ<sub>NR</sub> interference', 'st.shift': 'Peak shift (to lower Δ)', 'st.dip': 'Dip position', 'st.none': 'none',
+  'st.contrast': 'Peak / off-resonance baseline', 'st.dipDepth': 'Dip / baseline',
+  'st.lw': 'Linewidth & pulse', 'st.fwhm': 'FWHM = 2Γ', 'st.tl': 'Transform-limited pulse (2Γ)',
+  'st.noteCars': 'Signal ∝ N²·I<sub>p</sub>²·I<sub>s</sub> (coherent addition); it is a new colour, so a filter separates it.',
+  'st.srsRel': 'SRL / SRG ∝ Im χ', 'st.srsReal': 'Realistic ΔI/I',
+  'st.noteSrs': 'Signal ∝ N·I<sub>p</sub>·I<sub>s</sub> (linear, directly quantitative); no χ<sub>NR</sub> background, but you need MHz modulation + lock-in to dig out a 10⁻⁴ change.',
+  'st.stokesPeak': 'Stokes peak', 'st.asPeak': 'anti-Stokes peak',
+  'st.thermal': 'Thermal population (300 K)', 'st.kT': 'k<sub>B</sub>T / hc', 'st.omkT': 'Ω / k<sub>B</sub>T', 'st.ratio': 'anti-Stokes / Stokes',
+  'st.lwOnly': 'Linewidth', 'st.fwhmNm': 'FWHM on the wavelength axis',
+  'st.noteSpont': 'Signal ∝ N (incoherent sum), ~10⁵× weaker than the coherent methods; but one laser + a spectrometer gives the whole spectrum at once.',
+  'st.by': om => ` (set by Ω=${om} cm⁻¹)`,
+  'cmp.title': 'Three Raman techniques side by side',
+  'cmp.rows': [
+    ['Lasers', 'One (CW or pulsed)', 'Pump + Stokes, two synchronised ps pulses', 'Pump + Stokes, one of them modulated at MHz'],
+    ['How molecules are driven', 'Not driven: spontaneous scattering, each molecule with its own random phase', 'Coherently driven by the beat Δ; all molecules vibrate in phase', 'Same as CARS: coherently driven by the beat'],
+    ['Signal strength', `∝ ${M('N')}, incoherent sum, extremely weak`, `∝ ${M('N²·I<sub>p</sub>²·I<sub>s</sub>')}, orders of magnitude above spontaneous`, `∝ ${M('N·I<sub>p</sub>·I<sub>s</sub>')}, but ${M('ΔI/I')} is only 10⁻⁴–10⁻⁶`],
+    ['Where the signal is', 'New frequency on the red side (Stokes), mixed with fluorescence', `New frequency on the blue side ${M('ω<sub>as</sub>')}; a filter separates it, clear of fluorescence`, 'On the lasers themselves: pump loses (SRL) / Stokes gains (SRG)'],
+    ['Line shape', `Im ${M('χ<sub>R</sub>')}: symmetric Lorentzian`, `|${M('χ<sub>NR</sub>')} + ${M('χ<sub>R</sub>')}|²: dispersive, peak shifted, dip on the high-wavenumber side`, `Im ${M('χ<sub>R</sub>')}: symmetric Lorentzian, ${M('χ<sub>NR</sub>')} cannot enter`],
+    ['Background', 'Fluorescence, stray light', `Non-resonant four-wave mixing (${M('χ<sub>NR</sub>')}), cannot be filtered out`, 'Cross-phase modulation, thermal lensing, two-photon absorption (small)'],
+    ['Quantitation', 'Linear and quantitative, but needs long integration', `Non-linear (${M('N²')}) and distorted by interference; hard to quantify`, 'Linear; concentration directly'],
+    ['Detection', 'Spectrometer + CCD, whole spectrum at once', 'Bandpass filter + PMT, forward or epi', 'Photodiode + lock-in amplifier, mostly forward'],
+    ['Directionality', 'Everywhere (4π)', 'Phase-matched, mainly forward', 'Along the lasers (it is the laser)'],
+  ],
+  'hints.title': 'Things to try',
+  'hints': [
+    `<b>No beat, no signal.</b> Drag Δ to 0: both beams have the same colour, the difference frequency vanishes and the envelope in the second row goes flat.
+     Nothing pushes the swing, so the resonant signal disappears. Whatever non-zero baseline remains on the scan is the non-resonant four-wave-mixing background from
+     ${M('χ<sub>NR</sub>')} (set ${M('χ<sub>NR</sub>')} to zero and it really is zero).`,
+    `<b>Hit resonance.</b> Press “Set Δ = Ω” or drag Δ onto Ω (e.g. lipid 2845 cm⁻¹). The molecular amplitude |A| in the third row reaches 100%,
+     and notice that it <b>lags the drive by 90°</b>: the fingerprint of any driven oscillator at resonance. Far below Ω the molecules follow the push in phase; far above, in antiphase.
+     All molecules vibrate together, the signal scales as ${M('N²')} (coherent addition) and is emitted forward, orders of magnitude brighter than spontaneous Raman.`,
+    `<b>The price of χ<sub>NR</sub>.</b> Turn ${M('χ<sub>NR</sub>')} up and the scan changes from a symmetric Lorentzian into an asymmetric dispersive shape:
+     the peak shifts to lower wavenumber by ${M('Γ·x₊')}, and on the high-wavenumber side a dip below the baseline appears at ${M('Ω + Γ|x₋|')}
+     (the stats on the right compute both positions live), where ${M('x<sub>±</sub> = (−1 ± √(1+4χ<sub>NR</sub>²)) / 2χ<sub>NR</sub>')}.
+     This is the built-in headache of CARS and one reason SRS took off later.`,
+    `<b>Γ and the laser pulse.</b> Γ here is the half-width at half-maximum of the molecular vibration itself (typically 5–15 cm⁻¹ in condensed phase; the water O–H band is ~150).
+     The stats also show how long a transform-limited Gaussian pulse with bandwidth 2Γ would be: around 0.5–1.5 ps.
+     A picosecond laser has a bandwidth of the same order as the linewidth, so neither spectral resolution nor excitation efficiency is wasted. That is why CARS/SRS usually use ps rather than fs lasers.`,
+    `<b>Why is spontaneous anti-Stokes almost absent?</b> Switch to spontaneous mode and the stats give the anti-Stokes/Stokes Boltzmann ratio
+     ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')} (300 K): for 2845 cm⁻¹ it is of order 10⁻⁶.
+     CARS anti-Stokes does not rely on thermal population; the beat actively drives the molecules, which is why there is signal on the blue side at all.`,
+  ],
+  'model': `Model: ${M('χ<sub>R</sub>(Δ) = A / (Ω − Δ − iΓ)')} with resonant amplitude ${M('A = Γ')} (peak normalised), Γ = HWHM;
+    ${M('I<sub>CARS</sub> ∝ |χ<sub>NR</sub> + χ<sub>R</sub>|²')}, ${M('ΔI<sub>SRS</sub> ∝ Im χ<sub>R</sub>')}, spontaneous Raman ∝ Im ${M('χ<sub>R</sub>')};
+    molecular amplitude ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}, phase lag ${M('φ = atan2(Γ, Ω−Δ)')}.
+    Not included: convolution with the laser bandwidth, electronic resonances, phase-matching factors. The first panel is drawn to true scale (24 pump cycles, number of beats = 24·Δ/ω<sub>p</sub>);
+    the SRS ΔI in the second panel is exaggerated ~10³× so it can be seen. Conversion ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}.`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const C = {};
 function readColors() {
@@ -247,20 +435,46 @@ function readColors() {
   C.fluoA = parseFloat(css('--fluo-a')); C.fluoB = parseFloat(css('--fluo-b'));
 }
 const rgba = (rgb, a) => `rgba(${rgb},${a})`;
-// 主題：預設淺色，記在 localStorage
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
-  $('theme').textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  $('theme').textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   readColors();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  $('cmpBody').innerHTML = t('cmp.rows').map(r =>
+    `<tr><td>${r[0]}</td><td data-m="spont">${r[1]}</td><td data-m="cars">${r[2]}</td><td data-m="srs">${r[3]}</td></tr>`).join('');
+  $('hints').innerHTML = t('hints').map(p => `<p>${p}</p>`).join('');
+  if (typeof relabel === 'function') relabel();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
+
 const FONT = '12px "Noto Sans TC", system-ui, sans-serif';
 const FONT_S = '11px "Noto Sans TC", system-ui, sans-serif';
 const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -320,17 +534,17 @@ const sup = n => String(n).replace(/-/g, '⁻').replace(/\d/g, d => '⁰¹²³�
 
 // —— 狀態 ——
 const MODES = [
-  { key: 'spont', name: '自發拉曼', color: C.as },
-  { key: 'cars',  name: 'CARS',     color: C.accent },
-  { key: 'srs',   name: 'SRS',      color: C.srs },
+  { key: 'spont', name: () => t('mode.spont') },
+  { key: 'cars',  name: () => 'CARS' },
+  { key: 'srs',   name: () => 'SRS' },
 ];
 const PRESETS = [
-  { name: '脂質 CH₂',   om: 2845, g: 12,  note: '對稱伸縮' },
-  { name: '蛋白質 CH₃', om: 2930, g: 20,  note: '伸縮，帶較寬' },
-  { name: '水 O–H',     om: 3400, g: 150, note: '氫鍵網路，極寬' },
-  { name: 'C=C / Amide I', om: 1655, g: 10, note: '不飽和鍵、蛋白骨架' },
-  { name: 'Phe 苯環',   om: 1003, g: 5,   note: '環呼吸，極窄' },
-  { name: '磷灰石 PO₄', om: 960,  g: 8,   note: 'ν₁ 對稱伸縮；牙齒／骨' },
+  { key: 'lipid',   om: 2845, g: 12 },
+  { key: 'protein', om: 2930, g: 20 },
+  { key: 'water',   om: 3400, g: 150 },
+  { key: 'cc',      om: 1655, g: 10 },
+  { key: 'phe',     om: 1003, g: 5 },
+  { key: 'apatite', om: 960,  g: 8 },
 ];
 const DEF = { m: 'cars', lp: 800, d: 2000, om: 2845, g: 12, nr: 0.3 };
 let mode = DEF.m, LP = DEF.lp;
@@ -369,7 +583,7 @@ function scanCurve(om, g, nr, n = 720) {
 }
 
 // —— 1. 拍頻（橫軸比例真實）——
-function drawBeat(D, om, g, t) {
+function drawBeat(D, om, g, tm) {
   const { ctx, W, H } = B;
   ctx.clearRect(0, 0, W, H);
   const mL = 14, pw = W - 28;
@@ -378,39 +592,38 @@ function drawBeat(D, om, g, t) {
   const nb = np * D / wp;                      // 拍數 = 24·Δ/ω_p（真實比例）
   const ns = np - nb;                          // Stokes 週期數
   const v = 0.045;                             // 兩束同相速（真空）→ 整體剛性平移
-  const drive = u => 2 * Math.PI * (nb * u - nb * v * t);   // 拍（強度）相位
+  const drive = u => 2 * Math.PI * (nb * u - nb * v * tm);  // 拍（強度）相位
 
   // 第一列：pump + Stokes
   const y1 = 46, a1 = 20;
   hline(ctx, mL, mL + pw, y1, C.grid);
-  path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * np * (u - v * t))]; }, C.accent, 1.5);
+  path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * np * (u - v * tm))]; }, C.accent, 1.5);
   if (mode !== 'spont')
-    path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * ns * (u - v * t))]; }, C.ref, 1.5, [4, 4]);
+    path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * ns * (u - v * tm))]; }, C.ref, 1.5, [4, 4]);
   txt(ctx, `pump ${LP} nm`, mL + 2, 15, C.accent);
-  if (mode === 'spont') txt(ctx, '（只需一束雷射）', mL + 100, 15, C.muted);
+  if (mode === 'spont') txt(ctx, t('b.oneLaser'), mL + 100, 15, C.muted);
   else txt(ctx, `Stokes ${lamS(D).toFixed(0)} nm`, mL + 100, 15, C.ref);
   const wide = W >= 520;
-  const rlab = (wide ? `橫軸 = 24 λp ≈ ${fmt(24 * LP / 1000, 1)} µm　` : '') +
-    (mode === 'spont' ? '' : `Δ/ωp = ${fmt(100 * D / wp, 1)}%${wide ? '（比例真實）' : ''}`);
+  const rlab = (wide ? t('b.axis', fmt(24 * LP / 1000, 1)) : '') + (mode === 'spont' ? '' : t('b.ratio', fmt(100 * D / wp, 1), wide));
   txt(ctx, rlab, mL + pw, 15, C.dim, 'right', FONT_S);
 
   // 第二列：相加 + 包絡
   const y2 = 122, a2 = 15;
   hline(ctx, mL, mL + pw, y2, C.grid);
   if (mode === 'spont') {
-    path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - a2 * 1.3 * Math.cos(2 * Math.PI * np * (u - v * t))]; }, C.ink, 1.4);
-    txt(ctx, '單束光：振幅平平，沒有拍包絡 → 沒有那隻推鞦韆的手', mL + 2, y2 - 32, C.muted);
+    path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - a2 * 1.3 * Math.cos(2 * Math.PI * np * (u - v * tm))]; }, C.ink, 1.4);
+    txt(ctx, t('b.single'), mL + 2, y2 - 32, C.muted);
   } else {
-    const env = u => 2 * Math.abs(Math.cos(Math.PI * nb * (u - v * t)));
+    const env = u => 2 * Math.abs(Math.cos(Math.PI * nb * (u - v * tm)));
     for (const sgn of [1, -1])
       path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - sgn * a2 * env(u)]; }, C.muted, 1, [3, 3]);
     path(ctx, pw, i => {
       const u = i / pw;
-      const s = Math.cos(2 * Math.PI * np * (u - v * t)) + Math.cos(2 * Math.PI * ns * (u - v * t));
+      const s = Math.cos(2 * Math.PI * np * (u - v * tm)) + Math.cos(2 * Math.PI * ns * (u - v * tm));
       return [mL + i, y2 - a2 * s];
     }, C.ink, 1.3);
-    txt(ctx, `兩束相加：拍包絡（${nb < 0.5 ? '不到半個拍' : fmt(nb, 1) + ' 個拍'}）`, mL + 2, y2 - 32, C.ink);
-    if (D < 30) txt(ctx, '同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 32, C.ref, 'center');
+    txt(ctx, t('b.sum', nb < 0.5 ? null : fmt(nb, 1)), mL + 2, y2 - 32, C.ink);
+    if (D < 30) txt(ctx, t('b.same'), mL + pw * 0.62, y2 - 32, C.ref, 'center');
   }
 
   // 第三列：分子振動
@@ -419,24 +632,30 @@ function drawBeat(D, om, g, t) {
   if (mode === 'spont') {
     path(ctx, pw, i => {
       const u = i / pw;
-      return [mL + i, y3 - 3.5 * Math.sin(2 * Math.PI * 6 * u + 5 * Math.sin(u * 53 + 0.7 * t) + t * 4)];
+      return [mL + i, y3 - 3.5 * Math.sin(2 * Math.PI * 6 * u + 5 * Math.sin(u * 53 + 0.7 * tm) + tm * 4)];
     }, C.as, 1.2);
-    txt(ctx, '分子各抖各的（相位隨機）→ 訊號 ∝ N，往 4π 亂射', mL + 2, y3 - 26, C.as);
+    txt(ctx, t('b.random'), mL + 2, y3 - 26, C.as);
   } else {
     const A = ampl(D, om, g), ph = phase(D, om, g);
     // 受驅振子：時間上落後 φ → 空間上落在驅動峰後方（+φ）
     path(ctx, pw, i => { const u = i / pw; return [mL + i, y3 - 24 * A * Math.cos(drive(u) + ph)]; }, C.as, 2);
     // 標出驅動（拍強度）的峰位，讓落後看得見
     if (A > 0.15 && nb > 0.4) {
-      const k0 = Math.ceil(-nb * v * t), n0 = Math.floor(nb - nb * v * t);
+      const k0 = Math.ceil(-nb * v * tm), n0 = Math.floor(nb - nb * v * tm);
       for (let k = k0; k <= n0; k++) {
-        const u = (k + nb * v * t) / nb; if (u < 0 || u > 1) continue;
+        const u = (k + nb * v * tm) / nb; if (u < 0 || u > 1) continue;
         vline(ctx, mL + u * pw, y3 - 30, y3 + 30, rgba(C.mutedRgb, 0.4), [2, 3]);
       }
     }
-    txt(ctx, `分子同調振動（波向量 k_p − k_s）　|A| = ${fmt(A * 100, A < 0.1 ? 1 : 0)}%　落後 φ = ${fmt(ph * 180 / Math.PI, 0)}°`, mL + 2, y3 - 26, C.as);
-    if (Math.abs(ph - Math.PI / 2) < 0.1 && A > 0.9) txt(ctx, '共振：落後 90°、振幅最大', mL + pw, y3 - 26, C.ref, 'right', FONT_S);
-    else if (A > 0.15) txt(ctx, '灰色虛線＝推力（拍強度）峰位', mL + pw, y3 - 26, C.dim, 'right', FONT_S);
+    txt(ctx, t('b.coh', fmt(A * 100, A < 0.1 ? 1 : 0), fmt(ph * 180 / Math.PI, 0)), mL + 2, y3 - 26, C.as);
+    const rightLab = (Math.abs(ph - Math.PI / 2) < 0.1 && A > 0.9) ? [t('b.res'), C.ref] : (A > 0.15 ? [t('b.dash'), C.dim] : null);
+    if (rightLab) {
+      // 右側註記在窄畫布或英文下容易撞到左側標籤，放不下就移到下一行
+      ctx.font = FONT; const wl = ctx.measureText(t('b.coh', fmt(A * 100, A < 0.1 ? 1 : 0), fmt(ph * 180 / Math.PI, 0))).width;
+      ctx.font = FONT_S; const wr = ctx.measureText(rightLab[0]).width;
+      const fits = wl + wr + 24 < pw;
+      txt(ctx, rightLab[0], mL + pw, fits ? y3 - 26 : y3 + 34, rightLab[1], 'right', FONT_S);
+    }
   }
 }
 
@@ -458,7 +677,7 @@ function drawSpec(D, om, g) {
   const gx = ctx.createLinearGradient(X(LP), 0, X(LMAX), 0);
   gx.addColorStop(0, rgba(C.refRgb, C.fluoA)); gx.addColorStop(1, rgba(C.refRgb, C.fluoB));
   ctx.fillStyle = gx; ctx.fillRect(X(LP), mT, X(LMAX) - X(LP), ph);
-  txt(ctx, '螢光背景（紅側）', mL + pw - 6, mT + 14, rgba(C.refRgb, 0.8), 'right', FONT_S);
+  txt(ctx, t('s.fluo'), mL + pw - 6, mT + 14, rgba(C.refRgb, 0.8), 'right', FONT_S);
 
   // 軸
   hline(ctx, mL, mL + pw, base, C.grid);
@@ -467,9 +686,9 @@ function drawSpec(D, om, g) {
     vline(ctx, X(l), base, base + 4, C.muted);
     txt(ctx, l, X(l), base + 17, C.muted, 'center', FONT_S);
   }
-  txt(ctx, '波長 (nm)', mL + pw / 2, H - 4, C.muted, 'center', FONT_S);
+  txt(ctx, t('s.x'), mL + pw / 2, H - 4, C.muted, 'center', FONT_S);
   ctx.save(); ctx.translate(14, mT + ph / 2); ctx.rotate(-Math.PI / 2);
-  txt(ctx, '強度 (a.u.)', 0, 0, C.muted, 'center', FONT_S); ctx.restore();
+  txt(ctx, t('s.y'), 0, 0, C.muted, 'center', FONT_S); ctx.restore();
 
   const line = (l, frac, color, label, lw = 3, dy = -6) => {
     if (l < LMIN || l > LMAX) return;
@@ -484,7 +703,7 @@ function drawSpec(D, om, g) {
     if (Math.abs(lres - ls) > 3 && lres < LMAX) {
       vline(ctx, X(lres), Y(0.60), base, rgba(C.refRgb, 0.5), [2, 4]);
       const right = X(lres) < mL + pw - 110;
-      pill(ctx, `${right ? '' : 'Δ=Ω 時的 Stokes '}${lres.toFixed(0)}${right ? ' Δ=Ω 時的 Stokes' : ''}`,
+      pill(ctx, right ? `${lres.toFixed(0)} ${t('s.resStokes')}` : `${t('s.resStokes')} ${lres.toFixed(0)}`,
           X(lres) + (right ? 5 : -5), Y(0.60) + 4, rgba(C.refRgb, 0.85), right ? 'left' : 'right');
     }
   }
@@ -493,7 +712,7 @@ function drawSpec(D, om, g) {
     line(ls, 0.72, C.ref, `Stokes ${ls.toFixed(0)}`);
     line(LP, 0.72, C.accent, `pump ${LP}`);
     line(las, asDisp, C.as, `anti-Stokes ${las.toFixed(0)}`);
-    txt(ctx, `偵測窗：anti-Stokes 在 pump 藍側 ${fmt(LP - las, 0)} nm 處，帶通濾鏡即可分離`, mL + 2, 16, C.muted, 'left', FONT_S);
+    txt(ctx, t('s.carsHead', fmt(LP - las, 0)), mL + 2, 16, C.muted, 'left', FONT_S);
   } else if (mode === 'srs') {
     const dI = 0.20 * asDisp;                 // 圖上誇大的 ΔI（真實 ~1e-4）
     line(LP, 0.72 - dI, C.accent, `pump ${LP}`);
@@ -504,7 +723,7 @@ function drawSpec(D, om, g) {
       txt(ctx, 'SRG +ΔI', X(ls), Y(0.72 + dI) - 18, C.srs, 'center', FONT_S);
       txt(ctx, 'SRL −ΔI', X(LP), Y(0.72) - 18, C.accent, 'center', FONT_S);
     }
-    txt(ctx, '訊號＝雷射本身的微小增減（圖上已放大；真實 ΔI/I ~ 10⁻⁴，靠 MHz 調變＋鎖相放大）', mL + 2, 16, C.muted, 'left', FONT_S);
+    txt(ctx, t('s.srsHead'), mL + 2, 16, C.muted, 'left', FONT_S);
   } else {
     line(LP, 0.72, C.accent, `pump ${LP}`);
     // 自發拉曼：Lorentzian，線寬用真實的 Γ（換到波長軸上非常窄）
@@ -515,7 +734,7 @@ function drawSpec(D, om, g) {
       const v = peak * imChi(wp - WN(l), om, g);
       return [X(l), Y(v)];
     }, C.as, 1.6);
-    ctxt(ctx, `Stokes 拉曼 ${lr.toFixed(0)} nm（弱 ~10⁵ 倍，線寬照真實 Γ 畫）`, X(lr), Y(peak) - 8, C.as, X(LP) + 4, mL + pw);
+    ctxt(ctx, t('s.spontPeak', lr.toFixed(0)), X(lr), Y(peak) - 8, C.as, X(LP) + 10, mL + pw);
     const boltz = Math.exp(-om / KT);
     const va = peak * boltz;
     path(ctx, pw * 2, i => {
@@ -525,8 +744,8 @@ function drawSpec(D, om, g) {
     }, C.as, 1.2);
     vline(ctx, X(lra), Y(0.05), Y(0.02), rgba(C.asRgb, 0.5), [2, 2]);
     ctxt(ctx, `anti-Stokes ${lra.toFixed(0)} nm`, X(lra), Y(0.05) - 20, rgba(C.asRgb, 0.9), mL, X(LP) - 4);
-    ctxt(ctx, `×e^(−hcΩ/kT) = ${sci(boltz)}（300 K）`, X(lra), Y(0.05) - 6, rgba(C.asRgb, 0.75), mL, X(LP) - 4);
-    txt(ctx, '峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起', mL + 2, 16, C.muted, 'left', FONT_S);
+    ctxt(ctx, t('s.boltz', sci(boltz)), X(lra), Y(0.05) - 6, rgba(C.asRgb, 0.75), mL, X(LP) - 4);
+    txt(ctx, t('s.spontHead'), mL + 2, 16, C.muted, 'left', FONT_S);
   }
 }
 
@@ -547,9 +766,9 @@ function drawScan(D, om, g, nr, cur) {
     hline(ctx, mL, mL + pw, Y(k / 4), C.grid);
     txt(ctx, (k / 4).toFixed(2), mL - 7, Y(k / 4) + 4, C.muted, 'right', FONT_S);
   }
-  txt(ctx, mode === 'spont' ? '拉曼位移 (cm⁻¹)' : '拍頻 Δ (cm⁻¹)', mL + pw / 2, H - 5, C.muted, 'center', FONT_S);
+  txt(ctx, mode === 'spont' ? t('n.xShift') : t('n.xBeat'), mL + pw / 2, H - 5, C.muted, 'center', FONT_S);
   ctx.save(); ctx.translate(14, mT + ph / 2); ctx.rotate(-Math.PI / 2);
-  txt(ctx, mode === 'cars' ? 'I_CARS（歸一）' : mode === 'srs' ? 'ΔI_SRS（歸一）' : 'I_Raman（歸一）', 0, 0, C.muted, 'center', FONT_S);
+  txt(ctx, mode === 'cars' ? t('n.yCars') : mode === 'srs' ? t('n.ySrs') : t('n.ySpont'), 0, 0, C.muted, 'center', FONT_S);
   ctx.restore();
 
   const { res, pure, lor, max, n } = cur;
@@ -563,7 +782,7 @@ function drawScan(D, om, g, nr, cur) {
     if (nr > 0.02) {
       const bl = nr * nr / max;
       hline(ctx, mL, mL + pw, Y(bl), rgba(C.accentRgb, 0.4), [2, 4]);
-      txt(ctx, `遠離共振的基線 χ_NR² = ${fmt(bl, 2)}`, mL + 6, Y(bl) - 5, rgba(C.accentRgb, 0.7), 'left', FONT_S);
+      txt(ctx, t('n.baseline', fmt(bl, 2)), mL + 6, Y(bl) - 5, rgba(C.accentRgb, 0.7), 'left', FONT_S);
       const { xp, xm } = carsExtrema(g, nr);
       const Dp = om - g * xp, Dm = om - g * xm;
       const mark = (Dx, label, up) => {
@@ -575,8 +794,8 @@ function drawScan(D, om, g, nr, cur) {
         ctx.fill();
         txt(ctx, label, X(Dx) + (up ? -6 : 8), up ? y + 24 : y - 16, C.ref, up ? 'right' : 'left', FONT_S);
       };
-      mark(Dp, `峰 Ω−${fmt(g * xp, 1)}`, true);
-      mark(Dm, `谷 Ω+${fmt(-g * xm, 1)}`, false);
+      mark(Dp, t('n.peak', fmt(g * xp, 1)), true);
+      mark(Dm, t('n.dip', fmt(-g * xm, 1)), false);
     }
   } else {
     if (mode === 'srs') trace(res, max, C.grid, 1.4, [5, 4]);
@@ -601,24 +820,26 @@ function drawScan(D, om, g, nr, cur) {
     ctx.strokeStyle = C.panel; ctx.lineWidth = 1.5; ctx.stroke();
   }
   if (mode === 'cars') {
-    txt(ctx, '含 χ_NR 干涉', mL + 6, mT + 12, C.accent, 'left', FONT_S);
-    txt(ctx, '純共振（χ_NR = 0，虛線）', mL + 6, mT + 26, C.ref, 'left', FONT_S);
+    txt(ctx, t('n.legCars1'), mL + 6, mT + 12, C.accent, 'left', FONT_S);
+    txt(ctx, t('n.legCars2'), mL + 6, mT + 26, C.ref, 'left', FONT_S);
   } else if (mode === 'srs') {
-    txt(ctx, 'SRS ∝ Im χ：純 Lorentzian，χ_NR 進不來', mL + 6, mT + 12, C.srs, 'left', FONT_S);
-    txt(ctx, 'CARS（虛線對照）：被 χ_NR 拉歪', mL + 6, mT + 26, C.muted, 'left', FONT_S);
+    txt(ctx, t('n.legSrs1'), mL + 6, mT + 12, C.srs, 'left', FONT_S);
+    txt(ctx, t('n.legSrs2'), mL + 6, mT + 26, C.muted, 'left', FONT_S);
   } else {
-    txt(ctx, '自發拉曼：同樣的 Lorentzian，只是弱 ~10⁵ 倍', mL + 6, mT + 12, C.as, 'left', FONT_S);
+    txt(ctx, t('n.legSpont'), mL + 6, mT + 12, C.as, 'left', FONT_S);
   }
 }
 
 // —— 統計 ——
 const R = (k, v, hi) => `<div class="r${hi ? ' hi' : ''}"><span>${k}</span><b>${v}</b></div>`;
 const H4 = s => `<h4>${s}</h4>`;
+const SEP = () => LANG === 'en' ? ', ' : '，';
 function updateStats(D, om, g, nr, cur) {
   const wp = WN(LP), ls = lamS(D), las = lamAS(D);
   const tauTL = 7.355 / g;                      // 頻寬 FWHM = 2Γ 的變換極限高斯脈衝 (ps)
-  const common = H4('波長 ↔ 波數') +
-    R('pump ω<sub>p</sub>', `${fmt(wp, 0)} cm⁻¹`);
+  const common = H4(t('st.wl')) + R(t('st.pump'), `${fmt(wp, 0)} cm⁻¹`);
+  const lwBlock = R(t('st.fwhm'), `${2 * g} cm⁻¹ = ${fmt(2 * g * 29.98, 0)} GHz`) + R(t('st.tl'), `≈ ${fmt(tauTL, 2)} ps`);
+  const ampRow = R(t('st.amp'), `${fmt(ampl(D, om, g) * 100, 1)} %${SEP()}${fmt(phase(D, om, g) * 180 / Math.PI, 0)}°`);
   let html = '';
   if (mode === 'cars') {
     const rel = iCars(D, om, g, nr) / cur.max;
@@ -626,54 +847,48 @@ function updateStats(D, om, g, nr, cur) {
     const peak = nr * nr + (2 * nr * xp + 1) / (xp * xp + 1);
     const dip = nr > 1e-4 ? nr * nr + (2 * nr * xm + 1) / (xm * xm + 1) : 0;
     html = common +
-      R('Stokes λ<sub>s</sub>', `${fmt(ls, 1)} nm（${fmt(wp - D, 0)} cm⁻¹）`) +
-      R('anti-Stokes λ<sub>as</sub>', `${fmt(las, 1)} nm（${fmt(wp + D, 0)} cm⁻¹）`) +
-      R('與 pump 間距（S / aS）', `+${fmt(ls - LP, 0)} / −${fmt(LP - las, 0)} nm`) +
-      H4('共振') +
-      R('失諧 Ω − Δ', `${fmt(om - D, 0)} cm⁻¹`) +
-      R('分子振幅 |A|、落後 φ', `${fmt(ampl(D, om, g) * 100, 1)} %，${fmt(phase(D, om, g) * 180 / Math.PI, 0)}°`) +
-      R('相對 CARS 訊號', `${fmt(rel * 100, 1)} %`, true) +
-      H4('χ<sub>NR</sub> 干涉') +
-      R('峰位偏移（往低波數）', nr > 1e-4 ? `−${fmt(g * xp, 1)} cm⁻¹` : '0') +
-      R('凹陷位置', nr > 1e-4 ? `Ω + ${fmt(-g * xm, 1)} cm⁻¹` : '無') +
-      R('峰／遠離共振基線', nr > 1e-4 ? `${fmt(peak / (nr * nr), 1)} ×` : '∞') +
-      R('谷底／基線', nr > 1e-4 ? `${fmt(100 * dip / (nr * nr), 0)} %` : '—') +
-      H4('線寬與脈寬') +
-      R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
-      R('同頻寬變換極限脈衝', `≈ ${fmt(tauTL, 2)} ps`) +
-      `<div class="note">訊號 ∝ N²·I<sub>p</sub>²·I<sub>s</sub>（同調疊加）；偵測新顏色，濾鏡就分得開。</div>`;
+      R(t('st.stokes'), `${fmt(ls, 1)} nm (${fmt(wp - D, 0)} cm⁻¹)`) +
+      R(t('st.as'), `${fmt(las, 1)} nm (${fmt(wp + D, 0)} cm⁻¹)`) +
+      R(t('st.gap'), `+${fmt(ls - LP, 0)} / −${fmt(LP - las, 0)} nm`) +
+      H4(t('st.res')) +
+      R(t('st.detune'), `${fmt(om - D, 0)} cm⁻¹`) + ampRow +
+      R(t('st.relCars'), `${fmt(rel * 100, 1)} %`, true) +
+      H4(t('st.nrHead')) +
+      R(t('st.shift'), nr > 1e-4 ? `−${fmt(g * xp, 1)} cm⁻¹` : '0') +
+      R(t('st.dip'), nr > 1e-4 ? `Ω + ${fmt(-g * xm, 1)} cm⁻¹` : t('st.none')) +
+      R(t('st.contrast'), nr > 1e-4 ? `${fmt(peak / (nr * nr), 1)} ×` : '∞') +
+      R(t('st.dipDepth'), nr > 1e-4 ? `${fmt(100 * dip / (nr * nr), 0)} %` : '—') +
+      H4(t('st.lw')) + lwBlock +
+      `<div class="note">${t('st.noteCars')}</div>`;
     $('stats').innerHTML = html;
     return rel;
   }
   if (mode === 'srs') {
     const rel = imChi(D, om, g);
     html = common +
-      R('Stokes λ<sub>s</sub>', `${fmt(ls, 1)} nm（${fmt(wp - D, 0)} cm⁻¹）`) +
-      R('pump→Stokes 間距', `${fmt(ls - LP, 0)} nm`) +
-      H4('共振') +
-      R('失諧 Ω − Δ', `${fmt(om - D, 0)} cm⁻¹`) +
-      R('分子振幅 |A|、落後 φ', `${fmt(ampl(D, om, g) * 100, 1)} %，${fmt(phase(D, om, g) * 180 / Math.PI, 0)}°`) +
-      R('SRL / SRG ∝ Im χ', `${fmt(rel * 100, 1)} %`, true) +
-      R('真實量級 ΔI/I', `~${sci(1e-4 * rel)}`) +
-      H4('線寬與脈寬') +
-      R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
-      R('同頻寬變換極限脈衝', `≈ ${fmt(tauTL, 2)} ps`) +
-      `<div class="note">訊號 ∝ N·I<sub>p</sub>·I<sub>s</sub>（線性、可直接定量）；沒有 χ<sub>NR</sub> 背景，但要靠 MHz 調變＋鎖相放大把 10⁻⁴ 的變化挖出來。</div>`;
+      R(t('st.stokes'), `${fmt(ls, 1)} nm (${fmt(wp - D, 0)} cm⁻¹)`) +
+      R(t('st.gapS'), `${fmt(ls - LP, 0)} nm`) +
+      H4(t('st.res')) +
+      R(t('st.detune'), `${fmt(om - D, 0)} cm⁻¹`) + ampRow +
+      R(t('st.srsRel'), `${fmt(rel * 100, 1)} %`, true) +
+      R(t('st.srsReal'), `~${sci(1e-4 * rel)}`) +
+      H4(t('st.lw')) + lwBlock +
+      `<div class="note">${t('st.noteSrs')}</div>`;
     $('stats').innerHTML = html;
     return rel;
   }
   const lr = lamS(om), lra = lamAS(om), boltz = Math.exp(-om / KT);
   html = common +
-    R('Stokes 拉曼峰', `${fmt(lr, 1)} nm（${fmt(wp - om, 0)} cm⁻¹）`) +
-    R('anti-Stokes 拉曼峰', `${fmt(lra, 1)} nm`) +
-    H4('熱佈居（300 K）') +
-    R('k<sub>B</sub>T / hc', `${KT} cm⁻¹`) +
-    R('Ω / k<sub>B</sub>T', `${fmt(om / KT, 1)}`) +
-    R('anti-Stokes / Stokes', sci(boltz), true) +
-    H4('線寬') +
-    R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
-    R('波長軸上 FWHM', `${fmt(lr - lamS(om - g) + lamS(om + g) - lr, 2)} nm`) +
-    `<div class="note">訊號 ∝ N（不相干疊加），比同調方法弱 ~10⁵ 倍；但只要一束雷射＋光譜儀，一次拿整條光譜。</div>`;
+    R(t('st.stokesPeak'), `${fmt(lr, 1)} nm (${fmt(wp - om, 0)} cm⁻¹)`) +
+    R(t('st.asPeak'), `${fmt(lra, 1)} nm`) +
+    H4(t('st.thermal')) +
+    R(t('st.kT'), `${KT} cm⁻¹`) +
+    R(t('st.omkT'), `${fmt(om / KT, 1)}`) +
+    R(t('st.ratio'), sci(boltz), true) +
+    H4(t('st.lwOnly')) +
+    R(t('st.fwhm'), `${2 * g} cm⁻¹ = ${fmt(2 * g * 29.98, 0)} GHz`) +
+    R(t('st.fwhmNm'), `${fmt(lamS(om + g) - lamS(om - g), 2)} nm`) +
+    `<div class="note">${t('st.noteSpont')}</div>`;
   $('stats').innerHTML = html;
   return 0.13;
 }
@@ -692,17 +907,24 @@ function markMode() {
 }
 MODES.forEach(m => {
   const b = document.createElement('button');
-  b.textContent = m.name;
   b.onclick = () => { mode = m.key; markMode(); pushURL(); };
   $('modes').appendChild(b);
 });
 PRESETS.forEach(p => {
   const b = document.createElement('button');
-  b.innerHTML = `${p.name}<small>${p.om} cm⁻¹ · Γ ${p.g}</small>`;
-  b.title = p.note;
   b.onclick = () => { $('omega').value = p.om; $('gamma').value = p.g; markPreset(); pushURL(); };
   $('presets').appendChild(b);
 });
+// 依語言重寫按鈕文字（applyLang 會呼叫）
+function relabel() {
+  [...$('modes').children].forEach((b, i) => { b.textContent = MODES[i].name(); });
+  [...$('presets').children].forEach((b, i) => {
+    const p = PRESETS[i];
+    b.innerHTML = `${t('preset.' + p.key)}<small>${p.om} cm⁻¹ · Γ ${p.g}</small>`;
+    b.title = t('preset.' + p.key + '.note');
+  });
+  markMode();
+}
 $('lock').onclick = () => { $('delta').value = $('omega').value; pushURL(); };
 $('reset').onclick = () => { applyState(DEF); pushURL(); };
 sliders.forEach(id => $(id).addEventListener('input', () => { markPreset(); pushURL(); }));
@@ -728,6 +950,7 @@ function pushURL() {
     history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
   }, 200);
 }
+applyLang();
 applyState(readURL());
 
 // —— 主迴圈 ——
@@ -738,7 +961,7 @@ function frame(now) {
 
   LP = +$('pump').value;
   const D = +$('delta').value, om = +$('omega').value, g = +$('gamma').value, nr = +$('nr').value;
-  $('pOut').textContent = `${LP} nm（${fmt(WN(LP), 0)} cm⁻¹）`;
+  $('pOut').textContent = `${LP} nm (${fmt(WN(LP), 0)} cm⁻¹)`;
   $('dOut').textContent = `${D} cm⁻¹`;
   $('omOut').textContent = `${om} cm⁻¹`;
   $('gOut').textContent = `${g} cm⁻¹`;
