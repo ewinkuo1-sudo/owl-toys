@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CARS 拍頻遊樂場 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #14161c;
     --panel: #1d2028;
     --panel2: #232733;
@@ -17,6 +18,36 @@
     --grid: #2e3340;
     --as: #b18cff;
     --srs: #6ee7a0;
+    --on-ink: #14161c;
+    --panel-rgb: 29,32,40;
+    --ink-rgb: 230,230,236;
+    --muted-rgb: 154,160,174;
+    --accent-rgb: 110,198,255;
+    --ref-rgb: 255,184,108;
+    --as-rgb: 177,140,255;
+    --fluo-a: 0.16; --fluo-b: 0.02;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6;
+    --panel: #ffffff;
+    --panel2: #eceef3;
+    --ink: #1c1f27;
+    --muted: #5b6272;
+    --dim: #8b91a0;
+    --accent: #1e6fc0;
+    --ref: #d4741a;
+    --grid: #dfe2e9;
+    --as: #7648cf;
+    --srs: #1f8f55;
+    --on-ink: #ffffff;
+    --panel-rgb: 255,255,255;
+    --ink-rgb: 28,31,39;
+    --muted-rgb: 91,98,114;
+    --accent-rgb: 30,111,192;
+    --ref-rgb: 212,116,26;
+    --as-rgb: 118,72,207;
+    --fluo-a: 0.20; --fluo-b: 0.03;
   }
   * { box-sizing: border-box; }
   body {
@@ -33,6 +64,7 @@
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; width: 100%; max-width: 940px; }
   .stack { display: flex; flex-direction: column; gap: 14px; flex: 1 1 560px; min-width: 0; }
   canvas { background: var(--panel); border-radius: 12px; display: block; max-width: 100%; height: auto; }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls, :root[data-theme="light"] .card { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 18px 18px 16px;
     display: flex; flex-direction: column; gap: 16px; flex: 0 0 300px; max-width: 320px;
@@ -51,13 +83,14 @@
     font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
   }
   .presets button:hover, button.chip:hover { border-color: var(--muted); color: var(--ink); }
-  .presets button.on { color: var(--bg); background: var(--ref); border-color: var(--ref); font-weight: 600; }
+  .presets button.on { color: var(--on-ink); background: var(--ref); border-color: var(--ref); font-weight: 600; }
   #modes button.on { background: var(--accent); border-color: var(--accent); }
   .presets button small { display: block; font-size: 0.68rem; opacity: 0.75; }
   .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); margin: 0; }
   .head { display: flex; justify-content: space-between; align-items: center; }
   .head .title { font-size: 0.88rem; }
+  .head .btns { display: flex; gap: 6px; }
   .stats { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 12px; display: grid; gap: 4px; }
   .stats h4 { margin: 8px 0 2px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; }
   .stats h4:first-child { margin-top: 0; }
@@ -110,7 +143,10 @@
   <aside class="controls">
     <div class="head">
       <span class="title">技術模式</span>
-      <button class="chip" id="reset" title="回到預設值">重設</button>
+      <span class="btns">
+        <button class="chip" id="theme" title="切換深色／淺色"></button>
+        <button class="chip" id="reset" title="回到預設值">重設</button>
+      </span>
     </div>
     <div class="presets" id="modes"></div>
     <div class="ctl">
@@ -204,8 +240,27 @@
 <script>
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), dim: css('--dim'), accent: css('--accent'),
-            ref: css('--ref'), grid: css('--grid'), as: css('--as'), srs: css('--srs'), panel: css('--panel') };
+const C = {};
+function readColors() {
+  for (const k of ['ink', 'muted', 'dim', 'accent', 'ref', 'grid', 'as', 'srs', 'panel']) C[k] = css('--' + k);
+  for (const k of ['panel', 'ink', 'muted', 'accent', 'ref', 'as']) C[k + 'Rgb'] = css('--' + k + '-rgb');
+  C.fluoA = parseFloat(css('--fluo-a')); C.fluoB = parseFloat(css('--fluo-b'));
+}
+const rgba = (rgb, a) => `rgba(${rgb},${a})`;
+// 主題：預設淺色，記在 localStorage
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('cars-theme', t); } catch (e) {}
+  $('theme').textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  readColors();
+}
+(() => {
+  let t = 'light'; try { t = localStorage.getItem('cars-theme') || t; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') t = q;
+  setTheme(t);
+})();
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 const FONT = '12px "Noto Sans TC", system-ui, sans-serif';
 const FONT_S = '11px "Noto Sans TC", system-ui, sans-serif';
 const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -241,7 +296,7 @@ const ctxt = (ctx, s, x, y, color, x0, x1, font = FONT_S) => {
 const pill = (ctx, s, x, y, color, align = 'left', font = FONT_S) => {
   ctx.font = font; const w = ctx.measureText(s).width;
   const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
-  ctx.fillStyle = 'rgba(29,32,40,0.88)'; ctx.fillRect(x0 - 3, y - 10, w + 6, 13);
+  ctx.fillStyle = rgba(C.panelRgb, 0.88); ctx.fillRect(x0 - 3, y - 10, w + 6, 13);
   txt(ctx, s, x, y, color, align, font);
 };
 const hline = (ctx, x0, x1, y, color, dash) => {
@@ -376,7 +431,7 @@ function drawBeat(D, om, g, t) {
       const k0 = Math.ceil(-nb * v * t), n0 = Math.floor(nb - nb * v * t);
       for (let k = k0; k <= n0; k++) {
         const u = (k + nb * v * t) / nb; if (u < 0 || u > 1) continue;
-        vline(ctx, mL + u * pw, y3 - 30, y3 + 30, 'rgba(154,160,174,0.35)', [2, 3]);
+        vline(ctx, mL + u * pw, y3 - 30, y3 + 30, rgba(C.mutedRgb, 0.4), [2, 3]);
       }
     }
     txt(ctx, `分子同調振動（波向量 k_p − k_s）　|A| = ${fmt(A * 100, A < 0.1 ? 1 : 0)}%　落後 φ = ${fmt(ph * 180 / Math.PI, 0)}°`, mL + 2, y3 - 26, C.as);
@@ -401,9 +456,9 @@ function drawSpec(D, om, g) {
 
   // 螢光背景（pump 紅側）
   const gx = ctx.createLinearGradient(X(LP), 0, X(LMAX), 0);
-  gx.addColorStop(0, 'rgba(255,184,108,0.16)'); gx.addColorStop(1, 'rgba(255,184,108,0.02)');
+  gx.addColorStop(0, rgba(C.refRgb, C.fluoA)); gx.addColorStop(1, rgba(C.refRgb, C.fluoB));
   ctx.fillStyle = gx; ctx.fillRect(X(LP), mT, X(LMAX) - X(LP), ph);
-  txt(ctx, '螢光背景（紅側）', mL + pw - 6, mT + 14, 'rgba(255,184,108,0.7)', 'right', FONT_S);
+  txt(ctx, '螢光背景（紅側）', mL + pw - 6, mT + 14, rgba(C.refRgb, 0.8), 'right', FONT_S);
 
   // 軸
   hline(ctx, mL, mL + pw, base, C.grid);
@@ -427,10 +482,10 @@ function drawSpec(D, om, g) {
     // 共振時 Stokes 應該在的位置（Δ = Ω）
     const lres = lamS(om);
     if (Math.abs(lres - ls) > 3 && lres < LMAX) {
-      vline(ctx, X(lres), Y(0.60), base, 'rgba(255,184,108,0.45)', [2, 4]);
+      vline(ctx, X(lres), Y(0.60), base, rgba(C.refRgb, 0.5), [2, 4]);
       const right = X(lres) < mL + pw - 110;
       pill(ctx, `${right ? '' : 'Δ=Ω 時的 Stokes '}${lres.toFixed(0)}${right ? ' Δ=Ω 時的 Stokes' : ''}`,
-          X(lres) + (right ? 5 : -5), Y(0.60) + 4, 'rgba(255,184,108,0.7)', right ? 'left' : 'right');
+          X(lres) + (right ? 5 : -5), Y(0.60) + 4, rgba(C.refRgb, 0.85), right ? 'left' : 'right');
     }
   }
 
@@ -468,9 +523,9 @@ function drawSpec(D, om, g) {
       const v = va * imChi(WN(l) - wp, om, g);
       return [X(l), Y(v)];
     }, C.as, 1.2);
-    vline(ctx, X(lra), Y(0.05), Y(0.02), 'rgba(177,140,255,0.5)', [2, 2]);
-    ctxt(ctx, `anti-Stokes ${lra.toFixed(0)} nm`, X(lra), Y(0.05) - 20, 'rgba(177,140,255,0.85)', mL, X(LP) - 4);
-    ctxt(ctx, `×e^(−hcΩ/kT) = ${sci(boltz)}（300 K）`, X(lra), Y(0.05) - 6, 'rgba(177,140,255,0.7)', mL, X(LP) - 4);
+    vline(ctx, X(lra), Y(0.05), Y(0.02), rgba(C.asRgb, 0.5), [2, 2]);
+    ctxt(ctx, `anti-Stokes ${lra.toFixed(0)} nm`, X(lra), Y(0.05) - 20, rgba(C.asRgb, 0.9), mL, X(LP) - 4);
+    ctxt(ctx, `×e^(−hcΩ/kT) = ${sci(boltz)}（300 K）`, X(lra), Y(0.05) - 6, rgba(C.asRgb, 0.75), mL, X(LP) - 4);
     txt(ctx, '峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起', mL + 2, 16, C.muted, 'left', FONT_S);
   }
 }
@@ -507,8 +562,8 @@ function drawScan(D, om, g, nr, cur) {
     // 基線 χ_NR² 與峰／谷標記
     if (nr > 0.02) {
       const bl = nr * nr / max;
-      hline(ctx, mL, mL + pw, Y(bl), 'rgba(110,198,255,0.35)', [2, 4]);
-      txt(ctx, `遠離共振的基線 χ_NR² = ${fmt(bl, 2)}`, mL + 6, Y(bl) - 5, 'rgba(110,198,255,0.6)', 'left', FONT_S);
+      hline(ctx, mL, mL + pw, Y(bl), rgba(C.accentRgb, 0.4), [2, 4]);
+      txt(ctx, `遠離共振的基線 χ_NR² = ${fmt(bl, 2)}`, mL + 6, Y(bl) - 5, rgba(C.accentRgb, 0.7), 'left', FONT_S);
       const { xp, xm } = carsExtrema(g, nr);
       const Dp = om - g * xp, Dm = om - g * xm;
       const mark = (Dx, label, up) => {
@@ -528,7 +583,7 @@ function drawScan(D, om, g, nr, cur) {
     trace(lor, 1, mode === 'srs' ? C.srs : C.as, 2.2);
     // FWHM 標示
     const yh = Y(0.5);
-    ctx.strokeStyle = 'rgba(230,230,236,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = rgba(C.inkRgb, 0.4); ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
     ctx.beginPath(); ctx.moveTo(X(Math.max(0, om - g)), yh); ctx.lineTo(X(Math.min(DMAX, om + g)), yh); ctx.stroke(); ctx.setLineDash([]);
     const wide = X(om + g) - X(om - g) > 20;
     if (om < DMAX * 0.7) txt(ctx, `${wide ? '' : '← '}FWHM = 2Γ = ${2 * g} cm⁻¹`, X(om + g) + 8, yh + 4, C.muted, 'left', FONT_S);
