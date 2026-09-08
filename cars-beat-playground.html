@@ -8,8 +8,10 @@
   :root {
     --bg: #14161c;
     --panel: #1d2028;
+    --panel2: #232733;
     --ink: #e6e6ec;
     --muted: #9aa0ae;
+    --dim: #6b7180;
     --accent: #6ec6ff;
     --ref: #ffb86c;
     --grid: #2e3340;
@@ -18,534 +20,684 @@
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 24px;
+    margin: 0; padding: 24px 16px 40px;
     background: var(--bg); color: var(--ink);
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
-  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
-  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
-  .sub code { color: var(--accent); background: none; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
-  .stack { display: flex; flex-direction: column; gap: 16px; }
-  canvas { background: var(--panel); border-radius: 12px; display: block;  max-width: 100%; height: auto; }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 600; letter-spacing: 0.01em; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 760px; text-align: center; line-height: 1.7; }
+  .sub b { color: var(--ink); font-weight: 600; }
+  .m { font-family: "STIX Two Math", "Cambria Math", "Times New Roman", serif; font-style: italic; color: var(--ink); font-size: 1.02em; }
+  .m sub { font-style: normal; font-size: 0.72em; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; width: 100%; max-width: 940px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; flex: 1 1 560px; min-width: 0; }
+  canvas { background: var(--panel); border-radius: 12px; display: block; max-width: 100%; height: auto; }
   .controls {
-    background: var(--panel); border-radius: 12px; padding: 20px;
-    display: flex; flex-direction: column; gap: 18px; min-width: 280px; max-width: 320px;
+    background: var(--panel); border-radius: 12px; padding: 18px 18px 16px;
+    display: flex; flex-direction: column; gap: 16px; flex: 0 0 300px; max-width: 320px;
   }
-  .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
-  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
-  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .ctl label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.88rem; margin-bottom: 6px; gap: 8px; }
+  .ctl label span { white-space: nowrap; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl .row2 { display: flex; gap: 8px; align-items: center; }
+  .ctl .row2 input[type=range] { flex: 1; }
+  .ctl .row2 button { flex: none; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
   .presets { display: flex; flex-wrap: wrap; gap: 6px; }
-  .presets button {
+  button.chip, .presets button {
     background: none; color: var(--muted); border: 1px solid var(--grid);
     border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
-    font-family: inherit;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
   }
-  .presets button.on { color: var(--bg); background: var(--ref); border-color: var(--ref); }
-  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
-  .toggle input { accent-color: var(--ref); }
-  .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
-  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
-  @media (max-width: 520px) {
-    body { padding: 12px; }
-    .controls, .panel { width: 100%; max-width: 100%; min-width: 0; }
+  .presets button:hover, button.chip:hover { border-color: var(--muted); color: var(--ink); }
+  .presets button.on { color: var(--bg); background: var(--ref); border-color: var(--ref); font-weight: 600; }
+  #modes button.on { background: var(--accent); border-color: var(--accent); }
+  .presets button small { display: block; font-size: 0.68rem; opacity: 0.75; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted); }
+  .toggle input { accent-color: var(--ref); margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: center; }
+  .head .title { font-size: 0.88rem; }
+  .stats { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 12px; display: grid; gap: 4px; }
+  .stats h4 { margin: 8px 0 2px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; }
+  .stats h4:first-child { margin-top: 0; }
+  .stats .r { display: flex; justify-content: space-between; gap: 10px; line-height: 1.5; }
+  .stats .r b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .stats .r.hi b { color: var(--accent); }
+  .stats .note { font-size: 0.76rem; line-height: 1.55; color: var(--muted); margin-top: 4px; }
+  .notes { width: 100%; max-width: 940px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel); border-radius: 12px; padding: 18px 20px; font-size: 0.84rem; line-height: 1.75; color: var(--muted); }
+  .card h3 { margin: 0 0 8px; font-size: 0.95rem; color: var(--ink); font-weight: 600; }
+  .card p { margin: 0 0 10px; }
+  .card p:last-child { margin-bottom: 0; }
+  .card b { color: var(--ink); font-weight: 600; }
+  .card details summary { cursor: pointer; color: var(--ink); font-weight: 600; font-size: 0.95rem; }
+  .card details[open] summary { margin-bottom: 8px; }
+  .tblwrap { overflow-x: auto; }
+  table.cmp { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.82rem; }
+  table.cmp th, table.cmp td { padding: 7px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; text-align: left; line-height: 1.55; }
+  table.cmp th { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  table.cmp thead th { border-bottom: 2px solid var(--grid); }
+  table.cmp td:first-child { color: var(--dim); white-space: nowrap; }
+  table.cmp .c-spont th { color: var(--as); }
+  table.cmp .c-cars th { color: var(--accent); }
+  table.cmp .c-srs th { color: var(--srs); }
+  table.cmp td.on, table.cmp th.on { background: var(--panel2); }
+  .model { font-size: 0.76rem; color: var(--dim); line-height: 1.7; }
+  .model .m { color: var(--muted); }
+  @media (max-width: 640px) {
+    body { padding: 12px 10px 32px; }
+    .controls { flex: 1 1 100%; max-width: 100%; }
+    .stack { flex-basis: 100%; }
   }
 </style>
 </head>
 <body>
 <h1>CARS 拍頻遊樂場 🦉</h1>
 <p class="sub">
-  兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後產生的<b>拍頻</b>
-  <code>Δ = ω_p − ω_s</code> 才是真正推分子的那隻手。當 Δ 對上化學鍵振動頻率 Ω，
-  整片分子像被準時推的鞦韆一起盪起來，訊號跑到 <code>ω_as = 2ω_p − ω_s</code>——
-  比 pump 更藍，天生避開螢光。用「技術模式」鈕切換自發拉曼 / CARS / SRS，比較三種拉曼技術的差別。
+  兩束雷射為什麼一定要「不同顏色」？因為 pump 與 Stokes 疊加後的<b>拍頻</b>
+  <span class="m">Δ = ω<sub>p</sub> − ω<sub>s</sub></span> 才是真正推分子的那隻手。
+  當 Δ 對上化學鍵振動頻率 <span class="m">Ω</span>，整片分子像被準時推的鞦韆一起盪起來，
+  訊號跑到 <span class="m">ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub></span>——比 pump 更藍，天生避開螢光。
+  用「技術模式」切換自發拉曼 / CARS / SRS，三種拉曼技術擺在同一組座標下比。
 </p>
 <div class="wrap">
   <div class="stack">
-    <canvas id="beat" width="560" height="220"></canvas>
-    <canvas id="spec" width="560" height="220"></canvas>
-    <canvas id="scan" width="560" height="220"></canvas>
+    <canvas id="beat"></canvas>
+    <canvas id="spec"></canvas>
+    <canvas id="scan"></canvas>
   </div>
-  <div class="controls">
-    <div class="ctl">
-      <label>技術模式</label>
-      <div class="presets" id="modes"></div>
+  <aside class="controls">
+    <div class="head">
+      <span class="title">技術模式</span>
+      <button class="chip" id="reset" title="回到預設值">重設</button>
     </div>
+    <div class="presets" id="modes"></div>
     <div class="ctl">
-      <label>pump 波長 λ<sub>p</sub> <output id="pOut">800 nm</output></label>
+      <label><span>pump 波長 <span class="m">λ<sub>p</sub></span></span><output id="pOut"></output></label>
       <input type="range" id="pump" min="700" max="1100" step="5" value="800">
     </div>
-    <div class="ctl">
-      <label>拍頻 Δ（拉曼位移） <output id="dOut">2000 cm⁻¹</output></label>
-      <input type="range" id="delta" min="0" max="3500" step="5" value="2000">
+    <div class="ctl" id="deltaCtl">
+      <label><span>拍頻 <span class="m">Δ</span>（拉曼位移）</span><output id="dOut"></output></label>
+      <div class="row2">
+        <input type="range" id="delta" min="0" max="3600" step="5" value="2000">
+        <button class="chip" id="lock" title="把 Δ 設成 Ω">對準 Ω</button>
+      </div>
     </div>
     <div class="ctl">
-      <label>分子振動 Ω <output id="omOut">2845 cm⁻¹</output></label>
-      <div class="presets" id="presets"></div>
+      <label><span>分子振動 <span class="m">Ω</span></span><output id="omOut"></output></label>
+      <input type="range" id="omega" min="400" max="3600" step="5" value="2845">
+      <div class="presets" id="presets" style="margin-top:8px"></div>
     </div>
     <div class="ctl">
-      <label>線寬 Γ <output id="gOut">10 cm⁻¹</output></label>
-      <input type="range" id="gamma" min="5" max="50" step="1" value="10">
+      <label><span>線寬 <span class="m">Γ</span>（HWHM）</span><output id="gOut"></output></label>
+      <input type="range" id="gamma" min="2" max="200" step="1" value="12">
     </div>
-    <div class="ctl">
-      <label>非共振背景 χ<sub>NR</sub> <output id="nrOut">0.30</output></label>
+    <div class="ctl" id="nrCtl">
+      <label><span>非共振背景 <span class="m">χ<sub>NR</sub></span>／<span class="m">A</span></span><output id="nrOut"></output></label>
       <input type="range" id="nr" min="0" max="1" step="0.02" value="0.3">
     </div>
     <div class="toggle">
       <input type="checkbox" id="anim" checked>
-      <label for="anim">動畫：讓兩道波往前跑，看拍包絡滾動</label>
+      <label for="anim">動畫：兩道波以光速前進，看拍包絡滾動</label>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      玩法提示：把 Δ 拉到 0，兩束同色、差頻為零，包絡整條攤平——推不動鞦韆，共振訊號消失；
-      掃描曲線上剩下的非零基線，就是 χ<sub>NR</sub> 的非共振四波混頻背景（把 χ<sub>NR</sub> 歸零它才真的是零）。
-      把 Δ 對到 Ω（例如脂質 2845 cm⁻¹），整片分子同步振動，訊號 ∝ N²（同調疊加）而且往前方射出，
-      比自發拉曼亮好幾個數量級。產生的 anti-Stokes 落在比 pump 更藍的一側，天然避開紅側的螢光背景。
-      但把 χ<sub>NR</sub> 拉大就會看到代價：非共振背景與共振項干涉，譜形變成不對稱的色散線型、
-      高波數側出現凹陷，峰位也偏移——這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。
-      這裡的 Γ 是分子振動本身的線寬（凝態典型 ~10 cm⁻¹）；ps 雷射的頻寬剛好也在這個量級，
-      光譜解析度與激發效率都不浪費——這是 CARS 常用 ps 而非 fs 雷射的原因。
-      <br><br>
-      <b>三種技術比一比</b>（用上面的模式鈕切換）：<b>自發拉曼</b>一束雷射就夠、儀器最簡單、一次拿整條光譜，
-      但分子各抖各的（∝ N）訊號極弱，又落在紅側跟螢光疊在一起。<b>CARS</b> 用拍頻同調驅動（∝ N²）亮好幾個數量級，
-      訊號是全新顏色（藍側）、用濾鏡就分得開，代價是 χ<sub>NR</sub> 背景扭曲譜形、定量困難。
-      <b>SRS</b> 同樣是同調驅動，但偵測的是 pump 變弱（SRL）／Stokes 變強（SRG）——只量 Im χ，
-      所以沒有非共振背景、線型是乾淨的 Lorentzian、訊號 ∝ N 可直接定量；
-      代價是 ΔI/I 只有 ~10⁻⁴，得靠高頻調變＋鎖相放大才挖得出來。
+  </aside>
+</div>
+
+<section class="notes">
+  <div class="card">
+    <h3>三種拉曼技術比一比</h3>
+    <div class="tblwrap">
+      <table class="cmp" id="cmp">
+        <thead><tr>
+          <th></th>
+          <th class="c-spont" data-m="spont">自發拉曼</th>
+          <th class="c-cars" data-m="cars">CARS</th>
+          <th class="c-srs" data-m="srs">SRS</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>雷射</td><td data-m="spont">一束（連續或脈衝皆可）</td><td data-m="cars">pump＋Stokes，兩束同步 ps 脈衝</td><td data-m="srs">pump＋Stokes，其中一束高頻調變（MHz）</td></tr>
+          <tr><td>驅動分子的方式</td><td data-m="spont">沒有驅動：分子自發散射，相位各自隨機</td><td data-m="cars">拍頻 Δ 同調驅動，整片分子同相振動</td><td data-m="srs">同 CARS，拍頻同調驅動</td></tr>
+          <tr><td>訊號量級</td><td data-m="spont">∝ <span class="m">N</span>，不相干疊加，極弱</td><td data-m="cars">∝ <span class="m">N²·I<sub>p</sub>²·I<sub>s</sub></span>，比自發強數個數量級</td><td data-m="srs">∝ <span class="m">N·I<sub>p</sub>·I<sub>s</sub></span>，但 <span class="m">ΔI/I</span> 只有 10⁻⁴～10⁻⁶</td></tr>
+          <tr><td>訊號在哪裡</td><td data-m="spont">紅側新頻率（Stokes），跟螢光疊在一起</td><td data-m="cars">藍側新頻率 <span class="m">ω<sub>as</sub></span>，濾鏡就分得開，避開螢光</td><td data-m="srs">雷射本身：pump 變弱（SRL）／Stokes 變強（SRG）</td></tr>
+          <tr><td>線型</td><td data-m="spont">Im <span class="m">χ<sub>R</sub></span>：對稱 Lorentzian</td><td data-m="cars">|<span class="m">χ<sub>NR</sub></span>＋<span class="m">χ<sub>R</sub></span>|²：色散形，峰偏移、高波數側凹陷</td><td data-m="srs">Im <span class="m">χ<sub>R</sub></span>：對稱 Lorentzian，<span class="m">χ<sub>NR</sub></span> 進不來</td></tr>
+          <tr><td>背景</td><td data-m="spont">螢光、雜散光</td><td data-m="cars">非共振四波混頻（<span class="m">χ<sub>NR</sub></span>），無法濾掉</td><td data-m="srs">交叉相位調變、熱透鏡、雙光子吸收（小）</td></tr>
+          <tr><td>定量</td><td data-m="spont">線性、可定量，但需長積分</td><td data-m="cars">非線性（<span class="m">N²</span>）且被干涉扭曲，定量困難</td><td data-m="srs">線性、可直接定量濃度</td></tr>
+          <tr><td>偵測</td><td data-m="spont">光譜儀＋CCD，一次拿整條光譜</td><td data-m="cars">帶通濾鏡＋PMT，可前向或後向（epi）</td><td data-m="srs">光電二極體＋鎖相放大器，多為前向</td></tr>
+          <tr><td>方向性</td><td data-m="spont">四面八方（4π）</td><td data-m="cars">相位匹配，主要向前發射</td><td data-m="srs">與雷射同向（本來就是雷射）</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
-</div>
+
+  <div class="card">
+    <details open>
+      <summary>玩法提示</summary>
+      <p><b>沒有拍就沒有訊號。</b>把 Δ 拉到 0，兩束同色、差頻為零，第二列的包絡整條攤平——推不動鞦韆，共振訊號消失；
+      掃描曲線上剩下的非零基線，就是 <span class="m">χ<sub>NR</sub></span> 的非共振四波混頻背景（把 <span class="m">χ<sub>NR</sub></span> 歸零它才真的是零）。</p>
+      <p><b>對準共振。</b>按「對準 Ω」或把 Δ 拉到 Ω（例如脂質 2845 cm⁻¹），第三列的分子振幅 |A| 到 100%，
+      而且注意它<b>落後驅動 90°</b>——這是任何受驅振子在共振時的指紋。Δ 遠低於 Ω 時分子跟著推力同相；遠高於 Ω 時反相。
+      整片分子同步振動，訊號 ∝ <span class="m">N²</span>（同調疊加）而且往前方射出，比自發拉曼亮好幾個數量級。</p>
+      <p><b>χ<sub>NR</sub> 的代價。</b>把 <span class="m">χ<sub>NR</sub></span> 拉大，掃描曲線會從對稱的 Lorentzian 變成不對稱的色散線型：
+      峰往低波數偏移 <span class="m">Γ·x₊</span>、高波數側在 <span class="m">Ω + Γ|x₋|</span> 出現一個掉到基線以下的凹陷
+      （右側統計會即時算出這兩個位置），其中 <span class="m">x<sub>±</sub> = (−1 ± √(1+4χ<sub>NR</sub>²)) / 2χ<sub>NR</sub></span>。
+      這是 CARS 的固有痛點，也是後來 SRS 興起的原因之一。</p>
+      <p><b>Γ 與雷射脈寬。</b>這裡的 Γ 是分子振動本身的半高半寬（HWHM；凝態典型 5–15 cm⁻¹，水的 O–H 帶則寬到 ~150）。
+      統計裡同時算出「頻寬等於 2Γ 的變換極限高斯脈衝」有多長，落在 0.5–1.5 ps 附近——
+      ps 雷射的頻寬剛好跟線寬同量級，光譜解析度與激發效率都不浪費，這是 CARS/SRS 常用 ps 而非 fs 雷射的原因。</p>
+      <p><b>自發拉曼的 anti-Stokes 為什麼幾乎沒有？</b>切到自發模式，統計會算出 anti-Stokes／Stokes 的 Boltzmann 比值
+      <span class="m">e<sup>−hcΩ/k<sub>B</sub>T</sup></span>（300 K）：2845 cm⁻¹ 只有 10⁻⁶ 量級。
+      CARS 的 anti-Stokes 不靠熱佈居，靠的是拍頻主動把分子推起來，所以藍側才有訊號。</p>
+    </details>
+  </div>
+
+  <p class="model">
+    模型：<span class="m">χ<sub>R</sub>(Δ) = A / (Ω − Δ − iΓ)</span>，共振幅值取 <span class="m">A = Γ</span>（峰值歸一），Γ 為 HWHM；
+    <span class="m">I<sub>CARS</sub> ∝ |χ<sub>NR</sub> + χ<sub>R</sub>|²</span>、<span class="m">ΔI<sub>SRS</sub> ∝ Im χ<sub>R</sub></span>、自發拉曼 ∝ Im <span class="m">χ<sub>R</sub></span>；
+    分子振幅 <span class="m">|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)</span>、相位落後 <span class="m">φ = atan2(Γ, Ω−Δ)</span>。
+    未含雷射脈衝頻寬的摺積、電子共振與相位匹配因子；第一張圖的橫軸比例為真（24 個 pump 週期，拍數 = 24·Δ/ω<sub>p</sub>），
+    但第二張圖 SRS 的 ΔI 為了看得見已放大約 10³ 倍。波長換算 <span class="m">ω [cm⁻¹] = 10⁷ / λ [nm]</span>。
+  </p>
+</section>
+
 <script>
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'),
-            ref: css('--ref'), grid: css('--grid'), as: css('--as'),
-            srs: css('--srs'), panel: css('--panel') };
-let mode = 'cars';            // 'spont' | 'cars' | 'srs'
+const C = { ink: css('--ink'), muted: css('--muted'), dim: css('--dim'), accent: css('--accent'),
+            ref: css('--ref'), grid: css('--grid'), as: css('--as'), srs: css('--srs'), panel: css('--panel') };
+const FONT = '12px "Noto Sans TC", system-ui, sans-serif';
+const FONT_S = '11px "Noto Sans TC", system-ui, sans-serif';
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 
-const bctx = $('beat').getContext('2d');
-const sctx = $('spec').getContext('2d');
-const nctx = $('scan').getContext('2d');
+// —— HiDPI canvas ——
+// 邏輯寬度跟著容器走（最多 600），文字大小不隨縮放變小
+const setup = (id, H) => ({ cv: $(id), ctx: $(id).getContext('2d'), W: 600, H });
+const B = setup('beat', 236), S = setup('spec', 236), N = setup('scan', 250);
+function resize() {
+  const avail = B.cv.parentElement.clientWidth || 600;
+  const W = Math.max(300, Math.min(600, Math.floor(avail)));
+  for (const P of [B, S, N]) {
+    P.W = W;
+    P.cv.width = Math.round(W * DPR); P.cv.height = Math.round(P.H * DPR);
+    P.cv.style.width = W + 'px';
+    P.ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+}
+resize();
+let rsTimer = 0;
+window.addEventListener('resize', () => { clearTimeout(rsTimer); rsTimer = setTimeout(resize, 80); });
 
-let LP = 800;                 // pump 波長 (nm), 可調
-const DMAX = 3500;
+const txt = (ctx, s, x, y, color, align = 'left', font = FONT) => {
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(s, x, y);
+};
+// 置中文字，但不讓它超出 [x0, x1]
+const ctxt = (ctx, s, x, y, color, x0, x1, font = FONT_S) => {
+  ctx.font = font; const w = ctx.measureText(s).width;
+  const xc = Math.min(Math.max(x, x0 + w / 2 + 2), x1 - w / 2 - 2);
+  txt(ctx, s, xc, y, color, 'center', font);
+};
+// 帶底色的文字（蓋住穿過的線）
+const pill = (ctx, s, x, y, color, align = 'left', font = FONT_S) => {
+  ctx.font = font; const w = ctx.measureText(s).width;
+  const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+  ctx.fillStyle = 'rgba(29,32,40,0.88)'; ctx.fillRect(x0 - 3, y - 10, w + 6, 13);
+  txt(ctx, s, x, y, color, align, font);
+};
+const hline = (ctx, x0, x1, y, color, dash) => {
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || []);
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.setLineDash([]);
+};
+const vline = (ctx, x, y0, y1, color, dash, lw = 1) => {
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []);
+  ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); ctx.setLineDash([]);
+};
+const path = (ctx, n, fn, color, lw, dash) => {
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []);
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) { const [x, y] = fn(i); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.setLineDash([]);
+};
+const fmt = (v, d = 1) => v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const sci = v => { if (v === 0) return '0'; const e = Math.floor(Math.log10(v)); const m = v / 10 ** e;
+  return (e >= -2 && e <= 3) ? fmt(v, e >= 0 ? Math.max(0, 2 - e) : 3) : `${m.toFixed(1)}×10${sup(e)}`; };
+const sup = n => String(n).replace(/-/g, '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
 
-const PRESETS = [
-  { name: '脂質 CH₂ 2845', om: 2845 },
-  { name: '水 O–H 3400', om: 3400 },
-  { name: 'C=C 1650', om: 1650 },
-  { name: '苯環呼吸 1000', om: 1000 },
-  { name: '磷灰石 PO₄ 960', om: 960 },
+// —— 狀態 ——
+const MODES = [
+  { key: 'spont', name: '自發拉曼', color: C.as },
+  { key: 'cars',  name: 'CARS',     color: C.accent },
+  { key: 'srs',   name: 'SRS',      color: C.srs },
 ];
-let omega = 2845;
+const PRESETS = [
+  { name: '脂質 CH₂',   om: 2845, g: 12,  note: '對稱伸縮' },
+  { name: '蛋白質 CH₃', om: 2930, g: 20,  note: '伸縮，帶較寬' },
+  { name: '水 O–H',     om: 3400, g: 150, note: '氫鍵網路，極寬' },
+  { name: 'C=C / Amide I', om: 1655, g: 10, note: '不飽和鍵、蛋白骨架' },
+  { name: 'Phe 苯環',   om: 1003, g: 5,   note: '環呼吸，極窄' },
+  { name: '磷灰石 PO₄', om: 960,  g: 8,   note: 'ν₁ 對稱伸縮；牙齒／骨' },
+];
+const DEF = { m: 'cars', lp: 800, d: 2000, om: 2845, g: 12, nr: 0.3 };
+let mode = DEF.m, LP = DEF.lp;
+const DMAX = 3600;
+const KT = 208.5;                     // k_B·T / hc at 300 K, cm⁻¹
 
 // —— 物理 ——
-const lamS  = D => 1 / (1 / LP - D * 1e-7);          // 1/λ[nm]·1e7 = cm⁻¹
-const lamAS = ls => 1 / (2 / LP - 1 / ls);           // ω_as = 2ω_p − ω_s
-const lorentz = (D, om, g) => g / Math.hypot(om - D, g);   // |A(Δ)|，峰值歸一
-
-function iCars(D, om, g, nr) {                       // |χ_NR + Γ/(Ω−Δ−iΓ)|²
+const WN = l => 1e7 / l;              // nm → cm⁻¹
+const NM = w => 1e7 / w;              // cm⁻¹ → nm
+const lamS  = D => NM(WN(LP) - D);
+const lamAS = D => NM(WN(LP) + D);    // ω_as = 2ω_p − ω_s = ω_p + Δ
+const ampl  = (D, om, g) => g / Math.hypot(om - D, g);            // |A(Δ)|
+const phase = (D, om, g) => Math.atan2(g, om - D);                // 落後相位 φ ∈ (0, π)
+const imChi = (D, om, g) => { const d = om - D; return g * g / (d * d + g * g); };
+function iCars(D, om, g, nr) {        // |χ_NR + Γ/(Ω−Δ−iΓ)|²
   const d = om - D, den = d * d + g * g;
-  const re = nr + g * d / den;
-  const im = g * g / den;
+  const re = nr + g * d / den, im = g * g / den;
   return re * re + im * im;
 }
-// Im χ_R：SRS（與自發拉曼）的線型，峰值歸一的純 Lorentzian
-const imChi = (D, om, g) => { const d = om - D; return g * g / (d * d + g * g); };
-
-function scanCurve(om, g, nr, n = 700) {
-  const res = [], pure = [];
+// χ_NR 干涉造成的峰位／凹陷（以 x = (Ω−Δ)/Γ 表示）：nr·x² + x − nr = 0
+function carsExtrema(g, nr) {
+  if (nr < 1e-4) return { xp: nr, xm: -Infinity };
+  const s = Math.sqrt(1 + 4 * nr * nr);
+  return { xp: (-1 + s) / (2 * nr), xm: (-1 - s) / (2 * nr) };
+}
+function scanCurve(om, g, nr, n = 720) {
+  const res = [], pure = [], lor = [];
   let max = 0;
   for (let i = 0; i <= n; i++) {
     const D = DMAX * i / n;
     const v = iCars(D, om, g, nr);
-    res.push(v); pure.push(iCars(D, om, g, 0));
+    res.push(v); pure.push(iCars(D, om, g, 0)); lor.push(imChi(D, om, g));
     if (v > max) max = v;
   }
-  return { res, pure, max, n };
+  return { res, pure, lor, max, n };
 }
 
-// —— 1. 拍頻 ——
+// —— 1. 拍頻（橫軸比例真實）——
 function drawBeat(D, om, g, t) {
-  const cv = $('beat'), w = cv.width, h = cv.height;
-  bctx.clearRect(0, 0, w, h);
-  const mL = 12, pw = w - 24;
-  const np = 14;                          // pump 畫 14 個週期（示意）
-  const nb = 6 * D / DMAX;                // 拍的個數：正比於 Δ，放大以利觀察
-  const ns = np - nb;
-  const vp = np * 0.05, vs = ns * 0.05;   // 同相速 → 包絡也會滾動
+  const { ctx, W, H } = B;
+  ctx.clearRect(0, 0, W, H);
+  const mL = 14, pw = W - 28;
+  const np = 24;                               // 24 個 pump 週期
+  const wp = WN(LP);
+  const nb = np * D / wp;                      // 拍數 = 24·Δ/ω_p（真實比例）
+  const ns = np - nb;                          // Stokes 週期數
+  const v = 0.045;                             // 兩束同相速（真空）→ 整體剛性平移
+  const drive = u => 2 * Math.PI * (nb * u - nb * v * t);   // 拍（強度）相位
 
-  bctx.font = '11px sans-serif';
-  bctx.textAlign = 'left';
+  // 第一列：pump + Stokes
+  const y1 = 46, a1 = 20;
+  hline(ctx, mL, mL + pw, y1, C.grid);
+  path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * np * (u - v * t))]; }, C.accent, 1.5);
+  if (mode !== 'spont')
+    path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * ns * (u - v * t))]; }, C.ref, 1.5, [4, 4]);
+  txt(ctx, `pump ${LP} nm`, mL + 2, 15, C.accent);
+  if (mode === 'spont') txt(ctx, '（只需一束雷射）', mL + 100, 15, C.muted);
+  else txt(ctx, `Stokes ${lamS(D).toFixed(0)} nm`, mL + 100, 15, C.ref);
+  const wide = W >= 520;
+  const rlab = (wide ? `橫軸 = 24 λp ≈ ${fmt(24 * LP / 1000, 1)} µm　` : '') +
+    (mode === 'spont' ? '' : `Δ/ωp = ${fmt(100 * D / wp, 1)}%${wide ? '（比例真實）' : ''}`);
+  txt(ctx, rlab, mL + pw, 15, C.dim, 'right', FONT_S);
 
-  // 上：pump + Stokes
-  const y1 = 42, a1 = 20;
-  bctx.strokeStyle = C.grid; bctx.lineWidth = 1;
-  bctx.beginPath(); bctx.moveTo(mL, y1); bctx.lineTo(mL + pw, y1); bctx.stroke();
-  const wave = (cycles, vel, yc, amp, color, dash) => {
-    bctx.strokeStyle = color; bctx.lineWidth = 1.6;
-    bctx.setLineDash(dash ? [4, 4] : []);
-    bctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
-      const u = i / pw;
-      const y = yc - amp * Math.cos(2 * Math.PI * (cycles * u - vel * t));
-      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-    }
-    bctx.stroke(); bctx.setLineDash([]);
-  };
-  wave(np, vp, y1, a1, C.accent, false);
-  if (mode !== 'spont') wave(ns, vs, y1, a1, C.ref, true);
-  bctx.fillStyle = C.accent; bctx.fillText('pump ' + LP + ' nm', mL + 2, 14);
+  // 第二列：相加 + 包絡
+  const y2 = 122, a2 = 15;
+  hline(ctx, mL, mL + pw, y2, C.grid);
   if (mode === 'spont') {
-    bctx.fillStyle = C.muted; bctx.fillText('（只需一束雷射）', mL + 96, 14);
+    path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - a2 * 1.3 * Math.cos(2 * Math.PI * np * (u - v * t))]; }, C.ink, 1.4);
+    txt(ctx, '單束光：振幅平平，沒有拍包絡 → 沒有那隻推鞦韆的手', mL + 2, y2 - 32, C.muted);
   } else {
-    bctx.fillStyle = C.ref;  bctx.fillText('Stokes ' + lamS(D).toFixed(0) + ' nm', mL + 96, 14);
+    const env = u => 2 * Math.abs(Math.cos(Math.PI * nb * (u - v * t)));
+    for (const sgn of [1, -1])
+      path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - sgn * a2 * env(u)]; }, C.muted, 1, [3, 3]);
+    path(ctx, pw, i => {
+      const u = i / pw;
+      const s = Math.cos(2 * Math.PI * np * (u - v * t)) + Math.cos(2 * Math.PI * ns * (u - v * t));
+      return [mL + i, y2 - a2 * s];
+    }, C.ink, 1.3);
+    txt(ctx, `兩束相加：拍包絡（${nb < 0.5 ? '不到半個拍' : fmt(nb, 1) + ' 個拍'}）`, mL + 2, y2 - 32, C.ink);
+    if (D < 30) txt(ctx, '同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 32, C.ref, 'center');
   }
-  bctx.fillStyle = C.muted;  bctx.textAlign = 'right';
-  bctx.fillText('波形為示意（拍頻已放大）', mL + pw, 14);
-  bctx.textAlign = 'left';
 
-  // 中：相加 + 包絡
-  const y2 = 118, a2 = 15;
-  bctx.strokeStyle = C.grid;
-  bctx.beginPath(); bctx.moveTo(mL, y2); bctx.lineTo(mL + pw, y2); bctx.stroke();
+  // 第三列：分子振動
+  const y3 = 198;
+  hline(ctx, mL, mL + pw, y3, C.grid);
   if (mode === 'spont') {
-    bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
-    bctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
+    path(ctx, pw, i => {
       const u = i / pw;
-      const y = y2 - a2 * 1.3 * Math.cos(2 * Math.PI * (np * u - vp * t));
-      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-    }
-    bctx.stroke();
-    bctx.fillStyle = C.muted;
-    bctx.fillText('單束光：振幅平平，沒有拍包絡 → 沒有那隻推鞦韆的手', mL + 2, y2 - 34);
+      return [mL + i, y3 - 3.5 * Math.sin(2 * Math.PI * 6 * u + 5 * Math.sin(u * 53 + 0.7 * t) + t * 4)];
+    }, C.as, 1.2);
+    txt(ctx, '分子各抖各的（相位隨機）→ 訊號 ∝ N，往 4π 亂射', mL + 2, y3 - 26, C.as);
   } else {
-    const env = u => 2 * Math.cos(Math.PI * (nb * u - (vp - vs) * t));
-    bctx.strokeStyle = C.muted; bctx.lineWidth = 1; bctx.setLineDash([3, 3]);
-    for (const sgn of [1, -1]) {
-      bctx.beginPath();
-      for (let i = 0; i <= pw; i++) {
-        const u = i / pw, y = y2 - sgn * a2 * Math.abs(env(u));
-        i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
+    const A = ampl(D, om, g), ph = phase(D, om, g);
+    // 受驅振子：時間上落後 φ → 空間上落在驅動峰後方（+φ）
+    path(ctx, pw, i => { const u = i / pw; return [mL + i, y3 - 24 * A * Math.cos(drive(u) + ph)]; }, C.as, 2);
+    // 標出驅動（拍強度）的峰位，讓落後看得見
+    if (A > 0.15 && nb > 0.4) {
+      const k0 = Math.ceil(-nb * v * t), n0 = Math.floor(nb - nb * v * t);
+      for (let k = k0; k <= n0; k++) {
+        const u = (k + nb * v * t) / nb; if (u < 0 || u > 1) continue;
+        vline(ctx, mL + u * pw, y3 - 30, y3 + 30, 'rgba(154,160,174,0.35)', [2, 3]);
       }
-      bctx.stroke();
     }
-    bctx.setLineDash([]);
-    bctx.strokeStyle = C.ink; bctx.lineWidth = 1.4;
-    bctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
-      const u = i / pw;
-      const s = Math.cos(2 * Math.PI * (np * u - vp * t)) + Math.cos(2 * Math.PI * (ns * u - vs * t));
-      const y = y2 - a2 * s;
-      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-    }
-    bctx.stroke();
-    bctx.fillStyle = C.ink; bctx.fillText('兩束相加：拍包絡', mL + 2, y2 - 34);
-    if (D < 30) {
-      bctx.fillStyle = C.ref;
-      bctx.textAlign = 'center';
-      bctx.fillText('同色 → 沒有拍 → 推不動', mL + pw / 2, y2 - 34);
-      bctx.textAlign = 'left';
-    }
-  }
-
-  // 下：分子振動
-  const y3 = 190;
-  bctx.strokeStyle = C.grid; bctx.lineWidth = 1;
-  bctx.beginPath(); bctx.moveTo(mL, y3); bctx.lineTo(mL + pw, y3); bctx.stroke();
-  if (mode === 'spont') {
-    // 各分子相位隨機、各抖各的：疊起來只剩微弱的不相干起伏
-    bctx.strokeStyle = C.as; bctx.lineWidth = 1.2;
-    bctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
-      const u = i / pw;
-      const y = y3 - 3.5 * Math.sin(2 * Math.PI * 6 * u + 5 * Math.sin(u * 53 + 0.7 * t) + t * 4);
-      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-    }
-    bctx.stroke();
-    bctx.fillStyle = C.as;
-    bctx.fillText('分子各抖各的（相位隨機）→ 訊號 ∝ N，四面八方亂射', mL + 2, y3 - 26);
-  } else {
-    const A = lorentz(D, om, g);
-    bctx.strokeStyle = C.as; bctx.lineWidth = 2;
-    bctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
-      const u = i / pw;
-      const y = y3 - 24 * A * Math.cos(2 * Math.PI * (nb * u - (vp - vs) * t));
-      i ? bctx.lineTo(mL + i, y) : bctx.moveTo(mL + i, y);
-    }
-    bctx.stroke();
-    bctx.fillStyle = C.as;
-    bctx.fillText('分子振動（被拍頻同調驅動） |A| = ' + (A * 100).toFixed(0) + '%', mL + 2, y3 - 26);
+    txt(ctx, `分子同調振動（波向量 k_p − k_s）　|A| = ${fmt(A * 100, A < 0.1 ? 1 : 0)}%　落後 φ = ${fmt(ph * 180 / Math.PI, 0)}°`, mL + 2, y3 - 26, C.as);
+    if (Math.abs(ph - Math.PI / 2) < 0.1 && A > 0.9) txt(ctx, '共振：落後 90°、振幅最大', mL + pw, y3 - 26, C.ref, 'right', FONT_S);
+    else if (A > 0.15) txt(ctx, '灰色虛線＝推力（拍強度）峰位', mL + pw, y3 - 26, C.dim, 'right', FONT_S);
   }
 }
 
 // —— 2. 光譜 ——
 let asDisp = 0;
-function drawSpec(D, rel) {
-  const cv = $('spec'), w = cv.width, h = cv.height;
-  sctx.clearRect(0, 0, w, h);
-  const mL = 40, mR = 14, mT = 26, mB = 30;
-  const pw = w - mL - mR, ph = h - mT - mB, base = mT + ph;
-  // 波長軸跟著 pump 走：涵蓋 Δ=DMAX 時的 anti-Stokes ~ Stokes
-  const wp = 1e7 / LP;
-  const LMIN = Math.floor(1e7 / (wp + DMAX) / 50) * 50 - 50;
-  const LMAX = Math.ceil(1e7 / (wp - DMAX) / 50) * 50 + 50;
+function drawSpec(D, om, g) {
+  const { ctx, W, H } = S;
+  ctx.clearRect(0, 0, W, H);
+  const mL = 46, mR = 16, mT = 30, mB = 32;
+  const pw = W - mL - mR, ph = H - mT - mB, base = mT + ph;
+  const wp = WN(LP);
+  const LMIN = Math.floor(NM(wp + DMAX) / 50) * 50 - 50;
+  const LMAX = Math.ceil(NM(wp - DMAX) / 50) * 50 + 50;
   const X = l => mL + pw * (l - LMIN) / (LMAX - LMIN);
+  const F = ph * 0.84;
+  const Y = f => base - F * f;
 
   // 螢光背景（pump 紅側）
-  const gx = sctx.createLinearGradient(X(LP), 0, X(LMAX), 0);
-  gx.addColorStop(0, 'rgba(255,184,108,0.18)');
-  gx.addColorStop(1, 'rgba(255,184,108,0.02)');
-  sctx.fillStyle = gx;
-  sctx.fillRect(X(LP), mT, X(LMAX) - X(LP), ph);
+  const gx = ctx.createLinearGradient(X(LP), 0, X(LMAX), 0);
+  gx.addColorStop(0, 'rgba(255,184,108,0.16)'); gx.addColorStop(1, 'rgba(255,184,108,0.02)');
+  ctx.fillStyle = gx; ctx.fillRect(X(LP), mT, X(LMAX) - X(LP), ph);
+  txt(ctx, '螢光背景（紅側）', mL + pw - 6, mT + 14, 'rgba(255,184,108,0.7)', 'right', FONT_S);
 
-  sctx.strokeStyle = C.grid; sctx.lineWidth = 1;
-  sctx.beginPath(); sctx.moveTo(mL, base); sctx.lineTo(mL + pw, base); sctx.stroke();
-  sctx.font = '11px sans-serif'; sctx.textAlign = 'center';
+  // 軸
+  hline(ctx, mL, mL + pw, base, C.grid);
   const tick = (LMAX - LMIN) > 900 ? 200 : 100;
   for (let l = Math.ceil(LMIN / tick) * tick; l <= LMAX; l += tick) {
-    sctx.fillStyle = C.muted;
-    sctx.beginPath(); sctx.moveTo(X(l), base); sctx.lineTo(X(l), base + 4); sctx.stroke();
-    sctx.fillText(l, X(l), base + 17);
+    vline(ctx, X(l), base, base + 4, C.muted);
+    txt(ctx, l, X(l), base + 17, C.muted, 'center', FONT_S);
   }
-  sctx.fillStyle = C.muted;
-  sctx.fillText('波長 (nm)', mL + pw / 2, h - 3);
-  sctx.fillStyle = 'rgba(255,184,108,0.75)';
-  sctx.fillText('螢光背景（紅側）', X(LP) + (X(LMAX) - X(LP)) / 2, mT + 16);
+  txt(ctx, '波長 (nm)', mL + pw / 2, H - 4, C.muted, 'center', FONT_S);
+  ctx.save(); ctx.translate(14, mT + ph / 2); ctx.rotate(-Math.PI / 2);
+  txt(ctx, '強度 (a.u.)', 0, 0, C.muted, 'center', FONT_S); ctx.restore();
 
-  const line = (l, frac, color, label, lw) => {
+  const line = (l, frac, color, label, lw = 3, dy = -6) => {
     if (l < LMIN || l > LMAX) return;
-    const x = X(l), y = base - ph * 0.86 * frac;
-    sctx.strokeStyle = color; sctx.lineWidth = lw;
-    sctx.beginPath(); sctx.moveTo(x, base); sctx.lineTo(x, y); sctx.stroke();
-    sctx.fillStyle = color;
-    sctx.fillText(label, x, y - 6);
+    vline(ctx, X(l), base, Y(frac), color, [], lw);
+    if (label) ctxt(ctx, label, X(l), Y(frac) + dy, color, mL, mL + pw);
   };
-  const ls = lamS(D), las = lamAS(ls);
+  const ls = lamS(D), las = lamAS(D);
+
+  if (mode !== 'spont') {
+    // 共振時 Stokes 應該在的位置（Δ = Ω）
+    const lres = lamS(om);
+    if (Math.abs(lres - ls) > 3 && lres < LMAX) {
+      vline(ctx, X(lres), Y(0.60), base, 'rgba(255,184,108,0.45)', [2, 4]);
+      const right = X(lres) < mL + pw - 110;
+      pill(ctx, `${right ? '' : 'Δ=Ω 時的 Stokes '}${lres.toFixed(0)}${right ? ' Δ=Ω 時的 Stokes' : ''}`,
+          X(lres) + (right ? 5 : -5), Y(0.60) + 4, 'rgba(255,184,108,0.7)', right ? 'left' : 'right');
+    }
+  }
+
   if (mode === 'cars') {
-    line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
-    line(LP, 0.72, C.accent, 'pump ' + LP, 3);
-    line(las, asDisp, C.as, 'anti-Stokes ' + las.toFixed(0), 3);
-    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
-    sctx.fillText('偵測窗（更藍側，避開螢光）', mL + 2, 14);
+    line(ls, 0.72, C.ref, `Stokes ${ls.toFixed(0)}`);
+    line(LP, 0.72, C.accent, `pump ${LP}`);
+    line(las, asDisp, C.as, `anti-Stokes ${las.toFixed(0)}`);
+    txt(ctx, `偵測窗：anti-Stokes 在 pump 藍側 ${fmt(LP - las, 0)} nm 處，帶通濾鏡即可分離`, mL + 2, 16, C.muted, 'left', FONT_S);
   } else if (mode === 'srs') {
     const dI = 0.20 * asDisp;                 // 圖上誇大的 ΔI（真實 ~1e-4）
-    const F = ph * 0.86;
-    line(LP, 0.72 - dI, C.accent, 'pump ' + LP, 3);
-    line(ls, 0.72, C.ref, 'Stokes ' + ls.toFixed(0), 3);
-    // SRG：Stokes 頂端長出的增益段；SRL：pump 頂端消失的段
-    sctx.strokeStyle = C.srs; sctx.lineWidth = 3;
-    sctx.beginPath();
-    sctx.moveTo(X(ls), base - F * 0.72); sctx.lineTo(X(ls), base - F * (0.72 + dI));
-    sctx.stroke();
-    sctx.strokeStyle = C.accent; sctx.lineWidth = 1; sctx.setLineDash([3, 3]);
-    sctx.beginPath();
-    sctx.moveTo(X(LP), base - F * (0.72 - dI)); sctx.lineTo(X(LP), base - F * 0.72);
-    sctx.stroke(); sctx.setLineDash([]);
-    sctx.textAlign = 'center';
+    line(LP, 0.72 - dI, C.accent, `pump ${LP}`);
+    line(ls, 0.72, C.ref, `Stokes ${ls.toFixed(0)}`);
+    vline(ctx, X(ls), Y(0.72), Y(0.72 + dI), C.srs, [], 3);                 // SRG
+    vline(ctx, X(LP), Y(0.72 - dI), Y(0.72), C.accent, [3, 3], 1);          // SRL
     if (dI > 0.02) {
-      sctx.fillStyle = C.srs;    sctx.fillText('SRG +ΔI', X(ls), base - F * (0.72 + dI) - 18);
-      sctx.fillStyle = C.accent; sctx.fillText('SRL −ΔI', X(LP), base - F * 0.72 - 18);
+      txt(ctx, 'SRG +ΔI', X(ls), Y(0.72 + dI) - 18, C.srs, 'center', FONT_S);
+      txt(ctx, 'SRL −ΔI', X(LP), Y(0.72) - 18, C.accent, 'center', FONT_S);
     }
-    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
-    sctx.fillText('訊號＝雷射本身的微小增減（已誇大；真實 ΔI/I ~ 10⁻⁴，靠調變＋鎖相）', mL + 2, 14);
+    txt(ctx, '訊號＝雷射本身的微小增減（圖上已放大；真實 ΔI/I ~ 10⁻⁴，靠 MHz 調變＋鎖相放大）', mL + 2, 16, C.muted, 'left', FONT_S);
   } else {
-    line(LP, 0.72, C.accent, 'pump ' + LP, 3);
-    // 自發拉曼：峰位由 Ω 決定，微弱、埋在紅側螢光裡
-    const lr = 1 / (1 / LP - omega * 1e-7);
-    sctx.strokeStyle = C.as; sctx.lineWidth = 1.6;
-    sctx.beginPath();
-    for (let i = 0; i <= pw; i++) {
-      const l = LMIN + (LMAX - LMIN) * i / pw;
-      const v = 0.13 * Math.exp(-(((l - lr) / 14) ** 2));
-      const y = base - ph * 0.86 * v;
-      i ? sctx.lineTo(mL + i, y) : sctx.moveTo(mL + i, y);
-    }
-    sctx.stroke();
-    sctx.textAlign = 'center'; sctx.fillStyle = C.as;
-    sctx.fillText('自發拉曼 ' + lr.toFixed(0) + ' nm（弱 ~10⁵ 倍）', X(lr), base - ph * 0.86 * 0.13 - 8);
-    sctx.textAlign = 'left'; sctx.fillStyle = C.muted;
-    sctx.fillText('峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起', mL + 2, 14);
+    line(LP, 0.72, C.accent, `pump ${LP}`);
+    // 自發拉曼：Lorentzian，線寬用真實的 Γ（換到波長軸上非常窄）
+    const lr = lamS(om), lra = lamAS(om);
+    const peak = 0.13;
+    path(ctx, pw * 2, i => {
+      const l = LMIN + (LMAX - LMIN) * i / (pw * 2);
+      const v = peak * imChi(wp - WN(l), om, g);
+      return [X(l), Y(v)];
+    }, C.as, 1.6);
+    ctxt(ctx, `Stokes 拉曼 ${lr.toFixed(0)} nm（弱 ~10⁵ 倍，線寬照真實 Γ 畫）`, X(lr), Y(peak) - 8, C.as, X(LP) + 4, mL + pw);
+    const boltz = Math.exp(-om / KT);
+    const va = peak * boltz;
+    path(ctx, pw * 2, i => {
+      const l = LMIN + (LMAX - LMIN) * i / (pw * 2);
+      const v = va * imChi(WN(l) - wp, om, g);
+      return [X(l), Y(v)];
+    }, C.as, 1.2);
+    vline(ctx, X(lra), Y(0.05), Y(0.02), 'rgba(177,140,255,0.5)', [2, 2]);
+    ctxt(ctx, `anti-Stokes ${lra.toFixed(0)} nm`, X(lra), Y(0.05) - 20, 'rgba(177,140,255,0.85)', mL, X(LP) - 4);
+    ctxt(ctx, `×e^(−hcΩ/kT) = ${sci(boltz)}（300 K）`, X(lra), Y(0.05) - 6, 'rgba(177,140,255,0.7)', mL, X(LP) - 4);
+    txt(ctx, '峰位由 Ω 決定（不用第二束雷射）；紅側 → 跟螢光疊在一起', mL + 2, 16, C.muted, 'left', FONT_S);
   }
-  sctx.save();
-  sctx.translate(13, mT + ph / 2 + 34); sctx.rotate(-Math.PI / 2);
-  sctx.fillText('強度（a.u.）', 0, 0);
-  sctx.restore();
 }
 
 // —— 3. 失諧掃描 ——
 function drawScan(D, om, g, nr, cur) {
-  const cv = $('scan'), w = cv.width, h = cv.height;
-  nctx.clearRect(0, 0, w, h);
-  const mL = 44, mR = 14, mT = 22, mB = 32;
-  const pw = w - mL - mR, ph = h - mT - mB, base = mT + ph;
+  const { ctx, W, H } = N;
+  ctx.clearRect(0, 0, W, H);
+  const mL = 58, mR = 16, mT = 24, mB = 34;
+  const pw = W - mL - mR, ph = H - mT - mB, base = mT + ph;
   const X = d => mL + pw * d / DMAX;
   const Y = v => base - ph * 0.9 * v;
 
-  nctx.strokeStyle = C.grid; nctx.lineWidth = 1;
-  nctx.font = '11px sans-serif'; nctx.textAlign = 'center';
   for (let d = 0; d <= DMAX; d += 500) {
-    nctx.beginPath(); nctx.moveTo(X(d), mT); nctx.lineTo(X(d), base); nctx.stroke();
-    nctx.fillStyle = C.muted; nctx.fillText(d, X(d), base + 16);
+    vline(ctx, X(d), mT, base, C.grid);
+    txt(ctx, d, X(d), base + 16, C.muted, 'center', FONT_S);
   }
   for (let k = 0; k <= 4; k++) {
-    const y = base - ph * 0.9 * k / 4;
-    nctx.beginPath(); nctx.moveTo(mL, y); nctx.lineTo(mL + pw, y); nctx.stroke();
-    nctx.textAlign = 'right'; nctx.fillStyle = C.muted;
-    nctx.fillText((k / 4).toFixed(2), mL - 6, y + 4);
-    nctx.textAlign = 'center';
+    hline(ctx, mL, mL + pw, Y(k / 4), C.grid);
+    txt(ctx, (k / 4).toFixed(2), mL - 7, Y(k / 4) + 4, C.muted, 'right', FONT_S);
   }
-  nctx.fillStyle = C.muted;
-  nctx.fillText(mode === 'spont' ? '拉曼位移 (cm⁻¹)' : '拍頻 Δ (cm⁻¹)', mL + pw / 2, h - 4);
-  nctx.save();
-  nctx.translate(13, mT + ph / 2 + 40); nctx.rotate(-Math.PI / 2);
-  nctx.fillText(mode === 'cars' ? 'I_CARS（歸一）' : mode === 'srs' ? 'ΔI_SRS（歸一）' : 'I_Raman（歸一）', 0, 0);
-  nctx.restore();
+  txt(ctx, mode === 'spont' ? '拉曼位移 (cm⁻¹)' : '拍頻 Δ (cm⁻¹)', mL + pw / 2, H - 5, C.muted, 'center', FONT_S);
+  ctx.save(); ctx.translate(14, mT + ph / 2); ctx.rotate(-Math.PI / 2);
+  txt(ctx, mode === 'cars' ? 'I_CARS（歸一）' : mode === 'srs' ? 'ΔI_SRS（歸一）' : 'I_Raman（歸一）', 0, 0, C.muted, 'center', FONT_S);
+  ctx.restore();
 
-  const { res, pure, max, n } = cur;
-  const trace = (arr, mx, color, lw, dash) => {
-    nctx.strokeStyle = color; nctx.lineWidth = lw;
-    nctx.setLineDash(dash ? [5, 4] : []);
-    nctx.beginPath();
-    for (let i = 0; i <= n; i++) {
-      const x = X(DMAX * i / n), y = Y(arr[i] / mx);
-      i ? nctx.lineTo(x, y) : nctx.moveTo(x, y);
-    }
-    nctx.stroke(); nctx.setLineDash([]);
-  };
+  const { res, pure, lor, max, n } = cur;
+  const trace = (arr, mx, color, lw, dash) =>
+    path(ctx, n, i => [X(DMAX * i / n), Y(arr[i] / mx)], color, lw, dash);
+
   if (mode === 'cars') {
-    trace(pure, max, C.ref, 1.4, true);
-    trace(res, max, C.accent, 2.2, false);
+    trace(pure, max, C.ref, 1.3, [5, 4]);
+    trace(res, max, C.accent, 2.2);
+    // 基線 χ_NR² 與峰／谷標記
+    if (nr > 0.02) {
+      const bl = nr * nr / max;
+      hline(ctx, mL, mL + pw, Y(bl), 'rgba(110,198,255,0.35)', [2, 4]);
+      txt(ctx, `遠離共振的基線 χ_NR² = ${fmt(bl, 2)}`, mL + 6, Y(bl) - 5, 'rgba(110,198,255,0.6)', 'left', FONT_S);
+      const { xp, xm } = carsExtrema(g, nr);
+      const Dp = om - g * xp, Dm = om - g * xm;
+      const mark = (Dx, label, up) => {
+        if (Dx < 0 || Dx > DMAX) return;
+        const y = Y(iCars(Dx, om, g, nr) / max);
+        ctx.fillStyle = C.ref; ctx.beginPath();
+        if (up) { ctx.moveTo(X(Dx), y + 7); ctx.lineTo(X(Dx) - 4, y + 13); ctx.lineTo(X(Dx) + 4, y + 13); }
+        else    { ctx.moveTo(X(Dx), y - 7); ctx.lineTo(X(Dx) - 4, y - 13); ctx.lineTo(X(Dx) + 4, y - 13); }
+        ctx.fill();
+        txt(ctx, label, X(Dx) + (up ? -6 : 8), up ? y + 24 : y - 16, C.ref, up ? 'right' : 'left', FONT_S);
+      };
+      mark(Dp, `峰 Ω−${fmt(g * xp, 1)}`, true);
+      mark(Dm, `谷 Ω+${fmt(-g * xm, 1)}`, false);
+    }
   } else {
-    const lor = [];
-    for (let i = 0; i <= n; i++) lor.push(imChi(DMAX * i / n, om, g));
-    if (mode === 'srs') trace(res, max, C.grid, 1.4, true);   // CARS 對照（暗虛線）
-    trace(lor, 1, mode === 'srs' ? C.srs : C.as, 2.2, false);
+    if (mode === 'srs') trace(res, max, C.grid, 1.4, [5, 4]);
+    trace(lor, 1, mode === 'srs' ? C.srs : C.as, 2.2);
+    // FWHM 標示
+    const yh = Y(0.5);
+    ctx.strokeStyle = 'rgba(230,230,236,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(X(Math.max(0, om - g)), yh); ctx.lineTo(X(Math.min(DMAX, om + g)), yh); ctx.stroke(); ctx.setLineDash([]);
+    const wide = X(om + g) - X(om - g) > 20;
+    if (om < DMAX * 0.7) txt(ctx, `${wide ? '' : '← '}FWHM = 2Γ = ${2 * g} cm⁻¹`, X(om + g) + 8, yh + 4, C.muted, 'left', FONT_S);
+    else txt(ctx, `FWHM = 2Γ = ${2 * g} cm⁻¹${wide ? '' : ' →'}`, X(om - g) - 8, yh + 4, C.muted, 'right', FONT_S);
   }
 
   // Ω 標記
-  nctx.strokeStyle = C.as; nctx.lineWidth = 1;
-  nctx.setLineDash([2, 3]);
-  nctx.beginPath(); nctx.moveTo(X(om), mT); nctx.lineTo(X(om), base); nctx.stroke();
-  nctx.setLineDash([]);
-  nctx.fillStyle = C.as; nctx.fillText('Ω=' + om, X(om), mT - 7);
+  vline(ctx, X(om), mT, base, C.as, [2, 3]);
+  txt(ctx, `Ω = ${om}`, X(om), mT - 8, C.as, 'center', FONT_S);
 
-  // 目前 Δ（自發模式沒有第二束雷射，Δ 無意義）
+  // 目前 Δ
   if (mode !== 'spont') {
-    const v = mode === 'cars' ? iCars(D, om, g, nr) / max : imChi(D, om, g);
-    nctx.fillStyle = C.ink;
-    nctx.beginPath(); nctx.arc(X(D), Y(v), 4.5, 0, 2 * Math.PI); nctx.fill();
+    const vv = mode === 'cars' ? iCars(D, om, g, nr) / max : imChi(D, om, g);
+    ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(X(D), Y(vv), 4.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.strokeStyle = C.panel; ctx.lineWidth = 1.5; ctx.stroke();
   }
-  nctx.textAlign = 'left';
   if (mode === 'cars') {
-    nctx.fillStyle = C.accent; nctx.fillText('含 χ_NR 干涉', mL + 4, mT + 12);
-    nctx.fillStyle = C.ref;    nctx.fillText('純共振（χ_NR = 0，虛線）', mL + 4, mT + 26);
+    txt(ctx, '含 χ_NR 干涉', mL + 6, mT + 12, C.accent, 'left', FONT_S);
+    txt(ctx, '純共振（χ_NR = 0，虛線）', mL + 6, mT + 26, C.ref, 'left', FONT_S);
   } else if (mode === 'srs') {
-    nctx.fillStyle = C.srs;   nctx.fillText('SRS ∝ Im χ：純 Lorentzian，χ_NR 進不來', mL + 4, mT + 12);
-    nctx.fillStyle = C.muted; nctx.fillText('CARS（虛線對照）：被 χ_NR 拉歪', mL + 4, mT + 26);
+    txt(ctx, 'SRS ∝ Im χ：純 Lorentzian，χ_NR 進不來', mL + 6, mT + 12, C.srs, 'left', FONT_S);
+    txt(ctx, 'CARS（虛線對照）：被 χ_NR 拉歪', mL + 6, mT + 26, C.muted, 'left', FONT_S);
   } else {
-    nctx.fillStyle = C.as;    nctx.fillText('自發拉曼：同樣的 Lorentzian，只是弱 ~10⁵ 倍', mL + 4, mT + 12);
+    txt(ctx, '自發拉曼：同樣的 Lorentzian，只是弱 ~10⁵ 倍', mL + 6, mT + 12, C.as, 'left', FONT_S);
   }
 }
 
-// —— 狀態與統計 ——
-function updateStats(D, om, g, cur) {
-  const ls = lamS(D), las = lamAS(ls);
+// —— 統計 ——
+const R = (k, v, hi) => `<div class="r${hi ? ' hi' : ''}"><span>${k}</span><b>${v}</b></div>`;
+const H4 = s => `<h4>${s}</h4>`;
+function updateStats(D, om, g, nr, cur) {
+  const wp = WN(LP), ls = lamS(D), las = lamAS(D);
+  const tauTL = 7.355 / g;                      // 頻寬 FWHM = 2Γ 的變換極限高斯脈衝 (ps)
+  const common = H4('波長 ↔ 波數') +
+    R('pump ω<sub>p</sub>', `${fmt(wp, 0)} cm⁻¹`);
+  let html = '';
   if (mode === 'cars') {
-    const rel = iCars(D, om, g, parseFloat($('nr').value)) / cur.max * 100;
-    $('stats').innerHTML =
-      `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
-      `anti-Stokes λ<sub>as</sub>：<b>${las.toFixed(1)}</b> nm（2ω<sub>p</sub>−ω<sub>s</sub>）<br>` +
-      `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
-      `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
-      `相對 CARS 訊號：<b>${rel.toFixed(1)}</b> %<br>` +
-      `<span style="font-size:0.8rem">訊號 ∝ N²（同調疊加）；偵測新顏色，用濾鏡就分得開</span>`;
-    return rel / 100;
+    const rel = iCars(D, om, g, nr) / cur.max;
+    const { xp, xm } = carsExtrema(g, nr);
+    const peak = nr * nr + (2 * nr * xp + 1) / (xp * xp + 1);
+    const dip = nr > 1e-4 ? nr * nr + (2 * nr * xm + 1) / (xm * xm + 1) : 0;
+    html = common +
+      R('Stokes λ<sub>s</sub>', `${fmt(ls, 1)} nm（${fmt(wp - D, 0)} cm⁻¹）`) +
+      R('anti-Stokes λ<sub>as</sub>', `${fmt(las, 1)} nm（${fmt(wp + D, 0)} cm⁻¹）`) +
+      R('與 pump 間距（S / aS）', `+${fmt(ls - LP, 0)} / −${fmt(LP - las, 0)} nm`) +
+      H4('共振') +
+      R('失諧 Ω − Δ', `${fmt(om - D, 0)} cm⁻¹`) +
+      R('分子振幅 |A|、落後 φ', `${fmt(ampl(D, om, g) * 100, 1)} %，${fmt(phase(D, om, g) * 180 / Math.PI, 0)}°`) +
+      R('相對 CARS 訊號', `${fmt(rel * 100, 1)} %`, true) +
+      H4('χ<sub>NR</sub> 干涉') +
+      R('峰位偏移（往低波數）', nr > 1e-4 ? `−${fmt(g * xp, 1)} cm⁻¹` : '0') +
+      R('凹陷位置', nr > 1e-4 ? `Ω + ${fmt(-g * xm, 1)} cm⁻¹` : '無') +
+      R('峰／遠離共振基線', nr > 1e-4 ? `${fmt(peak / (nr * nr), 1)} ×` : '∞') +
+      R('谷底／基線', nr > 1e-4 ? `${fmt(100 * dip / (nr * nr), 0)} %` : '—') +
+      H4('線寬與脈寬') +
+      R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
+      R('同頻寬變換極限脈衝', `≈ ${fmt(tauTL, 2)} ps`) +
+      `<div class="note">訊號 ∝ N²·I<sub>p</sub>²·I<sub>s</sub>（同調疊加）；偵測新顏色，濾鏡就分得開。</div>`;
+    $('stats').innerHTML = html;
+    return rel;
   }
   if (mode === 'srs') {
-    const rel = imChi(D, om, g) * 100;
-    $('stats').innerHTML =
-      `Stokes 波長 λ<sub>s</sub>：<b>${ls.toFixed(1)}</b> nm<br>` +
-      `拍頻 Δ：<b>${D.toFixed(0)}</b> cm⁻¹　線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
-      `共振失諧 Ω−Δ：<b>${(om - D).toFixed(0)}</b> cm⁻¹<br>` +
-      `SRL / SRG 相對強度 ∝ Im χ：<b>${rel.toFixed(1)}</b> %<br>` +
-      `<span style="font-size:0.8rem">訊號 ∝ N（線性、可直接定量）；無 χ_NR 背景；` +
-      `但 ΔI/I ~ 10⁻⁴，要高頻調變＋鎖相放大</span>`;
-    return rel / 100;
+    const rel = imChi(D, om, g);
+    html = common +
+      R('Stokes λ<sub>s</sub>', `${fmt(ls, 1)} nm（${fmt(wp - D, 0)} cm⁻¹）`) +
+      R('pump→Stokes 間距', `${fmt(ls - LP, 0)} nm`) +
+      H4('共振') +
+      R('失諧 Ω − Δ', `${fmt(om - D, 0)} cm⁻¹`) +
+      R('分子振幅 |A|、落後 φ', `${fmt(ampl(D, om, g) * 100, 1)} %，${fmt(phase(D, om, g) * 180 / Math.PI, 0)}°`) +
+      R('SRL / SRG ∝ Im χ', `${fmt(rel * 100, 1)} %`, true) +
+      R('真實量級 ΔI/I', `~${sci(1e-4 * rel)}`) +
+      H4('線寬與脈寬') +
+      R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
+      R('同頻寬變換極限脈衝', `≈ ${fmt(tauTL, 2)} ps`) +
+      `<div class="note">訊號 ∝ N·I<sub>p</sub>·I<sub>s</sub>（線性、可直接定量）；沒有 χ<sub>NR</sub> 背景，但要靠 MHz 調變＋鎖相放大把 10⁻⁴ 的變化挖出來。</div>`;
+    $('stats').innerHTML = html;
+    return rel;
   }
-  const lr = 1 / (1 / LP - om * 1e-7);
-  $('stats').innerHTML =
-    `拉曼峰位：<b>${lr.toFixed(1)}</b> nm（由 Ω=${om} cm⁻¹ 決定）<br>` +
-    `線寬 Γ：<b>${g}</b> cm⁻¹<br>` +
-    `<span style="font-size:0.8rem">訊號 ∝ N（不相干疊加），比同調方法弱 ~10⁵ 倍；` +
-    `但只要一束雷射＋光譜儀，還能一次拿到整條光譜</span>`;
+  const lr = lamS(om), lra = lamAS(om), boltz = Math.exp(-om / KT);
+  html = common +
+    R('Stokes 拉曼峰', `${fmt(lr, 1)} nm（${fmt(wp - om, 0)} cm⁻¹）`) +
+    R('anti-Stokes 拉曼峰', `${fmt(lra, 1)} nm`) +
+    H4('熱佈居（300 K）') +
+    R('k<sub>B</sub>T / hc', `${KT} cm⁻¹`) +
+    R('Ω / k<sub>B</sub>T', `${fmt(om / KT, 1)}`) +
+    R('anti-Stokes / Stokes', sci(boltz), true) +
+    H4('線寬') +
+    R('FWHM = 2Γ', `${2 * g} cm⁻¹ ＝ ${fmt(2 * g * 29.98, 0)} GHz`) +
+    R('波長軸上 FWHM', `${fmt(lr - lamS(om - g) + lamS(om + g) - lr, 2)} nm`) +
+    `<div class="note">訊號 ∝ N（不相干疊加），比同調方法弱 ~10⁵ 倍；但只要一束雷射＋光譜儀，一次拿整條光譜。</div>`;
+  $('stats').innerHTML = html;
   return 0.13;
 }
 
-let time = 0, last = performance.now();
+// —— UI ——
+const sliders = ['pump', 'delta', 'omega', 'gamma', 'nr'];
+function markPreset() {
+  const om = +$('omega').value, g = +$('gamma').value;
+  [...$('presets').children].forEach((b, i) => b.classList.toggle('on', PRESETS[i].om === om && PRESETS[i].g === g));
+}
+function markMode() {
+  [...$('modes').children].forEach((b, i) => b.classList.toggle('on', MODES[i].key === mode));
+  document.querySelectorAll('#cmp [data-m]').forEach(el => el.classList.toggle('on', el.dataset.m === mode));
+  $('deltaCtl').style.opacity = mode === 'spont' ? 0.35 : 1;
+  $('nrCtl').style.opacity = mode === 'cars' ? 1 : 0.35;
+}
+MODES.forEach(m => {
+  const b = document.createElement('button');
+  b.textContent = m.name;
+  b.onclick = () => { mode = m.key; markMode(); pushURL(); };
+  $('modes').appendChild(b);
+});
+PRESETS.forEach(p => {
+  const b = document.createElement('button');
+  b.innerHTML = `${p.name}<small>${p.om} cm⁻¹ · Γ ${p.g}</small>`;
+  b.title = p.note;
+  b.onclick = () => { $('omega').value = p.om; $('gamma').value = p.g; markPreset(); pushURL(); };
+  $('presets').appendChild(b);
+});
+$('lock').onclick = () => { $('delta').value = $('omega').value; pushURL(); };
+$('reset').onclick = () => { applyState(DEF); pushURL(); };
+sliders.forEach(id => $(id).addEventListener('input', () => { markPreset(); pushURL(); }));
 
+function applyState(s) {
+  mode = MODES.some(m => m.key === s.m) ? s.m : DEF.m;
+  $('pump').value = s.lp; $('delta').value = s.d; $('omega').value = s.om; $('gamma').value = s.g; $('nr').value = s.nr;
+  markMode(); markPreset();
+}
+function readURL() {
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => { const v = parseFloat(q.get(k)); return Number.isFinite(v) ? v : d; };
+  return { m: q.get('m') || DEF.m, lp: num('lp', DEF.lp), d: num('d', DEF.d), om: num('om', DEF.om), g: num('g', DEF.g), nr: num('nr', DEF.nr) };
+}
+let urlTimer = 0;
+function pushURL() {
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => {
+    const q = new URLSearchParams();
+    const cur = { m: mode, lp: +$('pump').value, d: +$('delta').value, om: +$('omega').value, g: +$('gamma').value, nr: +$('nr').value };
+    for (const k in cur) if (cur[k] !== DEF[k]) q.set(k, cur[k]);
+    const s = q.toString();
+    history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
+  }, 200);
+}
+applyState(readURL());
+
+// —— 主迴圈 ——
+let time = 0, last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
   if ($('anim').checked) time += dt * 6;
 
-  LP = parseFloat($('pump').value);
-  const D = parseFloat($('delta').value);
-  const g = parseFloat($('gamma').value);
-  const nr = parseFloat($('nr').value);
-  $('pOut').textContent = LP + ' nm';
-  $('dOut').textContent = D.toFixed(0) + ' cm⁻¹';
-  $('omOut').textContent = omega + ' cm⁻¹';
-  $('gOut').textContent = g + ' cm⁻¹';
+  LP = +$('pump').value;
+  const D = +$('delta').value, om = +$('omega').value, g = +$('gamma').value, nr = +$('nr').value;
+  $('pOut').textContent = `${LP} nm（${fmt(WN(LP), 0)} cm⁻¹）`;
+  $('dOut').textContent = `${D} cm⁻¹`;
+  $('omOut').textContent = `${om} cm⁻¹`;
+  $('gOut').textContent = `${g} cm⁻¹`;
   $('nrOut').textContent = nr.toFixed(2);
-  // 各模式用不到的旋鈕調暗：自發沒有 Δ（沒有第二束雷射），SRS/自發不吃 χ_NR
-  $('delta').parentElement.style.opacity = mode === 'spont' ? 0.35 : 1;
-  $('nr').parentElement.style.opacity = mode === 'cars' ? 1 : 0.35;
 
-  const cur = scanCurve(omega, g, nr);
-  const target = updateStats(D, omega, g, cur);
+  const cur = scanCurve(om, g, nr);
+  const target = updateStats(D, om, g, nr, cur);
   asDisp += (target - asDisp) * Math.min(1, dt * 8);
 
-  drawBeat(D, omega, g, time);
-  drawSpec(D, asDisp);
-  drawScan(D, omega, g, nr, cur);
+  drawBeat(D, om, g, time);
+  drawSpec(D, om, g);
+  drawScan(D, om, g, nr, cur);
   requestAnimationFrame(frame);
 }
-
-const MODES = [
-  { key: 'spont', name: '自發拉曼' },
-  { key: 'cars', name: 'CARS' },
-  { key: 'srs', name: 'SRS' },
-];
-const mbox = $('modes');
-MODES.forEach(m => {
-  const b = document.createElement('button');
-  b.textContent = m.name;
-  b.onclick = () => {
-    mode = m.key;
-    [...mbox.children].forEach(c => c.classList.remove('on'));
-    b.classList.add('on');
-  };
-  if (m.key === mode) b.classList.add('on');
-  mbox.appendChild(b);
-});
-
-const pbox = $('presets');
-PRESETS.forEach(p => {
-  const b = document.createElement('button');
-  b.textContent = p.name;
-  b.onclick = () => {
-    omega = p.om;
-    [...pbox.children].forEach(c => c.classList.remove('on'));
-    b.classList.add('on');
-  };
-  if (p.om === omega) b.classList.add('on');
-  pbox.appendChild(b);
-});
-
 requestAnimationFrame(frame);
 </script>
 </body>

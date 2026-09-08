@@ -17,4 +17,4 @@
 | [脈衝串 ↔ 頻率梳遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/pulse-comb-playground.html) | 週期脈衝串 ⇔ 頻率梳的互動模擬：疊諧波長出尖脈衝、螢光壽命低通、NADH 1f/2f 取頻取捨 |
 | [P-SHG 偏振極座標遊樂場 v2](https://ewinkuo1-sudo.github.io/owl-toys/pshg-polar-playground.html) | P-SHG 完整模擬：ρ↔θe 換算、δ／χ₁₄／雙折射 Γ 三種表觀 ρ 偏差、X/Y 分光、Fourier 係數、CSV 擬合、噪聲遊戲（Tiaho 2007 + Lee 2023 APL） |
 | [P-SHG 影像實驗室](https://ewinkuo1-sudo.github.io/owl-toys/pshg-image-lab.html) | 合成組織 → 多偏振角影像疊＋光子噪聲 → 逐像素 Fourier 反推 φ/ρ 圖；角度數×光子預算的實驗設計取捨 |
-| [CARS 拍頻遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/cars-beat-playground.html) | pump/Stokes 拍頻打上分子振動 Ω 才生 anti-Stokes；可調 pump 波長，並可切換自發拉曼 / CARS / SRS 三模式比較（χ_NR 色散線形 vs Im χ 純 Lorentzian） |
+| [CARS 拍頻遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/cars-beat-playground.html) | pump/Stokes 拍頻（真實比例）打上分子振動 Ω 才生 anti-Stokes；分子相位落後、χ_NR 峰位偏移／凹陷位置、Boltzmann 因子、變換極限脈寬即時計算；可調 pump 波長與 Ω／Γ，切換自發拉曼 / CARS / SRS 並附比較表；URL 參數可分享 |
