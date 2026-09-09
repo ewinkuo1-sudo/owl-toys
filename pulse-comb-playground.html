@@ -39,7 +39,7 @@
   .wrap { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: flex-start; }
   .col { display: flex; flex-direction: column; gap: 14px; }
   .panel { background: var(--panel); border-radius: 12px; padding: 14px; }
-  .panel h2 { font-size: 0.92rem; margin: 0 0 8px 4px; font-weight: 600; color: var(--ink); }
+  .panel h2 { font-size: 0.92rem; margin: 0 0 8px 4px; font-weight: 600; color: var(--ink); max-width: 556px; line-height: 1.4; }
   canvas { display: block;  max-width: 100%; height: auto; }
   .controls { background: var(--panel); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 15px; width: 300px; }
   :root[data-theme="light"] .panel, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
@@ -65,58 +65,120 @@
 </head>
 <body>
 <div class="head">
-  <h1>脈衝串 ↔ 頻率梳遊樂場</h1>
-  <button class="chip" id="theme" title="切換深色／淺色"></button>
+  <h1 data-i18n="title"></h1>
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
 </div>
-<p class="sub">
-  週期 <code>T</code> 的脈衝串 ⇔ 間距 <code>1/T</code> 的頻率梳。左上：時域脈衝串與「疊諧波長出尖脈衝」；
-  左下：頻域梳齒、螢光壽命低通 <code>m = 1/√(1+(2πfτ)²)</code>，與 1f／2f 取頻位置。
-  拉拉看：脈衝越尖梳齒延伸越遠；τ 越長，高次梳齒被壓得越扁。
-</p>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <div class="col">
     <div class="panel">
-      <h2>時域：脈衝串（藍）＋ 前 N 個諧波的疊加（綠）</h2>
+      <h2 data-i18n="panel.time"></h2>
       <canvas id="time" width="560" height="230"></canvas>
     </div>
     <div class="panel">
-      <h2>頻域：梳齒（藍）× 螢光低通（橘）＝ 實際聽到的（實心）</h2>
+      <h2 data-i18n="panel.freq"></h2>
       <canvas id="freq" width="560" height="250"></canvas>
     </div>
   </div>
   <div class="controls">
     <div class="ctl">
-      <label>重複率 f<sub>rep</sub> <output id="frepOut">40 MHz</output></label>
+      <label><span data-i18n="lbl.frep"></span> <output id="frepOut">40 MHz</output></label>
       <input type="range" id="frep" min="10" max="160" step="1" value="40">
     </div>
     <div class="ctl">
-      <label>脈衝寬度（σ/T） <output id="widOut">2%</output></label>
+      <label><span data-i18n="lbl.wid"></span> <output id="widOut">2%</output></label>
       <input type="range" id="wid" min="0.5" max="18" step="0.1" value="2">
     </div>
     <div class="ctl">
-      <label>疊加諧波數 N <output id="nOut">8</output></label>
+      <label><span data-i18n="lbl.nh"></span> <output id="nOut">8</output></label>
       <input type="range" id="nh" min="1" max="24" step="1" value="8">
     </div>
     <div class="ctl">
-      <label>螢光壽命 τ <output id="tauOut">2.5 ns</output></label>
+      <label><span data-i18n="lbl.tau"></span> <output id="tauOut">2.5 ns</output></label>
       <input type="range" id="tau" min="0" max="6" step="0.05" value="2.5">
     </div>
     <div class="presets">
-      <button data-tau="0.4">NADH 自由態 0.4 ns</button>
-      <button data-tau="2.5">NADH 結合態 2.5 ns</button>
-      <button data-tau="0">無壽命（τ=0）</button>
+      <button data-tau="0.4" data-i18n="preset.free"></button>
+      <button data-tau="2.5" data-i18n="preset.bound"></button>
+      <button data-tau="0" data-i18n="preset.none"></button>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      玩法提示：① N 拉到 1 是純弦波，8 開始像尖脈衝——「2f 是梳子天生的第二根齒」。
-      ② 把脈衝加寬，看高次梳齒先塌掉：脈衝越短頻寬越寬，飛秒脈衝的梳齒到 2f 根本還是平的。
-      ③ 在預設 f<sub>rep</sub> = 40 MHz 下切換兩個 NADH 預設，看兩態相位差怎麼從 1f 的 26° 拉開到 2f 的 40°——
-      訊號虧 1.4 倍，換對比多一倍（這組數字跟著 f<sub>rep</sub> 變，即時值看 stats）。
-    </div>
+    <div class="hint" data-i18n="hint"></div>
   </div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': '脈衝串 ↔ 頻率梳遊樂場',
+  'doc.title': '脈衝串 ↔ 頻率梳遊樂場 🦉',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `週期 <code>T</code> 的脈衝串 ⇔ 間距 <code>1/T</code> 的頻率梳。左上：時域脈衝串與「疊諧波長出尖脈衝」；
+    左下：頻域梳齒、螢光壽命低通 <code>m = 1/√(1+(2πfτ)²)</code>，與 1f／2f 取頻位置。
+    拉拉看：脈衝越尖梳齒延伸越遠；τ 越長，高次梳齒被壓得越扁。`,
+  'panel.time': '時域：脈衝串（藍）＋ 前 N 個諧波的疊加（綠）',
+  'panel.freq': '頻域：梳齒（藍）× 螢光低通（橘）＝ 實際聽到的（實心）',
+  'lbl.frep': '重複率 f<sub>rep</sub>',
+  'lbl.wid': '脈衝寬度（σ/T）',
+  'lbl.nh': '疊加諧波數 N',
+  'lbl.tau': '螢光壽命 τ',
+  'preset.free': 'NADH 自由態 0.4 ns',
+  'preset.bound': 'NADH 結合態 2.5 ns',
+  'preset.none': '無壽命（τ=0）',
+  'stats': s =>
+    `梳齒（雷射端）｜<span class="g">1f</span>：<b>${s.c1}%</b>　<span class="p">2f</span>：<b>${s.c2}%</b><br>` +
+    `<span class="o">壽命低通 m</span>｜<span class="g">1f</span>：<b>${s.m1}%</b>　<span class="p">2f</span>：<b>${s.m2}%</b>` +
+    `（虧 <b>${s.loss}×</b>）<br>` +
+    `實際聽到｜<span class="g">1f</span>：<b>${s.h1}%</b>　<span class="p">2f</span>：<b>${s.h2}%</b><br>` +
+    `相位 φ = arctan(2πfτ)｜<span class="g">1f</span>：<b>${s.p1}°</b>　<span class="p">2f</span>：<b>${s.p2}°</b><br>` +
+    `NADH 兩態相位差｜<span class="g">1f</span>：<b>${s.gap1}°</b> → <span class="p">2f</span>：<b>${s.gap2}°</b>`,
+  'hint': `玩法提示：① N 拉到 1 是純弦波，8 開始像尖脈衝——「2f 是梳子天生的第二根齒」。
+    ② 把脈衝加寬，看高次梳齒先塌掉：脈衝越短頻寬越寬，飛秒脈衝的梳齒到 2f 根本還是平的。
+    ③ 在預設 f<sub>rep</sub> = 40 MHz 下切換兩個 NADH 預設，看兩態相位差怎麼從 1f 的 26° 拉開到 2f 的 40°——
+    訊號虧 1.4 倍，換對比多一倍（這組數字跟著 f<sub>rep</sub> 變，即時值看 stats）。`,
+},
+en: {
+  'title': 'Pulse Train ↔ Frequency Comb',
+  'doc.title': 'Pulse Train ↔ Frequency Comb 🦉',
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `A pulse train with period <code>T</code> ⇔ a frequency comb with spacing <code>1/T</code>. Top left: the time-domain pulse train and
+    how “stacking harmonics grows a sharp pulse”; bottom left: the comb teeth, the fluorescence-lifetime low-pass
+    <code>m = 1/√(1+(2πfτ)²)</code>, and where 1f / 2f are sampled.
+    Drag around: the sharper the pulse, the farther the comb reaches; the longer τ, the flatter the high-order teeth get squashed.`,
+  'panel.time': 'Time domain: pulse train (blue) + first N harmonics summed (green)',
+  'panel.freq': 'Frequency domain: comb (blue) × lifetime low-pass (orange) = what\'s heard (solid)',
+  'lbl.frep': 'Repetition rate f<sub>rep</sub>',
+  'lbl.wid': 'Pulse width (σ/T)',
+  'lbl.nh': 'Harmonics summed N',
+  'lbl.tau': 'Fluorescence lifetime τ',
+  'preset.free': 'NADH free 0.4 ns',
+  'preset.bound': 'NADH bound 2.5 ns',
+  'preset.none': 'No lifetime (τ=0)',
+  'stats': s =>
+    `Comb teeth (laser) | <span class="g">1f</span>: <b>${s.c1}%</b>&ensp;<span class="p">2f</span>: <b>${s.c2}%</b><br>` +
+    `<span class="o">Lifetime low-pass m</span> | <span class="g">1f</span>: <b>${s.m1}%</b>&ensp;<span class="p">2f</span>: <b>${s.m2}%</b>` +
+    ` (loses <b>${s.loss}×</b>)<br>` +
+    `Actually heard | <span class="g">1f</span>: <b>${s.h1}%</b>&ensp;<span class="p">2f</span>: <b>${s.h2}%</b><br>` +
+    `Phase φ = arctan(2πfτ) | <span class="g">1f</span>: <b>${s.p1}°</b>&ensp;<span class="p">2f</span>: <b>${s.p2}°</b><br>` +
+    `NADH phase gap | <span class="g">1f</span>: <b>${s.gap1}°</b> → <span class="p">2f</span>: <b>${s.gap2}°</b>`,
+  'hint': `Tips: ① Pull N down to 1 and you get a pure sine; from about 8 it starts to look like a sharp pulse — “2f is the comb's built-in second tooth”.
+    ② Widen the pulse and watch the high-order teeth collapse first: the shorter the pulse, the wider the bandwidth — a femtosecond pulse's comb is still dead flat out at 2f.
+    ③ At the default f<sub>rep</sub> = 40 MHz, toggle between the two NADH presets and watch the phase gap between the two states open up from 26° at 1f to 40° at 2f —
+    you lose 1.4× in signal but double the contrast (these numbers follow f<sub>rep</sub>; see the stats for live values).`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const C = {};
 function readColors() {
@@ -125,22 +187,45 @@ function readColors() {
   for (const k in map) C[k] = css(map[k]);
 }
 let booted = false;
-function redrawAll() { if (booted) render(); }   // 非 rAF 迴圈：切主題後主動重畫
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+function redrawAll() { if (booted) render(); }   // 非 rAF 迴圈：切主題／語言後主動重畫
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = document.getElementById('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   if (typeof readColors === 'function') readColors();
   if (typeof redrawAll === 'function') redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 const tc = $('time').getContext('2d');
 const fc = $('freq').getContext('2d');
@@ -259,13 +344,14 @@ function stats(frep, sig, tau) {
   // NADH reference gap at current frep
   const gap1 = phaseDeg(frep, 2.5) - phaseDeg(frep, 0.4);
   const gap2 = phaseDeg(2 * frep, 2.5) - phaseDeg(2 * frep, 0.4);
-  $('stats').innerHTML =
-    `梳齒（雷射端）｜<span class="g">1f</span>：<b>${(c1 * 100).toFixed(1)}%</b>　<span class="p">2f</span>：<b>${(c2 * 100).toFixed(1)}%</b><br>` +
-    `<span class="o">壽命低通 m</span>｜<span class="g">1f</span>：<b>${(m1 * 100).toFixed(0)}%</b>　<span class="p">2f</span>：<b>${(m2 * 100).toFixed(0)}%</b>` +
-    `（虧 <b>${m2 > 1e-6 ? (m1 / m2).toFixed(2) : '∞'}×</b>）<br>` +
-    `實際聽到｜<span class="g">1f</span>：<b>${(h1 * 100).toFixed(1)}%</b>　<span class="p">2f</span>：<b>${(h2 * 100).toFixed(1)}%</b><br>` +
-    `相位 φ = arctan(2πfτ)｜<span class="g">1f</span>：<b>${p1.toFixed(1)}°</b>　<span class="p">2f</span>：<b>${p2.toFixed(1)}°</b><br>` +
-    `NADH 兩態相位差｜<span class="g">1f</span>：<b>${gap1.toFixed(0)}°</b> → <span class="p">2f</span>：<b>${gap2.toFixed(0)}°</b>`;
+  $('stats').innerHTML = t('stats', {
+    c1: (c1 * 100).toFixed(1), c2: (c2 * 100).toFixed(1),
+    m1: (m1 * 100).toFixed(0), m2: (m2 * 100).toFixed(0),
+    loss: m2 > 1e-6 ? (m1 / m2).toFixed(2) : '∞',
+    h1: (h1 * 100).toFixed(1), h2: (h2 * 100).toFixed(1),
+    p1: p1.toFixed(1), p2: p2.toFixed(1),
+    gap1: gap1.toFixed(0), gap2: gap2.toFixed(0),
+  });
 }
 
 function render() {
@@ -286,6 +372,7 @@ function render() {
 document.querySelectorAll('.presets button').forEach(b =>
   b.addEventListener('click', () => { $('tau').value = b.dataset.tau; render(); }));
 
+applyLang();
 render();
 booted = true;
 </script>

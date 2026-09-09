@@ -210,122 +210,375 @@
 <header class="topbar">
   <div class="grow">
     <div class="eyebrow">🦉 Owl Toys · Olympus FluoView FV300 / IX71</div>
-    <h1>FV300 3D 互動顯微鏡</h1>
-    <p>共軛焦顯微鏡的工程透視模型：轉動觀察、掀開掃描頭、點任何零件看它是什麼、看雷射怎麼走到樣品又怎麼回到 PMT。</p>
+    <h1 data-i18n="title"></h1>
+    <p data-i18n="sub"></p>
   </div>
-  <div class="hint">拖曳旋轉 · 滾輪縮放 · 右鍵平移 · 點擊零件看說明</div>
-  <button class="chip" id="theme" title="切換深色／淺色"></button>
+  <div class="hint" data-i18n="hint"></div>
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
   <a class="back" href="index.html">← Owl Toys</a>
 </header>
 
 <script>
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式；t(key, ...args) 取用。3D 零件卡的英文說明在下方 module 的 INFO_EN（要用到 Z_SCALE）。
+const I18N = {
+zh: {
+  'doc.title': 'FV300 3D 互動顯微鏡 🦉',
+  'title': 'FV300 3D 互動顯微鏡',
+  'sub': '共軛焦顯微鏡的工程透視模型：轉動觀察、掀開掃描頭、點任何零件看它是什麼、看雷射怎麼走到樣品又怎麼回到 PMT。',
+  'hint': '拖曳旋轉 · 滾輪縮放 · 右鍵平移 · 點擊零件看說明',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  // 視角
+  'card.views': '視角 <small>Views</small>',
+  'view.overview': '全景', 'view.overview.s': '整套系統',
+  'view.head': '掃描頭內部', 'view.head.s': '掀蓋看光學元件',
+  'view.focus': '物鏡焦點', 'view.focus.s': '樣品與掃描光斑',
+  'view.path': '光路追跡', 'view.path.s': '外殼透明化',
+  'view.lasers': '雷射模組', 'view.lasers.s': '雷射與光纖',
+  'view.pc': '電腦螢幕', 'view.pc.s': '看即時掃描影像',
+  'view.front': '掃描頭前面板', 'view.front.s': '旋鈕與滑軌把手',
+  'view.operator': '操作者視角', 'view.operator.s': '坐在顯微鏡前',
+  // 掃描頭
+  'card.head': '掃描頭 <small>FV300 Scan Unit</small>',
+  'lid.open': '掀開外殼', 'lid.close': '關上外殼',
+  'btn.xray': '外殼透明', 'btn.labels': '標籤',
+  'lbl.pinhole': 'Pinhole 段位（CONFOCAL APERTURE）',
+  'h3.sdm': '偵測分光鏡滑軌（SDM）',
+  'h3.ch1': 'CH1 Barrier Filter（滑軌）', 'h3.ch2': 'CH2 Barrier Filter（滑軌）',
+  'filter.none': '無',
+  // 掃描
+  'card.scan': '掃描 <small>Scan</small>',
+  'lbl.speed': '掃描速度（Scan Speed）',
+  'link.speed': '什麼是掃描速度？',
+  'speed.note': (dwell, frame) => `像素停留 ${dwell} μs，256 × 256 一幀 ${frame} s。慢掃每像素收到的光子多、雜訊小（SNR ∝ √停留時間）；快掃顆粒明顯但能看即時動態。`,
+  // 雷射
+  'card.lasers': '雷射 <small>Lasers</small>',
+  'laser.na.title': '尚未安裝（預留）',
+  'lbl.power': '雷射功率',
+  'h3.paths': '光路顯示',
+  'tog.ex': ' 激發光路', 'tog.em': ' 螢光回程', 'tog.scan': ' 振鏡掃描', 'tog.photon': ' 光子流動',
+  'leg.ex': '激發', 'leg.em': '螢光', 'leg.fiber': '光纖',
+  'note.lasers': '目前實驗室實裝 405 / 488；543 與 633 為預留插槽（模型中以半透明顯示），加裝後把資料表裡的 <code>installed</code> 改成 true 即可啟用。',
+  // 物鏡
+  'card.obj': '物鏡 <small>Objective</small>',
+  'obj.note': (o, fill, effNA) => `${o.label}：NA ${o.na}，WD ${o.wd} mm，瞳孔 ${o.pupil} mm；光束填充率 ${fill}%，有效 NA ${effNA}`,
+  // Z 軸
+  'card.z': 'Z 軸 · 光學切片 <small>Focus / Z-series</small>',
+  'lbl.z': 'Z 位置（微調焦）',
+  'tick.zneg': '−12 μm（靠物鏡）', 'tick.zpos': '+12 μm（深）',
+  'zseq.start': '▶ Z 序列', 'zseq.stop': '■ 停止 Z 序列',
+  'znote.on': (R, step, sec, extra) => `XYZ 掃描中：−${R} → +${R} μm 來回，每步 ${step} μm、每層 ${sec} s${extra}`,
+  'znote.accel': (f) => `（實機要等一幀 ${f} s，本頁加速示意）`,
+  'znote.oneFrame': '（= 一幀）',
+  'znote.in': (names) => `切片內：${names}`,
+  'note.z': '縮小 pinhole → 切片變薄，只看到目前深度那一層；放大 pinhole → 各層疊在一起。 ',
+  'link.z': '什麼是光學切片？',
+  // 即時數值
+  'card.live': '即時數值 <small>Live numbers</small>',
+  'stat.spot': '焦點光斑<br>半徑 μm', 'stat.airy': 'Airy 半徑<br>μm', 'stat.slice': '光學切片<br>厚度 μm',
+  'stat.au': 'Pinhole<br>AU', 'stat.dwell': '像素停留<br>μs', 'stat.frame': '幀時間<br>s（256²）',
+  'stat.snr': 'SNR（示意）<br>中等亮度', 'stat.ch1': 'CH1 訊號', 'stat.ch2': 'CH2 訊號',
+  'stat.z': 'Z 位置<br>μm', 'stat.zband': '切片範圍<br>± μm', 'stat.zin': '切片內<br>結構',
+  // 掃描影像
+  'card.scanimg': '掃描影像 <small>Live scan</small>',
+  'scanmeta.tail': (speed, frame, z) => `速度 ${speed} · ${frame} s/幀 · Z ${z} μm`,
+  'note.sample': '合成樣品：細胞核（DAPI）、細胞骨架（Alexa 488 / GFP）、粒線體（TRITC，需 543）、細胞膜（Cy5，需 633）。CH1 顯示為綠、CH2 顯示為紅。',
+  // 3D 視窗
+  'hud.init': '<b>點擊</b>任何零件顯示說明 · 點空白處關閉',
+  'hud.live': (laser, obj, pin) => `<b>${laser}</b> · ${obj} · pinhole ${pin} · <b>點擊</b>零件看說明`,
+  'loading': '載入 Three.js…',
+  // 切片內結構（Z 卡、即時數值、說明卡共用）
+  'slice.notExcited': '（本雷射不激發）',
+  'slice.blocked': '（發射大多被 BA 濾片擋住，CH1/CH2 濾片選「無」才看得清）',
+  'slice.nLayers': (n) => `${n} 層`,
+  'slice.none': '無（離焦，影像只剩霧）',
+  'slice.sep': '、',
+  // Z 剖面小圖（canvas）
+  'zp.notExcited': '不激發', 'zp.notExcitedS': '不激發',
+  'zp.slice': (v) => `切片 ${v} μm`,
+  // 說明卡：即時列
+  'row.model': '型號', 'row.wd': '工作距離 WD', 'row.pupil': '瞳孔直徑', 'row.immersion': '浸液',
+  'val.oil': '油 (n=1.515)', 'val.air': '空氣',
+  'row.spot': '焦點光斑半徑', 'row.airy': 'Airy 半徑', 'row.slice': '光學切片厚度',
+  'row.laser': '雷射', 'row.effNA': '有效 NA', 'row.spot1e': '光斑半徑 (1/e²)', 'row.dye': '主要染料',
+  'row.z': 'Z 位置', 'row.inSlice': '切片內結構',
+  'row.pinSetting': '目前段位', 'row.aperture': '孔徑', 'row.au': 'Airy 單位',
+  'val.au': (au, em) => `${au} AU（以螢光 ${em} nm 計）`,
+  'row.airyPin': 'Pinhole 面 Airy 半徑',
+  'val.airyPin': (r, d) => `${r} μm（1 AU = ${d} μm 孔徑）`,
+  'row.eff': '收光效率',
+  'val.haze': (p) => `（+離焦霧 ${p}%）`,
+  'row.zseq': 'Z 序列',
+  'val.deeper': '↑ 往深', 'val.toObj': '↓ 往物鏡',
+  'val.zseqOn': (dir, sec, rate) => `進行中（${dir}，每層 ${sec} s ≈ ${rate} μm/s）`,
+  'val.zseqOff': (sec) => `停止（啟動後每層等 ${sec} s，隨掃描速度；示意）`,
+  'val.sliceAt': (th, pin, au) => `${th} μm（pinhole ${pin}，${au} AU）`,
+  'row.layerFrac': '各層在切片內的比例（+離焦霧）',
+  'row.z3d': '3D 位移',
+  'val.z3d': (u, sc) => `${u} 單位（1 μm = ${sc}，放大示意）`,
+  'row.knobAngle': '旋鈕轉角', 'row.curObj': '目前物鏡', 'row.current': '目前',
+  'row.emPeak': (dye) => `螢光峰 (${dye})`,
+  'val.inclBA': (p) => `${p} %（含 BA）`,
+  'row.curFilter': '目前濾片', 'row.passband': '通帶', 'val.open': '全開',
+  'row.ch1sig': 'CH1 訊號', 'row.ch2sig': 'CH2 訊號',
+  'row.curLaser': '目前雷射', 'row.excites': '激發', 'row.power': '功率', 'row.fill': '瞳孔填充率',
+  'row.scan': '掃描', 'val.running': '進行中', 'val.stopped': '停止',
+  'row.speed': '掃描速度', 'row.image': '影像', 'row.dwell': '像素停留', 'row.lineTime': '行時間', 'row.frameTime': '幀時間',
+  'row.anim3d': '3D 動畫',
+  'val.lps': (n) => `${n} 行/s（放慢示意）`,
+  'row.frameTime256': '幀時間 (256²)',
+  'row.snr': 'SNR（示意，中等亮度像素）',
+  'val.snr': (p, e) => `（功率 ${p} %、收光 ${e} %）`,
+  'row.pinhole': 'Pinhole',
+  'val.pinAU': (p, au) => `${p}（${au} AU）`,
+  'row.zseqLayer': 'Z 序列每層',
+  'val.zseqLayer': (sec) => `${sec} s（= 一幀，上限 1 s）`,
+  'row.status': '狀態',
+  'val.installedInUse': '已安裝 · 使用中', 'val.installed': '已安裝', 'val.notInstalled': '未安裝（預留）',
+  'row.beamDia': '光束直徑',
+  'row.emPeakL': (dye) => `發射峰 (${dye})`,
+  'title.objective': (label) => `${label} 物鏡`,
+  'tag.na': '未安裝', 'tag.inUse': '使用中',
+},
+en: {
+  'doc.title': 'FV300 3D Interactive Microscope 🦉',
+  'title': 'FV300 3D Interactive Microscope',
+  'sub': 'An engineering cut-away of a confocal microscope: orbit around it, open the scan unit, click any part to learn what it is, and follow the laser to the specimen and the fluorescence back to the PMTs.',
+  'hint': 'Drag to rotate · wheel to zoom · right-drag to pan · click a part for details',
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'card.views': 'Views <small>camera presets</small>',
+  'view.overview': 'Overview', 'view.overview.s': 'Whole system',
+  'view.head': 'Inside the scan unit', 'view.head.s': 'Cover off, optics exposed',
+  'view.focus': 'Focal spot', 'view.focus.s': 'Specimen & scanning spot',
+  'view.path': 'Beam path', 'view.path.s': 'Housing made transparent',
+  'view.lasers': 'Laser modules', 'view.lasers.s': 'Lasers & fiber',
+  'view.pc': 'PC monitor', 'view.pc.s': 'Live scan image',
+  'view.front': 'Scan unit front panel', 'view.front.s': 'Knobs & slider handles',
+  'view.operator': 'Operator view', 'view.operator.s': 'Seated at the microscope',
+  'card.head': 'Scan unit <small>FV300</small>',
+  'lid.open': 'Open cover', 'lid.close': 'Close cover',
+  'btn.xray': 'X-ray housing', 'btn.labels': 'Labels',
+  'lbl.pinhole': 'Pinhole setting (CONFOCAL APERTURE)',
+  'h3.sdm': 'Detection dichroic slider (SDM)',
+  'h3.ch1': 'CH1 barrier filter (slider)', 'h3.ch2': 'CH2 barrier filter (slider)',
+  'filter.none': 'None',
+  'card.scan': 'Scan <small>speed</small>',
+  'lbl.speed': 'Scan speed',
+  'link.speed': 'What is scan speed?',
+  'speed.note': (dwell, frame) => `Pixel dwell ${dwell} μs; one 256 × 256 frame takes ${frame} s. Slow scans collect more photons per pixel and less noise (SNR ∝ √dwell); fast scans look grainy but show live dynamics.`,
+  'card.lasers': 'Lasers <small>excitation</small>',
+  'laser.na.title': 'Not installed (reserved slot)',
+  'lbl.power': 'Laser power',
+  'h3.paths': 'Beam paths',
+  'tog.ex': ' Excitation path', 'tog.em': ' Fluorescence return', 'tog.scan': ' Galvo scanning', 'tog.photon': ' Photon flow',
+  'leg.ex': 'Excitation', 'leg.em': 'Fluorescence', 'leg.fiber': 'Fiber',
+  'note.lasers': 'The lab currently has 405 / 488 installed; 543 and 633 are reserved slots (drawn translucent). After adding one, set <code>installed</code> to true in the data table to enable it.',
+  'card.obj': 'Objective <small>UIS2</small>',
+  'obj.note': (o, fill, effNA) => `${o.label}: NA ${o.na}, WD ${o.wd} mm, pupil ${o.pupil} mm; beam fill ${fill}%, effective NA ${effNA}`,
+  'card.z': 'Optical sectioning <small>Z / Focus</small>',
+  'lbl.z': 'Z position (fine focus)',
+  'tick.zneg': '−12 μm (toward objective)', 'tick.zpos': '+12 μm (deep)',
+  'zseq.start': '▶ Z-series', 'zseq.stop': '■ Stop Z-series',
+  'znote.on': (R, step, sec, extra) => `XYZ scan running: −${R} → +${R} μm back and forth, ${step} μm per step, ${sec} s per layer${extra}`,
+  'znote.accel': (f) => ` (the real instrument waits one frame, ${f} s; sped up here)`,
+  'znote.oneFrame': ' (= one frame)',
+  'znote.in': (names) => `In slice: ${names}`,
+  'note.z': 'Smaller pinhole → thinner slice, only the layer at the current depth shows; larger pinhole → the layers pile up together. ',
+  'link.z': 'What is optical sectioning?',
+  'card.live': 'Live numbers <small>computed</small>',
+  'stat.spot': 'Focal spot<br>radius μm', 'stat.airy': 'Airy radius<br>μm', 'stat.slice': 'Optical slice<br>thickness μm',
+  'stat.au': 'Pinhole<br>AU', 'stat.dwell': 'Pixel dwell<br>μs', 'stat.frame': 'Frame time<br>s (256²)',
+  'stat.snr': 'SNR (approx.)<br>mid-brightness', 'stat.ch1': 'CH1 signal', 'stat.ch2': 'CH2 signal',
+  'stat.z': 'Z position<br>μm', 'stat.zband': 'Slice range<br>± μm', 'stat.zin': 'In slice<br>structures',
+  'card.scanimg': 'Scan image <small>Live scan</small>',
+  'scanmeta.tail': (speed, frame, z) => `Speed ${speed} · ${frame} s/frame · Z ${z} μm`,
+  'note.sample': 'Synthetic specimen: nuclei (DAPI), cytoskeleton (Alexa 488 / GFP), mitochondria (TRITC, needs 543), membrane (Cy5, needs 633). CH1 is shown in green, CH2 in red.',
+  'hud.init': '<b>Click</b> any part for its description · click empty space to close',
+  'hud.live': (laser, obj, pin) => `<b>${laser}</b> · ${obj} · pinhole ${pin} · <b>click</b> a part for details`,
+  'loading': 'Loading Three.js…',
+  'slice.notExcited': ' (not excited by this laser)',
+  'slice.blocked': ' (emission mostly blocked by the BA filter — set the CH1/CH2 filter to "None" to see it)',
+  'slice.nLayers': (n) => `${n} layers`,
+  'slice.none': 'none (out of focus — only haze left)',
+  'slice.sep': ', ',
+  'zp.notExcited': 'not excited', 'zp.notExcitedS': 'not exc.',
+  'zp.slice': (v) => `Slice ${v} μm`,
+  'row.model': 'Model', 'row.wd': 'Working distance WD', 'row.pupil': 'Pupil diameter', 'row.immersion': 'Immersion',
+  'val.oil': 'Oil (n=1.515)', 'val.air': 'Air',
+  'row.spot': 'Focal spot radius', 'row.airy': 'Airy radius', 'row.slice': 'Optical slice thickness',
+  'row.laser': 'Laser', 'row.effNA': 'Effective NA', 'row.spot1e': 'Spot radius (1/e²)', 'row.dye': 'Main dye',
+  'row.z': 'Z position', 'row.inSlice': 'Structures in slice',
+  'row.pinSetting': 'Current setting', 'row.aperture': 'Aperture', 'row.au': 'Airy units',
+  'val.au': (au, em) => `${au} AU (at ${em} nm emission)`,
+  'row.airyPin': 'Airy radius at pinhole',
+  'val.airyPin': (r, d) => `${r} μm (1 AU = ${d} μm aperture)`,
+  'row.eff': 'Throughput',
+  'val.haze': (p) => ` (+haze ${p}%)`,
+  'row.zseq': 'Z-series',
+  'val.deeper': '↑ deeper', 'val.toObj': '↓ toward objective',
+  'val.zseqOn': (dir, sec, rate) => `running (${dir}, ${sec} s per layer ≈ ${rate} μm/s)`,
+  'val.zseqOff': (sec) => `stopped (once started: ${sec} s per layer, set by scan speed; illustrative)`,
+  'val.sliceAt': (th, pin, au) => `${th} μm (pinhole ${pin}, ${au} AU)`,
+  'row.layerFrac': 'Per-layer fraction in slice (+haze)',
+  'row.z3d': '3D offset',
+  'val.z3d': (u, sc) => `${u} units (1 μm = ${sc}, exaggerated)`,
+  'row.knobAngle': 'Knob rotation', 'row.curObj': 'Current objective', 'row.current': 'Current',
+  'row.emPeak': (dye) => `Emission peak (${dye})`,
+  'val.inclBA': (p) => `${p} % (incl. BA)`,
+  'row.curFilter': 'Current filter', 'row.passband': 'Passband', 'val.open': 'Open',
+  'row.ch1sig': 'CH1 signal', 'row.ch2sig': 'CH2 signal',
+  'row.curLaser': 'Current laser', 'row.excites': 'Excites', 'row.power': 'Power', 'row.fill': 'Pupil fill',
+  'row.scan': 'Scanning', 'val.running': 'running', 'val.stopped': 'stopped',
+  'row.speed': 'Scan speed', 'row.image': 'Image', 'row.dwell': 'Pixel dwell', 'row.lineTime': 'Line time', 'row.frameTime': 'Frame time',
+  'row.anim3d': '3D animation',
+  'val.lps': (n) => `${n} lines/s (slowed for display)`,
+  'row.frameTime256': 'Frame time (256²)',
+  'row.snr': 'SNR (approx., mid-brightness pixel)',
+  'val.snr': (p, e) => ` (power ${p} %, throughput ${e} %)`,
+  'row.pinhole': 'Pinhole',
+  'val.pinAU': (p, au) => `${p} (${au} AU)`,
+  'row.zseqLayer': 'Z-series per layer',
+  'val.zseqLayer': (sec) => `${sec} s (= one frame, capped at 1 s)`,
+  'row.status': 'Status',
+  'val.installedInUse': 'Installed · in use', 'val.installed': 'Installed', 'val.notInstalled': 'Not installed (reserved)',
+  'row.beamDia': 'Beam diameter',
+  'row.emPeakL': (dye) => `Emission peak (${dye})`,
+  'title.objective': (label) => `${label} Objective`,
+  'tag.na': 'Not installed', 'tag.inUse': 'In use',
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+// 語言：localStorage 'owl-lang' 全站共用、?lang=en|zh 可覆寫（只讀不寫）、預設 zh
+(() => { let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+         const q = new URLSearchParams(location.search).get('lang'); if (q === 'en' || q === 'zh') l = q; LANG = l; })();
+
 // 主題：預設淺色、localStorage 'owl-theme' 全站共用、?theme=dark|light 可覆寫（只讀不寫）。
 // 必須在 module script 之前同步執行，避免先閃深色；readColors / redrawAll 由下方 module 掛到 window。
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = document.getElementById('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   if (typeof readColors === 'function') readColors();
   if (typeof redrawAll === 'function') redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// 語言切換：靜態文字走 [data-i18n]／[data-i18n-title]；3D 標籤、動態文字與 canvas 由 module 掛到 window 的 relabel() 重寫。
+// 第一次呼叫在側欄 HTML 之後、module 之前（見 .main 結尾的 <script>），此時 relabel 尚未存在、只填靜態文字。
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  const lb = document.getElementById('lang'); if (lb) lb.textContent = LANG === 'en' ? '中文' : 'EN';
+  const tb = document.getElementById('theme'); if (tb) tb.textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  if (typeof relabel === 'function') relabel();
+}
+function setLang(l) { LANG = l === 'en' ? 'en' : 'zh'; try { localStorage.setItem('owl-lang', LANG); } catch (e) {} applyLang(); }
+document.getElementById('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 </script>
 
 <div class="main">
   <aside class="side">
 
     <div class="card">
-      <h2>視角 <small>Views</small></h2>
+      <h2 data-i18n="card.views"></h2>
       <div class="views">
-        <button class="btn" data-view="overview"><b>全景</b><span>整套系統</span></button>
-        <button class="btn" data-view="head"><b>掃描頭內部</b><span>掀蓋看光學元件</span></button>
-        <button class="btn" data-view="focus"><b>物鏡焦點</b><span>樣品與掃描光斑</span></button>
-        <button class="btn" data-view="path"><b>光路追跡</b><span>外殼透明化</span></button>
-        <button class="btn" data-view="lasers"><b>雷射模組</b><span>雷射與光纖</span></button>
-        <button class="btn" data-view="pc"><b>電腦螢幕</b><span>看即時掃描影像</span></button>
-        <button class="btn" data-view="front"><b>掃描頭前面板</b><span>旋鈕與滑軌把手</span></button>
-        <button class="btn" data-view="operator"><b>操作者視角</b><span>坐在顯微鏡前</span></button>
+        <button class="btn" data-view="overview"><b data-i18n="view.overview"></b><span data-i18n="view.overview.s"></span></button>
+        <button class="btn" data-view="head"><b data-i18n="view.head"></b><span data-i18n="view.head.s"></span></button>
+        <button class="btn" data-view="focus"><b data-i18n="view.focus"></b><span data-i18n="view.focus.s"></span></button>
+        <button class="btn" data-view="path"><b data-i18n="view.path"></b><span data-i18n="view.path.s"></span></button>
+        <button class="btn" data-view="lasers"><b data-i18n="view.lasers"></b><span data-i18n="view.lasers.s"></span></button>
+        <button class="btn" data-view="pc"><b data-i18n="view.pc"></b><span data-i18n="view.pc.s"></span></button>
+        <button class="btn" data-view="front"><b data-i18n="view.front"></b><span data-i18n="view.front.s"></span></button>
+        <button class="btn" data-view="operator"><b data-i18n="view.operator"></b><span data-i18n="view.operator.s"></span></button>
       </div>
     </div>
 
     <div class="card">
-      <h2>掃描頭 <small>FV300 Scan Unit</small></h2>
+      <h2 data-i18n="card.head"></h2>
       <div class="chips">
-        <button class="btn primary" id="lidBtn">掀開外殼</button>
-        <button class="btn" id="xrayBtn">外殼透明</button>
-        <button class="btn" id="labelBtn">標籤</button>
+        <button class="btn primary" id="lidBtn"></button>
+        <button class="btn" id="xrayBtn" data-i18n="btn.xray"></button>
+        <button class="btn" id="labelBtn" data-i18n="btn.labels"></button>
       </div>
       <div class="ctl" style="margin-top:10px">
-        <label>Pinhole 段位（CONFOCAL APERTURE）<output id="pinOut">3</output></label>
+        <label><span data-i18n="lbl.pinhole"></span><output id="pinOut">3</output></label>
         <input type="range" id="pinSlider" min="1" max="5" step="1" value="3">
       </div>
-      <h3>偵測分光鏡滑軌（SDM）</h3>
+      <h3 data-i18n="h3.sdm"></h3>
       <div class="chips" id="dmChips">
         <button data-dm="mirror">Mirror</button>
         <button data-dm="DM570" class="on">DM570</button>
         <button data-dm="DM630">DM630</button>
       </div>
-      <h3>CH1 Barrier Filter（滑軌）</h3>
+      <h3 data-i18n="h3.ch1"></h3>
       <div class="chips" id="ch1Chips">
         <button data-f="BA505-525" class="on">BA505-525</button>
         <button data-f="BA510-550">BA510-550</button>
-        <button data-f="none">無</button>
+        <button data-f="none" data-i18n="filter.none"></button>
       </div>
-      <h3>CH2 Barrier Filter（滑軌）</h3>
+      <h3 data-i18n="h3.ch2"></h3>
       <div class="chips" id="ch2Chips">
         <button data-f="BA560-600" class="on">BA560-600</button>
         <button data-f="BA660IF">BA660IF</button>
         <button data-f="BA610IF">BA610IF</button>
-        <button data-f="none">無</button>
+        <button data-f="none" data-i18n="filter.none"></button>
       </div>
     </div>
 
     <div class="card">
-      <h2>掃描 <small>Scan</small></h2>
+      <h2 data-i18n="card.scan"></h2>
       <div class="ctl">
-        <label>掃描速度（Scan Speed）<output id="speedOut">2</output></label>
+        <label><span data-i18n="lbl.speed"></span><output id="speedOut">2</output></label>
         <input type="range" id="speedSlider" min="1" max="5" step="1" value="2">
         <div class="ticks"><span>Fast</span><span>Slow</span></div>
       </div>
-      <div class="note"><span id="speedNote"></span> <a href="#" id="speedInfo">什麼是掃描速度？</a></div>
+      <div class="note"><span id="speedNote"></span> <a href="#" id="speedInfo" data-i18n="link.speed"></a></div>
     </div>
 
     <div class="card">
-      <h2>雷射 <small>Lasers</small></h2>
+      <h2 data-i18n="card.lasers"></h2>
       <div class="chips" id="laserChips">
         <button class="l405" data-laser="405">LD 405</button>
         <button class="l488 on" data-laser="488">Ar 488</button>
-        <button class="l543" data-laser="543" disabled title="尚未安裝（預留）">HeNe 543 ⌀</button>
-        <button class="l633" data-laser="633" disabled title="尚未安裝（預留）">HeNe 633 ⌀</button>
+        <button class="l543" data-laser="543" disabled data-i18n-title="laser.na.title">HeNe 543 ⌀</button>
+        <button class="l633" data-laser="633" disabled data-i18n-title="laser.na.title">HeNe 633 ⌀</button>
       </div>
       <div class="ctl" style="margin-top:10px">
-        <label>雷射功率 <output id="powerOut">30</output> %</label>
+        <label><span data-i18n="lbl.power"></span><span><output id="powerOut">30</output> %</span></label>
         <input type="range" id="powerSlider" min="1" max="100" step="1" value="30">
       </div>
-      <h3>光路顯示</h3>
+      <h3 data-i18n="h3.paths"></h3>
       <div class="toggles">
-        <label><input type="checkbox" id="exToggle" checked> 激發光路</label>
-        <label><input type="checkbox" id="emToggle" checked> 螢光回程</label>
-        <label><input type="checkbox" id="scanToggle" checked> 振鏡掃描</label>
-        <label><input type="checkbox" id="photonToggle" checked> 光子流動</label>
+        <label><input type="checkbox" id="exToggle" checked><span data-i18n="tog.ex"></span></label>
+        <label><input type="checkbox" id="emToggle" checked><span data-i18n="tog.em"></span></label>
+        <label><input type="checkbox" id="scanToggle" checked><span data-i18n="tog.scan"></span></label>
+        <label><input type="checkbox" id="photonToggle" checked><span data-i18n="tog.photon"></span></label>
       </div>
       <div class="legend" style="margin-top:8px">
-        <span><i id="legEx" style="background:#00bbff"></i>激發</span>
-        <span><i id="legEm" style="background:#44ff88"></i>螢光</span>
-        <span><i style="background:#e0a030"></i>光纖</span>
+        <span><i id="legEx" style="background:#00bbff"></i><span data-i18n="leg.ex"></span></span>
+        <span><i id="legEm" style="background:#44ff88"></i><span data-i18n="leg.em"></span></span>
+        <span><i style="background:#e0a030"></i><span data-i18n="leg.fiber"></span></span>
       </div>
-      <div class="note">目前實驗室實裝 405 / 488；543 與 633 為預留插槽（模型中以半透明顯示），加裝後把資料表裡的 <code>installed</code> 改成 true 即可啟用。</div>
+      <div class="note" data-i18n="note.lasers"></div>
     </div>
 
     <div class="card">
-      <h2>物鏡 <small>Objective</small></h2>
+      <h2 data-i18n="card.obj"></h2>
       <div class="chips" id="objChips">
         <button data-obj="10x">10X</button>
         <button data-obj="20x" class="on">20X</button>
@@ -336,45 +589,45 @@ document.getElementById('theme').onclick = () => setTheme(document.documentEleme
     </div>
 
     <div class="card">
-      <h2>Z 軸 · 光學切片 <small>Focus / Z-series</small></h2>
+      <h2 data-i18n="card.z"></h2>
       <div class="ctl">
-        <label>Z 位置（微調焦）<output id="zOut">+0.0 μm</output></label>
+        <label><span data-i18n="lbl.z"></span><output id="zOut">+0.0 μm</output></label>
         <input type="range" id="zSlider" min="-12" max="12" step="0.5" value="0">
-        <div class="ticks tri"><span>−12 μm（靠物鏡）</span><span>0</span><span>+12 μm（深）</span></div>
+        <div class="ticks tri"><span data-i18n="tick.zneg"></span><span>0</span><span data-i18n="tick.zpos"></span></div>
       </div>
       <canvas id="zProfile" class="zp" width="300" height="92"></canvas>
       <div class="zrow">
-        <button class="btn primary" id="zSeqBtn">▶ Z 序列</button>
+        <button class="btn primary" id="zSeqBtn"></button>
         <span class="note" id="zNote"></span>
       </div>
-      <div class="note">縮小 pinhole → 切片變薄，只看到目前深度那一層；放大 pinhole → 各層疊在一起。 <a href="#" id="zInfo">什麼是光學切片？</a></div>
+      <div class="note"><span data-i18n="note.z"></span><a href="#" id="zInfo" data-i18n="link.z"></a></div>
     </div>
 
     <div class="card">
-      <h2>即時數值 <small>Live numbers</small></h2>
+      <h2 data-i18n="card.live"></h2>
       <div class="stats">
-        <div class="stat"><div class="val" id="sSpot">--</div><div class="lbl">焦點光斑<br>半徑 μm</div></div>
-        <div class="stat"><div class="val" id="sAiry">--</div><div class="lbl">Airy 半徑<br>μm</div></div>
-        <div class="stat"><div class="val" id="sSlice">--</div><div class="lbl">光學切片<br>厚度 μm</div></div>
-        <div class="stat"><div class="val" id="sAU">--</div><div class="lbl">Pinhole<br>AU</div></div>
-        <div class="stat"><div class="val" id="sDwell">--</div><div class="lbl">像素停留<br>μs</div></div>
-        <div class="stat"><div class="val" id="sFrame">--</div><div class="lbl">幀時間<br>s（256²）</div></div>
-        <div class="stat"><div class="val" id="sSNR">--</div><div class="lbl">SNR（示意）<br>中等亮度</div></div>
-        <div class="stat ch1"><div class="val" id="sCh1">--</div><div class="lbl">CH1 訊號</div></div>
-        <div class="stat ch2"><div class="val" id="sCh2">--</div><div class="lbl">CH2 訊號</div></div>
-        <div class="stat"><div class="val" id="sZ">--</div><div class="lbl">Z 位置<br>μm</div></div>
-        <div class="stat"><div class="val" id="sZBand">--</div><div class="lbl">切片範圍<br>± μm</div></div>
-        <div class="stat"><div class="val small" id="sZIn">--</div><div class="lbl">切片內<br>結構</div></div>
+        <div class="stat"><div class="val" id="sSpot">--</div><div class="lbl" data-i18n="stat.spot"></div></div>
+        <div class="stat"><div class="val" id="sAiry">--</div><div class="lbl" data-i18n="stat.airy"></div></div>
+        <div class="stat"><div class="val" id="sSlice">--</div><div class="lbl" data-i18n="stat.slice"></div></div>
+        <div class="stat"><div class="val" id="sAU">--</div><div class="lbl" data-i18n="stat.au"></div></div>
+        <div class="stat"><div class="val" id="sDwell">--</div><div class="lbl" data-i18n="stat.dwell"></div></div>
+        <div class="stat"><div class="val" id="sFrame">--</div><div class="lbl" data-i18n="stat.frame"></div></div>
+        <div class="stat"><div class="val" id="sSNR">--</div><div class="lbl" data-i18n="stat.snr"></div></div>
+        <div class="stat ch1"><div class="val" id="sCh1">--</div><div class="lbl" data-i18n="stat.ch1"></div></div>
+        <div class="stat ch2"><div class="val" id="sCh2">--</div><div class="lbl" data-i18n="stat.ch2"></div></div>
+        <div class="stat"><div class="val" id="sZ">--</div><div class="lbl" data-i18n="stat.z"></div></div>
+        <div class="stat"><div class="val" id="sZBand">--</div><div class="lbl" data-i18n="stat.zband"></div></div>
+        <div class="stat"><div class="val small" id="sZIn">--</div><div class="lbl" data-i18n="stat.zin"></div></div>
       </div>
     </div>
 
     <div class="card">
-      <h2>掃描影像 <small>Live scan</small></h2>
+      <h2 data-i18n="card.scanimg"></h2>
       <div class="scanwrap">
         <canvas id="scanCanvas" width="80" height="80"></canvas>
         <div class="scanmeta" id="scanMeta"></div>
       </div>
-      <div class="note">合成樣品：細胞核（DAPI）、細胞骨架（Alexa 488 / GFP）、粒線體（TRITC，需 543）、細胞膜（Cy5，需 633）。CH1 顯示為綠、CH2 顯示為紅。</div>
+      <div class="note" data-i18n="note.sample"></div>
     </div>
 
   </aside>
@@ -383,10 +636,11 @@ document.getElementById('theme').onclick = () => setTheme(document.documentEleme
     <canvas id="c3d"></canvas>
     <div class="labels" id="labels"></div>
     <div class="info" id="info"><button class="close" id="infoClose">×</button><div id="infoBody"></div></div>
-    <div class="hud" id="hud"><b>點擊</b>任何零件顯示說明 · 點空白處關閉</div>
-    <div class="loading" id="loading">載入 Three.js…</div>
+    <div class="hud" id="hud" data-i18n="hud.init"></div>
+    <div class="loading" id="loading" data-i18n="loading"></div>
   </div>
 </div>
+<script>applyLang();</script>
 
 <script type="importmap">
 {
@@ -410,13 +664,13 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 //  資料庫（沿用 fv300-optics-sim.html，加上 405 nm 與安裝狀態）
 // ============================================================
 const LASERS = {
-  405: { wl: 405, color: '#9b6bff', name: 'LD 405 nm',   kind: '藍紫光半導體雷射', installed: true,  beamDia: 0.7,
+  405: { wl: 405, color: '#9b6bff', name: 'LD 405 nm',   kind: '藍紫光半導體雷射', kindEn: 'Violet diode laser', installed: true,  beamDia: 0.7,
          emPeak: 461, emSigma: 35, dye: 'DAPI', dyes: 'DAPI / Hoechst / Alexa 405 / CFP', fluorColor: '#6f8cff' },
-  488: { wl: 488, color: '#00bbff', name: 'Ar 488 nm',   kind: '藍光氬離子雷射',   installed: true,  beamDia: 0.7,
+  488: { wl: 488, color: '#00bbff', name: 'Ar 488 nm',   kind: '藍光氬離子雷射', kindEn: 'Blue argon-ion laser',   installed: true,  beamDia: 0.7,
          emPeak: 519, emSigma: 25, dye: 'FITC', dyes: 'FITC / GFP / Alexa 488 / Calcein', fluorColor: '#44ff88' },
-  543: { wl: 543, color: '#8aff5a', name: 'HeNe 543 nm', kind: '綠光氦氖氣體雷射', installed: false, beamDia: 0.8,
+  543: { wl: 543, color: '#8aff5a', name: 'HeNe 543 nm', kind: '綠光氦氖氣體雷射', kindEn: 'Green HeNe gas laser', installed: false, beamDia: 0.8,
          emPeak: 575, emSigma: 25, dye: 'TRITC', dyes: 'TRITC / Cy3 / Alexa 546 / Rhodamine', fluorColor: '#ff8844' },
-  633: { wl: 633, color: '#ff4444', name: 'HeNe 633 nm', kind: '紅光氦氖氣體雷射', installed: false, beamDia: 0.8,
+  633: { wl: 633, color: '#ff4444', name: 'HeNe 633 nm', kind: '紅光氦氖氣體雷射', kindEn: 'Red HeNe gas laser', installed: false, beamDia: 0.8,
          emPeak: 668, emSigma: 25, dye: 'Cy5', dyes: 'Cy5 / Alexa 633 / Alexa 647 / TO-PRO-3', fluorColor: '#ff4466' },
 };
 
@@ -436,11 +690,11 @@ const PINHOLE_MAG_RELAY = 3.5;    // 共軛焦透鏡相對管鏡的額外放大�
 
 // FluoView Scan Speed 五段（Fast … Slow，示意）：像素停留時間、256×256 一幀時間（含回掃）、3D 動畫的振鏡行速（放慢好看）
 const SCAN_SPEEDS = {
-  1: { name: '最快 Fastest', dwell: 2,  frame: 0.29, lps: 44 },
-  2: { name: '快 Fast',      dwell: 4,  frame: 0.58, lps: 26 },
-  3: { name: '中 Medium',    dwell: 8,  frame: 1.10, lps: 16 },
-  4: { name: '慢 Slow',      dwell: 16, frame: 2.20, lps: 10 },
-  5: { name: '最慢 Slowest', dwell: 32, frame: 4.40, lps: 6.5 },
+  1: { name: '最快 Fastest', en: 'Fastest', dwell: 2,  frame: 0.29, lps: 44 },
+  2: { name: '快 Fast', en: 'Fast',      dwell: 4,  frame: 0.58, lps: 26 },
+  3: { name: '中 Medium', en: 'Medium',    dwell: 8,  frame: 1.10, lps: 16 },
+  4: { name: '慢 Slow', en: 'Slow',      dwell: 16, frame: 2.20, lps: 10 },
+  5: { name: '最慢 Slowest', en: 'Slowest', dwell: 32, frame: 4.40, lps: 6.5 },
 };
 const PHOTONS_PER_US = 25;        // 訊號 = 1 時 PMT 每 μs 收到的光子數（示意）→ 停留越久光子越多、散粒雜訊相對越小
 const DARK_PER_US = 0.6;          // PMT 暗計數 / 雜散光（每 μs，示意）→ 快掃時背景顆粒
@@ -451,13 +705,13 @@ const FILTERS = {
   'BA560-600': { type: 'bp', lo: 560, hi: 600, label: 'BA560-600', color: 0xff8844 },
   'BA660IF':   { type: 'lp', lo: 660, hi: 900, label: 'BA660IF',   color: 0xff4466 },
   'BA610IF':   { type: 'lp', lo: 610, hi: 900, label: 'BA610IF',   color: 0xff6644 },
-  'none':      { type: 'open', lo: 400, hi: 900, label: '無（空槽）', color: 0x556070 },
+  'none':      { type: 'open', lo: 400, hi: 900, label: '無（空槽）', labelEn: 'None (empty slot)', color: 0x556070 },
 };
 
 const DMS = {
-  'mirror': { cutoff: null, label: 'Mirror（全反射至 CH1）', color: 0xd8dde6 },
-  'DM570':  { cutoff: 570,  label: 'DM570（570 nm 分割）',   color: 0xffc36e },
-  'DM630':  { cutoff: 630,  label: 'DM630（630 nm 分割）',   color: 0xff6e6e },
+  'mirror': { cutoff: null, label: 'Mirror（全反射至 CH1）', labelEn: 'Mirror (all to CH1)', color: 0xd8dde6 },
+  'DM570':  { cutoff: 570,  label: 'DM570（570 nm 分割）', labelEn: 'DM570 (split at 570 nm)',   color: 0xffc36e },
+  'DM630':  { cutoff: 630,  label: 'DM630（630 nm 分割）', labelEn: 'DM630 (split at 630 nm)',   color: 0xff6e6e },
 };
 const DM_ORDER = ['mirror', 'DM570', 'DM630'];
 
@@ -478,10 +732,10 @@ const EXC = {
 // 合成樣品的深度結構（示意）：每種染料一個深度中心 zc 與厚度 thick（FWHM，μm）。
 // 倒立式：z 負 = 靠近物鏡／蓋玻片（淺），z 正 = 深入樣品。核貼玻片、微絲在中層、粒線體與細胞膜在上層。
 const DYE_Z = {
-  dapi:  { zc: -4, thick: 3.0, tag: 'DAPI',  zh: '細胞核 DAPI',   color: '#6f8cff' },
-  fitc:  { zc: 0,  thick: 2.0, tag: 'FITC',  zh: '微絲 FITC',     color: '#44ff88' },
-  tritc: { zc: 4,  thick: 2.0, tag: 'TRITC', zh: '粒線體 TRITC',  color: '#ff8844' },
-  cy5:   { zc: 7,  thick: 1.5, tag: 'Cy5',   zh: '細胞膜 Cy5',    color: '#ff4466' },
+  dapi:  { zc: -4, thick: 3.0, tag: 'DAPI',  zh: '細胞核 DAPI', en: 'Nucleus DAPI', enS: 'Nuclei DAPI',   color: '#6f8cff' },
+  fitc:  { zc: 0,  thick: 2.0, tag: 'FITC',  zh: '微絲 FITC', en: 'F-actin FITC', enS: 'Actin FITC',     color: '#44ff88' },
+  tritc: { zc: 4,  thick: 2.0, tag: 'TRITC', zh: '粒線體 TRITC', en: 'Mitochondria TRITC', enS: 'Mito. TRITC',  color: '#ff8844' },
+  cy5:   { zc: 7,  thick: 1.5, tag: 'Cy5',   zh: '細胞膜 Cy5', en: 'Membrane Cy5', enS: 'Memb. Cy5',    color: '#ff4466' },
 };
 const Z_RANGE = 12, Z_STEP = 0.5;   // 側欄 Z 滑桿 ±12 μm、步進 0.5 μm（= FluoView 的 Z Start / Stop / Step）
 const Z_SEQ_MAX_LAYER_S = 1.0;      // Z 序列每層停留上限（s）：實機每層要等完整一幀（0.29–4.4 s，隨掃描速度），本頁最慢只等 1 s 免得動畫太拖（示意）
@@ -565,6 +819,104 @@ const INFO = {
   pc: { kind: '周邊', zh: '控制電腦主機', en: 'Control PC', desc: '裝有 FluoView 控制卡的電腦，透過 PSU 對掃描頭下指令並讀回 PMT 訊號。', specs: [] },
   table: { kind: '環境', zh: '光學桌', en: 'Optical Table', desc: '防震桌面，讓雷射、光纖與顯微鏡的相對位置穩定。', specs: [] },
 };
+
+// ============================================================
+//  零件說明的英文版（LANG === 'en' 時取用）：kind 由 KIND_EN 對照，desc／specs 逐零件寫在 INFO_EN。
+//  後面各區段用 Object.assign(INFO, …) 覆寫過的零件（scanhead、lid、pinholeKnob、table、monitor、psu），這裡寫的是最終版。
+// ============================================================
+const KIND_EN = {
+  '顯微鏡本體': 'Microscope body', 'IX71': 'IX71', '樣品': 'Specimen', '光路': 'Optical path', '掃描單元': 'Scan unit',
+  '雷射': 'Laser', '雷射（預留）': 'Laser (reserved)', '周邊': 'Peripheral', '掃描設定': 'Scan setting',
+  'Z 軸 · 光學切片': 'Z axis · Optical sectioning', '環境': 'Environment', '光學桌': 'Optical table',
+};
+const INFO_EN = {
+  ix71: { desc: 'Inverted layout: the objective sits below the specimen, which suits live-cell work in dishes and on slides. UIS2 infinity-corrected optics with a 180 mm tube lens. The FV300 scan unit couples to the left side port, turning the microscope into a confocal system.',
+    specs: [['Optics', 'UIS2 infinity-corrected'], ['Tube lens focal length', '180 mm'], ['Light path', 'Eyepieces / left side port'], ['Focusing', 'Coaxial coarse + fine knobs']] },
+  base: { desc: 'The cast frame that carries the whole microscope. The lower half hides the tube lens and the light-path selector prism; the upper half leaves a cavity for the objective nosepiece (you reach in from the front to change objectives) and its top supports the stage. Side port on the left, light-path lever on the right, binocular tube hanging on the front.', specs: [['Inside', 'Tube lens (f = 180 mm), light-path selector prism'], ['Side port', 'Left, 100% (to the FV300)']] },
+  tubeLens: { desc: 'On the vertical path right below the nosepiece, above the prism. Together with the scan unit\'s pupil projection lens it forms a relay: galvo tilt → angle change at the objective pupil; the side port sits at the intermediate image plane.', specs: [['Focal length', '180 mm'], ['Location', 'Below the nosepiece, above the prism (inside the frame)']] },
+  prism: { desc: 'A 45° reflecting surface at the bottom of the frame, level with the side port. The lever decides where the light goes: forward to the binocular tube for widefield viewing, or turned 90° to the left side port into the FV300. For scanning it must be set to side port 100%.', specs: [['Position', 'Eyepieces / left side port'], ['While scanning', 'Left side port 100%']] },
+  lever: { desc: 'The pull lever on the right side of the frame; it shifts the prism inside to send light to the eyepieces or to the side port. Find your cells through the eyepieces first, then pull it to the side port and start scanning.', specs: [] },
+  column: { desc: 'The pillar rising behind the frame carries the transmitted-light illuminator: the halogen lamp house sticks out backward from the top, and the forward arm holds the condenser right on the objective axis. Usually left off during confocal scanning.', specs: [['Illumination', 'Köhler'], ['Lamp', '12 V 100 W halogen (powered by the LG-PS2)']] },
+  stage: { desc: 'Sits on top of the frame. Holds the slide or dish; the coaxial XY knobs move the specimen; the central opening lets the objective below come close to the specimen.', specs: [['Travel', 'About 120 × 80 mm'], ['Control', 'Coaxial XY knobs']] },
+  stageKnob: { desc: 'The coaxial pair of knobs hanging down at the front right of the stage: the upper knob moves Y, the lower moves X, to bring the region you want over the objective.', specs: [] },
+  turret: { desc: `The six-position rotating nosepiece inside the frame cavity below the stage; it brings the chosen objective onto the optical axis. Focusing moves the whole nosepiece up and down (the stage stays put). Switching objectives in the UI rotates it; dragging the Z-position slider in the sidebar moves it up and down (exaggerated to ${Z_SCALE} units/μm in the model so you can see it).`, specs: [['Positions', '6'], ['Installed', 'UPLSAPO 10X, UPLAPO 20X, UPLAPO 40X, UPLSAPO 60X Oil'], ['Z travel (this page)', '±12 μm, 0.5 μm/step']] },
+  objective: { desc: 'Focuses the scanning beam into a diffraction-limited spot and collects the fluorescence coming back from that same point. NA sets resolution and light-gathering power; WD sets how deep you can look.', specs: [] },
+  focusKnob: { desc: 'One coaxial pair on each side of the lower frame: the outer ring is coarse (a few mm per turn), the inner is fine (1 μm per division). On an inverted stand it is the nosepiece that moves, not the stage. The sidebar "Z position" slider is turning this fine knob: the focal plane moves up or down and only structures within the optical-slice thickness are imaged (watch the marks on the knob face rotate).', specs: [['Fine scale', '1 μm / division'], ['Moving part', 'Objective nosepiece (Z)'], ['Z slider on this page', '±12 μm, 0.5 μm/step; 0.3 rad per μm (exaggerated)']] },
+  eyepiece: { desc: 'Hangs on the front of the frame under the stage edge, tilted up 30°. For widefield viewing and finding the specimen; once you switch to the side port the light no longer goes forward, so the eyepieces show no confocal image.', specs: [['Eyepieces', 'WHN10X (FN 22)'], ['Tilt', '30°']] },
+  sidePort: { desc: 'The exit on the left of the frame, level with the prism, coupled through an adapter tube straight to the right wall of the FV300 scan unit. This is the intermediate image plane: the scanning beam enters the microscope here and the fluorescence returns to the scan unit through it.', specs: [['Light path', '100% to side port (while scanning)']] },
+  condenser: { desc: 'The long-working-distance condenser hanging under the illumination arm, just above the specimen. It focuses the halogen light evenly onto the sample for widefield brightfield / phase contrast while hunting for cells.', specs: [['NA', '0.55 (LWD)']] },
+  lamp: { desc: 'The halogen lamp house (12 V 100 W) sticking out backward from the top of the pillar. Light goes via a mirror in the arm down through the field diaphragm and condenser onto the specimen. Powered by the LG-PS2.', specs: [['Bulb', '12 V 100 W halogen']] },
+  sample: { desc: 'Synthetic specimen: DAPI-stained nuclei (405 excitation), Alexa 488 cytoskeleton (488 excitation), TRITC mitochondria (needs 543), Cy5 membrane (needs 633). The sample has thickness: nuclei lie against the glass (z ≈ −4 μm), actin filaments in the middle (0), mitochondria (+4) and membrane (+7) on top — drawn in the model as stacked thin discs. Drag the Z-position slider in the sidebar and the layers appear and vanish in turn; the smaller the pinhole, the thinner the slice and the cleaner the separation. Use the "Focal spot" view to watch the scanning spot sweep across the sample. Note: DAPI\'s 461 nm emission peak is blocked by the CH1 BA505-525 filter — when looking at nuclei with 405 nm, set the CH1 filter to "None", otherwise the image stays dark even with Z on the nuclear layer (the "in slice" row will warn you).', specs: [['DAPI nuclei', 'z −4 μm, 3 μm thick'], ['FITC actin', 'z 0 μm, 2 μm thick'], ['TRITC mitochondria', 'z +4 μm, 2 μm thick'], ['Cy5 membrane', 'z +7 μm, 1.5 μm thick'], ['(Depth values)', 'Illustrative; negative z = toward the objective']] },
+  focus: { desc: 'The laser is focused by the objective into a diffraction-limited spot and the galvos sweep it across the sample line by line (the scan range is exaggerated many times in the model). Only fluorescence from this one point lines up with the pinhole.', specs: [] },
+  scanhead: { desc: 'The off-white laser scanning unit attached to the IX71 left side port, sitting directly on the optical table. All optics lie in one horizontal plane: the right end couples to the microscope, the laser comes in through a fiber on the back wall, and two PMTs lie side by side at the left end. The white front panel carries the CH2 / CH1 barrier filter sliders, the big CONFOCAL APERTURE knob, the small DETECTION knob and the OLYMPUS FLUOVIEW nameplate; the EX. DM pull knob is on top and the signal connectors run along the rear edge. Press "Open cover" to look inside.', specs: [['Channels', '2 (CH1 / CH2)'], ['Scanning', 'XY galvos, up to 2048 × 2048'], ['Pinhole', '5-position manual knob (bevel gear drives the wheel)'], ['Detectors', '2 × PMT (side-on)'], ['Size', 'About 54 × 36 × 25 cm']] },
+  headStand: { desc: 'Holds the scan unit at side-port height and locks it to the optical table, so the side-port and scan-unit axes stay aligned and cannot drift relative to each other.', specs: [] },
+  lid: { desc: 'The light-tight top cover, split into a large left and a small right panel, each held by four hex socket screws, with yellow CAUTION / CLASS 3B stickers. The EX. DM lever comes out through a hole right above the excitation dichroic (in this model it lands left of the seam; on the real unit the seam is further left and the knob sits on the right panel). Always close the laser shutter before opening the real thing — Class 3B beams run inside.', specs: [['Warning', 'Class 3B laser radiation when open']] },
+  fiberPort: { desc: 'The single-mode fiber enters through the back wall; the collimator turns the diverging light into a parallel beam, which the beam expander enlarges before it heads forward to the excitation dichroic. The beam has to be wide enough to fill the objective pupil so the objective can use its full NA.', specs: [['Fiber', 'Single-mode, polarization-maintaining'], ['Collimated beam', 'About 0.7–0.8 mm'], ['Expansion', 'About 5× (to fill the objective pupil; illustrative)']] },
+  exDM: { desc: 'Mounted at 45°. Reflects the short-wavelength laser from the collimator toward the galvos, and lets the longer-wavelength fluorescence coming back from the galvos pass through toward the detectors. With the cover open the whole plate can be swapped to match the laser combination.', specs: [['Angle', '45°'], ['Type', 'DM405/488 dual-band (swapped to match the lasers)'], ['Options', 'DM488 / DM488/543 / DM488/543/633']] },
+  galvoX: { desc: 'The fast oscillating mirror, turning about a vertical axis with its motor below; it does the horizontal (line) scan. Close-coupled with galvo Y as a pair.', specs: [['Frequency', 'Hundreds of Hz (lines)'], ['Optical scan angle', 'About ±6°'], ['Drive', 'Closed-loop galvanometer']] },
+  galvoY: { desc: 'The slower mirror, turning about a horizontal axis with its motor lying sideways; it steps down one line after each line scan and sets the frame rate. Fast X plus slow Y make a raster.', specs: [['Speed', 'One sawtooth per frame'], ['Frame rate', 'About 0.3–3 fps (depends on pixel count)']] },
+  scanLens: { desc: 'The lens in the scan unit closest to the side port. It converts the galvos\' angular scan into a positional scan at the side-port intermediate image plane, and together with the IX71 tube lens forms a relay that puts the beam pivot at the objective back focal plane (pupil).', specs: [['Focal length', 'About 50 mm (illustrative)']] },
+  confocalLens: { desc: 'Focuses the parallel fluorescence that has come back through the excitation DM onto the pinhole plane. In-focus fluorescence forms an Airy spot there; out-of-focus light is a big blurry blob.', specs: [] },
+  pinhole: { desc: 'A wheel with five apertures; whichever hole sits on the axis is the current pinhole. Only fluorescence from the focal plane gets through and out-of-focus light is blocked — that is where optical sectioning comes from. CH1/CH2 share the same pinhole. Aperture divided by the Airy-spot diameter at the pinhole plane gives Airy units (AU); since it is fluorescence landing on the pinhole, AU is computed at the emission wavelength (519 nm for FITC excited at 488 nm): change objective, dye or laser and the AU of the same hole changes too. Illustrative values: with 20x/0.75 at 488/519 nm, settings 1→5 are about 1.0 / 1.7 / 2.5 / 3.4 / 5.1 AU and the optical slice about 1.9 / 2.9 / 4.2 / 5.5 / 8.1 μm (60x oil about 0.6 → 2.3 μm, 10x about 7 → 31 μm; same order as the real specs). Closing the pinhole also costs signal: only the encircled energy of the in-focus Airy pattern inside the hole gets through (1 − J0² − J1²), about 84 % at 1 AU, 70 % at 0.6 AU, 91 % at 2 AU — on the real instrument a smaller pinhole means a darker image and you turn the PMT HV up. To see the difference: set the pinhole to 1 and drag the Z-position slider — as soon as the focal plane leaves the current layer the signal disappears; set it to 5 and neighbouring depths pile in as out-of-focus haze.', specs: [['1', '60 μm'], ['2', '100 μm'], ['3', '150 μm'], ['4', '200 μm'], ['5', '300 μm'], ['Magnification at pinhole plane', 'Objective magnification × 3.5 (illustrative)']] },
+  pinholeKnob: { desc: 'The five-position knob on the front panel. Knob → drive shaft → a pair of 90° bevel gears → pinhole wheel, coupled 1:1: turn the knob 72° and the wheel turns 72°, bringing the next hole onto the axis. The white pointer points straight up at setting 1.', specs: [['Settings', '1–5 (clockwise increasing)'], ['Drive', 'Drive shaft + bevel gears 1:1']] },
+  collLens: { desc: 'Re-collimates the fluorescence diverging after the pinhole so that the detection DM and BA filters behind it work at their designed 45° / 0° incidence.', specs: [] },
+  detDM: { desc: 'Three 45° plates on a slider: Mirror, DM570, DM630, moved by the DETECTION lever on the front panel. The slider travels diagonally along the mirror plane, so the unused plates swing clear of the beam and never block the reflection toward CH1. The reflected (short-wave) side turns 90° backward to CH1; the transmitted (long-wave) side goes straight on to CH2.', specs: [['Mirror', 'All reflected to CH1'], ['DM570', '<570 nm → CH1, >570 nm → CH2'], ['DM630', '<630 nm → CH1, >630 nm → CH2']] },
+  foldMirror: { desc: 'A fixed 45° mirror that turns the CH1 light reflected off the detection DM another 90°, making it parallel to CH2 — that is what lets the two PMTs lie side by side at the left end.', specs: [] },
+  ba1: { desc: 'A two-slot slider in front of the CH1 PMT: one slot holds a BA filter, the other is empty. The handle is on the front panel; choosing "None" pushes the empty slot onto the axis, and changing filters means swapping the plate in the slider.', specs: [['Accepts', 'BA505-525 / BA510-550']] },
+  ba2: { desc: 'A two-slot slider in front of the CH2 PMT, built like CH1.', specs: [['Accepts', 'BA560-600 / BA660IF / BA610IF']] },
+  pmt1: { desc: 'A side-on PMT lying at the left end with its window facing right, receiving the light from the detection DM\'s reflected (short-wave) side via the fold mirror. It amplifies the fluorescence photons collected within each pixel time into a current; HV sets the gain, Offset sets the background.', specs: [['Type', 'Side-on PMT'], ['Receives', 'Detection DM reflected side (short-wave)']] },
+  pmt2: { desc: 'The second PMT beside CH1, fed by the detection DM\'s transmitted (long-wave) side.', specs: [['Type', 'Side-on PMT'], ['Receives', 'Detection DM transmitted side (long-wave)']] },
+  laser405: { desc: 'Violet diode laser exciting DAPI / Hoechst / Alexa 405. Compact and ready as soon as it is switched on. Class 3B — never look into the beam.', specs: [['Wavelength', '405 nm'], ['Class', 'Class 3B'], ['Excites', 'DAPI / Hoechst / Alexa 405 / CFP'], ['Warm-up', 'None (diode)']] },
+  laser488: { desc: 'Blue argon-ion gas laser, the most used confocal line, exciting FITC / GFP / Alexa 488. Gas lasers need fan cooling and their power falls with tube age. Class 3B.', specs: [['Wavelength', '488 nm (main line)'], ['Class', 'Class 3B'], ['Excites', 'FITC / GFP / Alexa 488'], ['Warm-up', 'About 10 minutes']] },
+  laser543: { desc: 'Green gas laser exciting TRITC / Cy3 / Alexa 546. Needs 10–15 minutes of warm-up for stable power. Not installed yet — reserved slot.', specs: [['Wavelength', '543 nm'], ['Class', 'Class 3B'], ['Excites', 'TRITC / Cy3 / Alexa 546'], ['Warm-up', '10–15 minutes']] },
+  laser633: { desc: 'Red gas laser exciting Cy5 / Alexa 633 / 647 / TO-PRO-3. Not installed yet — reserved slot.', specs: [['Wavelength', '633 nm'], ['Class', 'Class 3B'], ['Excites', 'Cy5 / Alexa 633 / 647 / TO-PRO-3'], ['Warm-up', '10–15 minutes']] },
+  combiner: { desc: 'Merges the individual lasers into one beam with dichroics, sets the intensity with ND filters and a shutter, then couples the beam into the single-mode fiber to the scan unit.', specs: [['Intensity control', 'ND filters + mechanical shutter (AOTF optional)'], ['Output', 'Single-mode fiber']] },
+  fiber: { desc: 'Carries the laser from the optical table into the back wall of the scan unit and, acting as a spatial filter, cleans the beam into a neat Gaussian mode. Do not bend it too tightly.', specs: [['Type', 'Single-mode, polarization-maintaining'], ['Minimum bend radius', '> 3 cm']] },
+  psu: { desc: 'Powers the scan unit\'s galvo drivers, PMT high voltage and control electronics. The front panel has power, laser and scan indicator lights. The flat white box sits behind the IX71: a horizontal vent strip across the upper front, a round multi-pin connector to the scan unit plus the AC inlet on the left side, fans and the PC interface on the back; an asset label on top, with the 405 nm DPSSL driver sitting on it.', specs: [['Supplies', 'Galvo drivers / PMT HV / control boards'], ['Indicators', 'POWER · LASER · SCAN'], ['Connector', 'Left-side multi-pin → rear edge of the scan-unit top']] },
+  lgps2: { desc: 'Regulated supply for the IX71 halogen lamp, with a brightness knob. Used for widefield viewing when finding cells; switch it off during confocal scanning so no stray light reaches the PMTs.', specs: [['Output', '12 V 100 W'], ['Dimming', 'Manual knob']] },
+  monitor: { desc: 'FluoView software: live display of the scanned image, PMT gain, scan speed and pixel count. The screen here shows the simulated scan image in sync; the Scan Speed slider and s/Scan readout on the left panel follow the sidebar\'s scan-speed setting.', specs: [['Monitor', 'Samsung SyncMaster 943BM · 19" 5:4 · 1280×1024'], ['Software', 'FLUOVIEW v.5.0 / Windows XP']] },
+  scanSpeed: { desc: 'FluoView\'s Scan Speed slider sets how fast the galvo sweeps a line, i.e. how long the laser dwells on each pixel. The longer the dwell, the more photons the PMT collects per pixel; shot noise only grows as √photons, so the signal-to-noise ratio (SNR) ∝ √dwell time — slow scans look clean, fast scans look grainy. Fast scanning suits live dynamics (focusing, calcium signals); for SNR scan slowly or average frames with Kalman. The price is longer total laser exposure, hence more photobleaching and phototoxicity (explained here, not simulated).', specs: [['Settings', '5 steps: Fast … Slow'], ['Pixel dwell', '2 / 4 / 8 / 16 / 32 μs (illustrative)'], ['One 256 × 256 frame', '0.29 / 0.58 / 1.1 / 2.2 / 4.4 s'], ['SNR', '∝ √(pixel dwell × laser power × pinhole throughput); the card uses a mid-brightness pixel'], ['The other route', 'Kalman / Accumulate frame averaging']] },
+  zProfile: { desc: 'The confocal\'s key ability: the pinhole only passes fluorescence from a layer of some thickness around the focal plane — the "optical slice" — whose thickness (FWHM) ≈ √(axial PSF² + pinhole geometric term²); high NA, short wavelength and a small pinhole all make it thinner. The Z profile in the sidebar draws the depth bands of the four dyes horizontally; the blue vertical line is the current focal plane and the translucent blue band is the current slice thickness: whichever layer the band covers dominates the image. Open the pinhole and the band widens, neighbouring layers pile in as blurry out-of-focus haze, much like widefield. The "Z-series" button mimics FluoView\'s XYZ scan: the focus motor steps from Start to Stop by Step, grabbing one image per layer; stacked, they form a 3D image stack. So the Z-series pace is set by the scan speed: each layer waits for a whole frame (0.29–4.4 s), so 49 layers take about 28 s at speed 2 and about 3.6 minutes at speed 5 — this page waits one frame time per layer but at most 1 s, a sped-up illustration.', specs: [['Z range (Start / Stop)', '−12 … +12 μm'], ['Step', '0.5 μm, 49 layers'], ['Time per layer', '= one frame (0.29–4.4 s with scan speed); capped at 1 s here (illustrative)'], ['Slice thickness FWHM', '√(axial PSF² + (√2·n·pinhole projection/NA)²); axial PSF = 0.64·λ̄/(n−√(n²−NA²)), λ̄ = harmonic mean of excitation / emission wavelengths'], ['Layer depths (illustrative)', 'DAPI −4 / FITC 0 / TRITC +4 / Cy5 +7 μm'], ['Image model', 'Per layer, "throughput" W = max(in-slice fraction exp(−½((z−zc)/σ)²), pinhole geometric pass fraction) (depends on pinhole); "sharpness" depends only on defocus (not on pinhole): an out-of-focus layer is blurry haze no matter how big the pinhole. The haze fraction is listed in the live rows below (+haze)'], ['3D scale', `1 μm → ${Z_SCALE} units (exaggerated); stage fixed, nosepiece moves`]] },
+  pc: { desc: 'The computer holding the FluoView controller card; it commands the scan unit through the PSU and reads back the PMT signals.', specs: [] },
+  table: { desc: 'Air-isolated optical table: light-grey matte aluminium breadboard (M6 holes on a 25 mm grid) — lasers, mirror mounts and the fiber launch are all bolted into these holes so every optic keeps its position relative to the others, undisturbed by vibration. Black frame all round, and black curtains for the darkroom.', specs: [['Top', 'Perforated aluminium · M6 · 25 mm pitch'], ['Size', '230 × 150 cm'], ['Isolation', 'Four pneumatic isolator legs']] },
+  focusMotor: { desc: 'The black motor assembly clamped onto the fine-focus knob on the left of the frame: one cylinder is the coupler (gripping the fine-focus knob directly), the cylinder beside it is the stepper motor itself, the two held together by a bracket, with the cable dropping to the controller on the table. During FluoView XYZ / XYZT series scans it turns the fine focus step by step, moving the nosepiece along Z to collect one optical slice per layer. Pressing "Z-series" in the sidebar makes it walk back and forth between Start (−12 μm) and Stop (+12 μm) in 0.5 μm steps — watch the marks on the coupler turn.', specs: [['Drives', 'Fine-focus knob (via coupler)'], ['Moving part', 'Objective nosepiece (Z)'], ['Purpose', 'Z-series (XYZ / XYZT)'], ['Step', 'Set by FluoView Z Start / Stop / Step (here −12 / +12 / 0.5 μm)']] },
+  ix71Panel: { desc: 'The sloping panel at the lower front of the frame: green OPTION button, power indicator, and on the right the large round knob for transmitted-light (halogen) brightness. Turn the lamp right down during confocal scanning so no stray light reaches the PMTs.', specs: [['Knob', 'Halogen lamp brightness'], ['Button', 'OPTION (assignable)']] },
+  frontPanel: { desc: 'One full-width white front plate in the housing colour (four hex socket screws). Left to right: the CH2 / CH1 BARRIER FILTER cassettes, each with a long metal slide rod (pulled out = filter on the axis, matching the IN icon; pushed in = empty slot on the axis, OUT icon; choosing "None" in the sidebar pushes the rod in); the big CONFOCAL APERTURE knob (settings 1–5, 1 at the top, increasing clockwise); the small DETECTION knob on the right is the handle of the detection dichroic slider (pushed in DM630, pulled out DM570, further out Mirror, icons printed at the lower left of the big knob); below right of the big knob is the OLYMPUS FLUOVIEW nameplate.', specs: [['Slide rods', 'One each for CH2 and CH1 (two slots)'], ['Knobs', 'CONFOCAL APERTURE 5 positions, DETECTION 3 positions']] },
+  bevelGear: { desc: 'A pair of brass bevel gears turns the rotation of the front-panel knob (axis front-to-back) through 90° onto the pinhole-wheel axis (left-to-right); equal tooth counts give 1:1. The five holes on the wheel are exactly 72° apart.', specs: [['Gear ratio', '1:1'], ['Shaft angle', '90°']] },
+  exDMKnob: { desc: 'The black knurled pull knob on top, passing through the cover to the vertical lever of the excitation dichroic inside. The excitation DM holder has two positions: two dichroics stacked on a carriage; pressed down (current) = upper plate on the axis, pulled up 4.2 cm = lower plate on the axis (e.g. DM405/488 ↔ DM488/543/633), no need to open the cover.', specs: [['Positions', '2 (down = upper plate / up = lower plate)'], ['Operation', 'Pull / press from the top, cover stays closed']] },
+  headConnectors: { desc: 'On the strip along the rear edge of the top: two BNCs (orange and green cables) for galvo sync / pixel clock signals, a large multi-pin connector with a thick cable to the FV5-PSU control box (galvo drive, shutter), and two square connectors on the right for PMT high voltage and signals.', specs: [['BNC', '2 (sync / clock)'], ['Multi-pin', '1 (to FV5-PSU)'], ['Square connectors', '2 (PMT HV / signal)']] },
+  headPort: { desc: 'The black port ring on the right wall of the scan unit, coaxial with the IX71 left side port. The black coupling tube in between aligns the intermediate image plane behind the pupil projection lens with the microscope side port: the scanning beam enters the microscope here and the fluorescence returns to the scan unit the same way.', specs: [['Axis height', 'PORT_Y (= side port)']] },
+  tda200: { desc: 'The small black box beside the tail of the 405 nm LD module (photo2): the LD\'s drive current comes from the DPSSL DRIVER on top of the FV5-PSU, while this box plugs into the module\'s SMA modulation input and supplies TTL trigger / modulation, so the diode laser can switch in sync with the scan.', specs: [['Connects to', '405 nm LD module (SMA modulation input)'], ['Interface', 'BNC trigger in / SMA out'], ['Mounting', 'Post + M6 base']] },
+  shutter: { desc: 'A small in-line shutter between the laser exit and the combiner: flip the blade down to block the 405 nm beam without switching the laser off. The blade is perpendicular to the axis and does not steer the beam.', specs: [['Position', 'Between the LD 405 exit and the combiner'], ['Function', 'Block / pass']] },
+  ndWheel: { desc: 'A six-position neutral-density filter wheel; turning it attenuates the argon-ion power by 1 to 1000× before the combiner. The filters are perpendicular to the axis and do not deviate the beam, which passes through the top slot.', specs: [['Positions', '6 (ND 0 / 0.3 / 0.6 / 1 / 2 / 3)'], ['Position', 'Between the Ar 488 exit and the combiner']] },
+  iris: { desc: 'An adjustable iris between the ND wheel and the combiner: closing it trims stray light and side lobes from the argon-ion beam, and it doubles as a check that the beam is still on axis (centring). The opening is concentric with the axis and does not deviate the beam.', specs: [['Aperture', 'Ø1–12 mm adjustable'], ['Position', 'Between the ND wheel and the combiner']] },
+  mirrorMount: { desc: 'Black anodised aluminium 1-inch mirror mounts with two fine-adjust screws on the back for pitch and yaw. These sit outside the FV300 laser path — optics for other experiments on the table (photo2).', specs: [['Mirror', 'Ø25.4 mm'], ['Adjustment', '2 axes (pitch / yaw)'], ['Mounting', 'Post + post holder + M6 slotted base']] },
+  clampM6: { desc: 'Stainless clamping forks with M6 hex socket screws into the 25 mm hole grid, pinning the laser-head rails and the combiner baseplate to the table.', specs: [['Screws', 'M6 × 25 mm pitch'], ['Use', 'Fixing baseplates / rails']] },
+  dpsslDriver: { desc: 'The small black box on top of the FV5-PSU: the constant-current driver for the 405 nm diode laser module. Red rocker switch for power, key switch to enable emission (Class 3B safety interlock), red digits showing the LD current, power knob on the right; the output cable runs to the heat-sinked 405 nm LD module on the table.', specs: [['Drives', '405 nm LD module (constant current)'], ['Safety', 'Key switch + interlock'], ['Display', 'LD current (A)']] },
+};
+// 3D 標籤（.lbl3d）的英文：以 anchor() 收到的中文字為 key；沒有中文的標籤（CH1 PMT、TDA 200…）兩種語言相同。
+const LABEL_EN = {
+  '前面板': 'Front panel', 'IX71 倒立顯微鏡': 'IX71 inverted microscope', '管鏡': 'Tube lens', '光路切換稜鏡': 'Light-path prism',
+  '光路選擇桿': 'Light-path lever', '聚光鏡': 'Condenser', '鹵素燈室': 'Halogen lamp house', '樣品': 'Specimen', '目鏡筒': 'Eyepiece tube',
+  '粗／微調焦': 'Coarse / fine focus', '調焦馬達': 'Focus motor', '側面埠': 'Side port', '物鏡轉盤': 'Nosepiece',
+  '側埠接口': 'Side-port coupling', 'FV300 掃描頭': 'FV300 scan unit', '訊號 / 控制接頭': 'Signal / control connectors',
+  '瞳孔投影鏡': 'Pupil projection lens', '振鏡 Y': 'Galvo Y', '振鏡 X': 'Galvo X', '激發 DM': 'Excitation DM', 'EX. DM 拉鈕': 'EX. DM pull knob',
+  '光纖入口 / 準直鏡': 'Fiber port / collimator', '共軛焦透鏡': 'Confocal lens', '準直透鏡': 'Collimating lens', 'Pinhole 轉盤': 'Pinhole wheel',
+  '偵測 DM (SDM)': 'Detection DM (SDM)', '折返鏡': 'Fold mirror', 'HeNe 543 nm（預留）': 'HeNe 543 nm (reserved)', 'HeNe 633 nm（預留）': 'HeNe 633 nm (reserved)',
+  '合束器 / 光纖耦合': 'Combiner / fiber launch', '單模光纖': 'Single-mode fiber', 'DPSSL 驅動器 (405 nm)': 'DPSSL driver (405 nm)',
+  'FV5-PSU 電源': 'FV5-PSU power supply', 'LG-PS2 透射光源': 'LG-PS2 lamp supply', '控制電腦 (FluoView)': 'Control PC (FluoView)',
+};
+// 依語言取字：零件卡、標籤、資料表欄位
+const EN = () => LANG === 'en';
+const labelText = (zh) => EN() ? (LABEL_EN[zh] || zh) : zh;
+const infoKind = (info) => EN() ? (KIND_EN[info.kind] || info.kind) : info.kind;
+const infoDesc = (part, info) => EN() && INFO_EN[part] ? INFO_EN[part].desc : info.desc;
+const infoSpecs = (part, info) => EN() && INFO_EN[part] ? INFO_EN[part].specs : info.specs;
+const dyeName = (d, short = false) => EN() ? (short ? DYE_Z[d].enS : DYE_Z[d].en) : DYE_Z[d].zh;
+const speedName = (sp) => EN() ? sp.en : sp.name;
+const filterLabel = (k) => EN() ? (FILTERS[k].labelEn || FILTERS[k].label) : FILTERS[k].label;
+const dmLabel = (k) => EN() ? DMS[k].labelEn : DMS[k].label;
+const dmShort = (k) => dmLabel(k).split(/[（(]/)[0].trim();
 
 // ============================================================
 //  數值引擎（移植自 fv300-optics-sim.html）
@@ -2411,10 +2763,10 @@ function inSliceNames(short = false) {
     if (!zw[d] || zw[d].wIn < 0.5) continue;
     if (short) { a.push(DYE_Z[d].tag); continue; }
     const seen = dyeSplit[d] ? dyeSplit[d].ch1 + dyeSplit[d].ch2 : 1;   // 兩通道合計收到的發射比例（濾片全開 = 1）：在切片內但被 BA 濾片擋掉大半時提醒（例：405 看 DAPI，BA505-525 只剩約 10 %）
-    a.push(DYE_Z[d].zh + (exc[d] < 0.1 ? '（本雷射不激發）' : seen < 0.2 ? '（發射大多被 BA 濾片擋住，CH1/CH2 濾片選「無」才看得清）' : ''));
+    a.push(dyeName(d) + (exc[d] < 0.1 ? t('slice.notExcited') : seen < 0.2 ? t('slice.blocked') : ''));
   }
-  if (short) return a.length >= 3 ? `${a.length} 層` : (a.length ? a.join('·') : '—');   // 即時數值卡格子只有 ~72 px：三層以上改寫層數，完整清單在 Z 卡的 zNote 與說明面板
-  return a.length ? a.join('、') : '無（離焦，影像只剩霧）';
+  if (short) return a.length >= 3 ? t('slice.nLayers', a.length) : (a.length ? a.join('·') : '—');   // 即時數值卡格子只有 ~72 px：三層以上改寫層數，完整清單在 Z 卡的 zNote 與說明面板
+  return a.length ? a.join(t('slice.sep')) : t('slice.none');
 }
 function refreshOptics() {
   optics = computeOptics();
@@ -2840,19 +3192,19 @@ function syncUI() {
   const sp = SCAN_SPEEDS[state.scanSpeed];
   $('sDwell').textContent = sp.dwell; $('sFrame').textContent = fmt(sp.frame, 2); $('sSNR').textContent = fmt(snrEstimate(), 0);
   $('sCh1').textContent = Math.round(r.ch1Signal * 100) + '%'; $('sCh2').textContent = Math.round(r.ch2Signal * 100) + '%';
-  $('objNote').textContent = `${r.obj.label}：NA ${r.obj.na}，WD ${r.obj.wd} mm，瞳孔 ${r.obj.pupil} mm；光束填充率 ${Math.round(r.fillFactor * 100)}%，有效 NA ${fmt(r.effectiveNA)}`;
-  $('speedOut').textContent = `${state.scanSpeed} / 5 · ${sp.name}`;
-  $('speedNote').textContent = `像素停留 ${sp.dwell} μs，256 × 256 一幀 ${fmt(sp.frame, 2)} s。慢掃每像素收到的光子多、雜訊小（SNR ∝ √停留時間）；快掃顆粒明顯但能看即時動態。`;
+  $('objNote').textContent = t('obj.note', r.obj, Math.round(r.fillFactor * 100), fmt(r.effectiveNA));
+  $('speedOut').textContent = `${state.scanSpeed} / 5 · ${speedName(sp)}`;
+  $('speedNote').textContent = t('speed.note', sp.dwell, fmt(sp.frame, 2));
   // Z 軸卡 + 即時數值
   const zs = (state.zOffset > 0 ? '+' : '') + state.zOffset.toFixed(1);
   $('zOut').textContent = zs + ' μm'; $('zSlider').value = state.zOffset;
   $('sZ').textContent = zs; $('sZBand').textContent = '±' + fmt(r.sliceThickness / 2, 1); $('sZIn').textContent = inSliceNames(true);
-  $('zSeqBtn').classList.toggle('on', state.zSeq); $('zSeqBtn').textContent = state.zSeq ? '■ 停止 Z 序列' : '▶ Z 序列';
-  $('zNote').textContent = state.zSeq ? `XYZ 掃描中：−${Z_RANGE} → +${Z_RANGE} μm 來回，每步 ${Z_STEP} μm、每層 ${fmt(zSeqLayerSec(), 2)} s${sp.frame > Z_SEQ_MAX_LAYER_S ? `（實機要等一幀 ${fmt(sp.frame, 2)} s，本頁加速示意）` : '（= 一幀）'}` : `切片內：${inSliceNames()}`;
+  $('zSeqBtn').classList.toggle('on', state.zSeq); $('zSeqBtn').textContent = state.zSeq ? t('zseq.stop') : t('zseq.start');
+  $('zNote').textContent = state.zSeq ? t('znote.on', Z_RANGE, Z_STEP, fmt(zSeqLayerSec(), 2), sp.frame > Z_SEQ_MAX_LAYER_S ? t('znote.accel', fmt(sp.frame, 2)) : t('znote.oneFrame')) : t('znote.in', inSliceNames());
   drawZProfile();
-  $('scanMeta').innerHTML = `<b>${L.name}</b> → ${L.dye}<br><span class="sw" style="background:#7ee787"></span>CH1 ${FILTERS[state.ch1Filter].label}<br><span class="sw" style="background:#ff7b72"></span>CH2 ${FILTERS[state.ch2Filter].label}<br>${DMS[state.detDM].label.split('（')[0]} · pinhole ${state.pinhole}<br>速度 ${state.scanSpeed} · ${fmt(sp.frame, 2)} s/幀 · Z ${zs} μm`;
+  $('scanMeta').innerHTML = `<b>${L.name}</b> → ${L.dye}<br><span class="sw" style="background:#7ee787"></span>CH1 ${filterLabel(state.ch1Filter)}<br><span class="sw" style="background:#ff7b72"></span>CH2 ${filterLabel(state.ch2Filter)}<br>${dmShort(state.detDM)} · pinhole ${state.pinhole}<br>${t('scanmeta.tail', state.scanSpeed, fmt(sp.frame, 2), zs)}`;
   $('legEx').style.background = L.color; $('legEm').style.background = L.fluorColor;
-  $('hud').innerHTML = `<b>${L.name}</b> · ${r.obj.label} · pinhole ${state.pinhole} · <b>點擊</b>零件看說明`;
+  $('hud').innerHTML = t('hud.live', L.name, r.obj.label, state.pinhole);
   // 3D 材質顏色
   exMat.color.set(L.color).multiplyScalar(1.8); exCone.material.color.set(L.color).multiplyScalar(1.2);
   exPhotonMat.color.set(L.color).multiplyScalar(2.6); fiberCore.material.color.set(L.color).multiplyScalar(1.5);
@@ -2870,7 +3222,7 @@ function syncUI() {
   document.querySelectorAll('#ch1Chips button').forEach(b => b.classList.toggle('on', b.dataset.f === state.ch1Filter));
   document.querySelectorAll('#ch2Chips button').forEach(b => b.classList.toggle('on', b.dataset.f === state.ch2Filter));
   document.querySelectorAll('#objChips button').forEach(b => b.classList.toggle('on', b.dataset.obj === state.objective));
-  $('lidBtn').classList.toggle('on', state.lidOpen); $('lidBtn').textContent = state.lidOpen ? '關上外殼' : '掀開外殼';
+  $('lidBtn').classList.toggle('on', state.lidOpen); $('lidBtn').textContent = state.lidOpen ? t('lid.close') : t('lid.open');
   $('xrayBtn').classList.toggle('on', state.xray); $('labelBtn').classList.toggle('on', state.labels);
   $('pinOut').textContent = state.pinhole; $('powerOut').textContent = state.power;
   $('pinSlider').value = state.pinhole; $('speedSlider').value = state.scanSpeed;
@@ -2932,8 +3284,9 @@ function drawZProfile() {
     g.globalAlpha = on ? 0.95 : 0.3;
     g.beginPath(); g.roundRect(X(L.zc - L.thick / 2), y + 2, X(L.zc + L.thick / 2) - X(L.zc - L.thick / 2), laneH - 4, 3); g.fill();
     g.globalAlpha = 1; g.textAlign = 'left'; g.font = `10px ${ZP_FONT}`;
-    g.fillStyle = inS && on ? ZPC.ink : (on ? ZPC.muted : ZPC.off); g.fillText(L.zh, 6, y + laneH / 2);
-    if (!on) { const nw = g.measureText(L.zh).width; g.font = `8px ${ZP_FONT}`; g.fillText('不激發', Math.min(6 + nw + 4, x0 - 26), y + laneH / 2); }
+    const nm = dyeName(d, true);
+    g.fillStyle = inS && on ? ZPC.ink : (on ? ZPC.muted : ZPC.off); g.fillText(nm, 6, y + laneH / 2);
+    if (!on) { const nw = g.measureText(nm).width, sx = 6 + nw + 4; let sfx = t('zp.notExcited'); g.font = `8px ${ZP_FONT}`; if (sx + g.measureText(sfx).width > x0 + 14) sfx = t('zp.notExcitedS'); g.fillText(sfx, sx, y + laneH / 2); }   // 後綴緊跟名字、量寬度：放不進名字欄（最多借用色帶區左緣 14 px，那裡沒有色帶）就用短版
     i++;
   }
   // 目前焦平面：豎線 + 頂端三角標記；「切片 x.x μm」放在頂列標記旁（靠右時改放左邊）
@@ -2941,7 +3294,7 @@ function drawZProfile() {
   g.fillStyle = ZPC.accent; g.fillRect(zx - 0.75, 4, 1.5, lanesBot - 3);
   g.beginPath(); g.moveTo(zx - 4, 1); g.lineTo(zx + 4, 1); g.lineTo(zx, 6); g.closePath(); g.fill();
   g.font = `bold 10px ${ZP_FONT}`; g.textAlign = right ? 'right' : 'left';
-  g.fillText(`切片 ${fmt(r.sliceThickness, 1)} μm`, zx + (right ? -7 : 7), 6);
+  g.fillText(t('zp.slice', fmt(r.sliceThickness, 1)), zx + (right ? -7 : 7), 6);
   // 軸：單位併進最後一個刻度（「+12 μm」），不再另外右對齊寫 μm 而與 +12 重疊
   g.font = `9px ${ZP_FONT}`; g.fillStyle = ZPC.faint; g.fillRect(x0, lanesBot + 3, x1 - x0, 1);
   for (const v of [-12, -6, 0, 6, 12]) {
@@ -3007,34 +3360,36 @@ function highlight(part, objKey) {
 function zStr() { return (state.zOffset > 0 ? '+' : '') + state.zOffset.toFixed(1) + ' μm'; }
 function liveRows(part, objKey) {
   const r = optics, L = LASERS[state.laser], rows = [];
+  const pb = (f) => f.type === 'open' ? t('val.open') : f.type === 'lp' ? `> ${f.lo} nm` : `${f.lo}–${f.hi} nm`;   // 通帶
   switch (part) {
-    case 'objective': { const o = OBJECTIVES[objKey || state.objective]; rows.push(['型號', o.label], ['NA', o.na], ['工作距離 WD', o.wd + ' mm'], ['瞳孔直徑', o.pupil + ' mm'], ['浸液', o.oil ? '油 (n=1.515)' : '空氣']); if ((objKey || state.objective) === state.objective) rows.push(['焦點光斑半徑', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm']); break; }
-    case 'focus': case 'sample': rows.push(['雷射', L.name], ['有效 NA', fmt(r.effectiveNA)], ['光斑半徑 (1/e²)', fmt(r.spotRadius) + ' μm'], ['Airy 半徑', fmt(r.airyRadius) + ' μm'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['主要染料', L.dye], ['Z 位置', zStr()], ['切片內結構', inSliceNames()]); break;
-    case 'pinhole': case 'pinholeKnob': case 'confocalLens': case 'collLens': rows.push(['目前段位', state.pinhole], ['孔徑', r.pinholeD + ' μm'], ['Airy 單位', fmt(r.airyUnits, 1) + ' AU（以螢光 ' + L.emPeak + ' nm 計）'], ['Pinhole 面 Airy 半徑', fmt(r.airyAtPinhole, 1) + ' μm（1 AU = ' + fmt(2 * r.airyAtPinhole, 0) + ' μm 孔徑）'], ['收光效率', Math.round(r.pinholeEff * 100) + ' %'], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm'], ['Z 位置', zStr()], ['切片內結構', inSliceNames()]); break;
+    case 'objective': { const o = OBJECTIVES[objKey || state.objective]; rows.push([t('row.model'), o.label], ['NA', o.na], [t('row.wd'), o.wd + ' mm'], [t('row.pupil'), o.pupil + ' mm'], [t('row.immersion'), o.oil ? t('val.oil') : t('val.air')]); if ((objKey || state.objective) === state.objective) rows.push([t('row.spot'), fmt(r.spotRadius) + ' μm'], [t('row.airy'), fmt(r.airyRadius) + ' μm'], [t('row.slice'), fmt(r.sliceThickness, 1) + ' μm']); break; }
+    case 'focus': case 'sample': rows.push([t('row.laser'), L.name], [t('row.effNA'), fmt(r.effectiveNA)], [t('row.spot1e'), fmt(r.spotRadius) + ' μm'], [t('row.airy'), fmt(r.airyRadius) + ' μm'], [t('row.slice'), fmt(r.sliceThickness, 1) + ' μm'], [t('row.dye'), L.dye], [t('row.z'), zStr()], [t('row.inSlice'), inSliceNames()]); break;
+    case 'pinhole': case 'pinholeKnob': case 'confocalLens': case 'collLens': rows.push([t('row.pinSetting'), state.pinhole], [t('row.aperture'), r.pinholeD + ' μm'], [t('row.au'), t('val.au', fmt(r.airyUnits, 1), L.emPeak)], [t('row.airyPin'), t('val.airyPin', fmt(r.airyAtPinhole, 1), fmt(2 * r.airyAtPinhole, 0))], [t('row.eff'), Math.round(r.pinholeEff * 100) + ' %'], [t('row.slice'), fmt(r.sliceThickness, 1) + ' μm'], [t('row.z'), zStr()], [t('row.inSlice'), inSliceNames()]); break;
     case 'focusKnob': case 'focusMotor': case 'turret': case 'zProfile': {
       // 每層：切片內比例 wIn；大 pinhole 時主導影像的離焦霧 wOut 也一起列，才對得上影像裡的模糊層
-      const off = []; for (const d in DYE_Z) { const w = zw[d] || { wIn: 0, wOut: 0 }; off.push(`${DYE_Z[d].tag} ${Math.round(w.wIn * 100)}%` + (w.wOut >= 0.05 ? `（+離焦霧 ${Math.round(w.wOut * 100)}%）` : '')); }
-      rows.push(['Z 位置', zStr()], ['Z 序列', state.zSeq ? `進行中（${zSeq.dir > 0 ? '↑ 往深' : '↓ 往物鏡'}，每層 ${fmt(zSeqLayerSec(), 2)} s ≈ ${fmt(zSeqRate(), 1)} μm/s）` : `停止（啟動後每層等 ${fmt(zSeqLayerSec(), 2)} s，隨掃描速度；示意）`], ['光學切片厚度', fmt(r.sliceThickness, 1) + ' μm（pinhole ' + state.pinhole + '，' + fmt(r.airyUnits, 1) + ' AU）'], ['切片內結構', inSliceNames()], ['各層在切片內的比例（+離焦霧）', off.join(' · ')], ['3D 位移', fmt(state.zOffset * Z_SCALE, 2) + ' 單位（1 μm = ' + Z_SCALE + '，放大示意）'], ['旋鈕轉角', fmt(state.zOffset * KNOB_RAD_PER_UM * 180 / Math.PI, 0) + '°']);
-      if (part === 'turret') rows.unshift(['目前物鏡', OBJECTIVES[state.objective].label]);
+      const off = []; for (const d in DYE_Z) { const w = zw[d] || { wIn: 0, wOut: 0 }; off.push(`${DYE_Z[d].tag} ${Math.round(w.wIn * 100)}%` + (w.wOut >= 0.05 ? t('val.haze', Math.round(w.wOut * 100)) : '')); }
+      rows.push([t('row.z'), zStr()], [t('row.zseq'), state.zSeq ? t('val.zseqOn', zSeq.dir > 0 ? t('val.deeper') : t('val.toObj'), fmt(zSeqLayerSec(), 2), fmt(zSeqRate(), 1)) : t('val.zseqOff', fmt(zSeqLayerSec(), 2))], [t('row.slice'), t('val.sliceAt', fmt(r.sliceThickness, 1), state.pinhole, fmt(r.airyUnits, 1))], [t('row.inSlice'), inSliceNames()], [t('row.layerFrac'), off.join(' · ')], [t('row.z3d'), t('val.z3d', fmt(state.zOffset * Z_SCALE, 2), Z_SCALE)], [t('row.knobAngle'), fmt(state.zOffset * KNOB_RAD_PER_UM * 180 / Math.PI, 0) + '°']);
+      if (part === 'turret') rows.unshift([t('row.curObj'), OBJECTIVES[state.objective].label]);
       break; }
-    case 'detDM': rows.push(['目前', DMS[state.detDM].label], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['→ CH1', Math.round(r.ch1Frac / 0.9 * 100) + ' %（含 BA）'], ['→ CH2', Math.round(r.ch2Frac / 0.9 * 100) + ' %（含 BA）']); break;
-    case 'ba1': case 'pmt1': case 'foldMirror': rows.push(['目前濾片', FILTERS[state.ch1Filter].label], ['通帶', FILTERS[state.ch1Filter].type === 'open' ? '全開' : FILTERS[state.ch1Filter].type === 'lp' ? `> ${FILTERS[state.ch1Filter].lo} nm` : `${FILTERS[state.ch1Filter].lo}–${FILTERS[state.ch1Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH1 訊號', Math.round(r.ch1Signal * 100) + ' %']); break;
-    case 'ba2': case 'pmt2': rows.push(['目前濾片', FILTERS[state.ch2Filter].label], ['通帶', FILTERS[state.ch2Filter].type === 'open' ? '全開' : FILTERS[state.ch2Filter].type === 'lp' ? `> ${FILTERS[state.ch2Filter].lo} nm` : `${FILTERS[state.ch2Filter].lo}–${FILTERS[state.ch2Filter].hi} nm`], ['螢光峰 (' + L.dye + ')', L.emPeak + ' nm'], ['CH2 訊號', Math.round(r.ch2Signal * 100) + ' %']); break;
-    case 'exDM': case 'fiber': case 'fiberPort': case 'combiner': rows.push(['目前雷射', L.name], ['激發', L.dyes], ['功率', state.power + ' %'], ['瞳孔填充率', Math.round(r.fillFactor * 100) + ' %']); break;
-    case 'galvoX': case 'galvoY': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push(['掃描', state.scanning ? '進行中' : '停止'], ['掃描速度', `${state.scanSpeed}（${sp.name}）`], ['影像', '256 × 256 px'], ['像素停留', sp.dwell + ' μs'], ['行時間', (sp.frame / 256 * 1000).toFixed(1) + ' ms'], ['幀時間', fmt(sp.frame, 2) + ' s'], ['3D 動畫', `${scan.linesPerSec} 行/s（放慢示意）`]); break; }
-    case 'scanSpeed': case 'monitor': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push(['掃描速度', `${state.scanSpeed} / 5（${sp.name}）`], ['像素停留', sp.dwell + ' μs'], ['幀時間 (256²)', fmt(sp.frame, 2) + ' s'], ['SNR（示意，中等亮度像素）', fmt(snrEstimate(), 0) + `（功率 ${state.power} %、收光 ${Math.round(r.pinholeEff * 100)} %）`], ['Pinhole', `${state.pinhole}（${fmt(r.airyUnits, 1)} AU）`], ['Z 序列每層', fmt(zSeqLayerSec(), 2) + ' s（= 一幀，上限 1 s）']); break; }
+    case 'detDM': rows.push([t('row.current'), dmLabel(state.detDM)], [t('row.emPeak', L.dye), L.emPeak + ' nm'], ['→ CH1', t('val.inclBA', Math.round(r.ch1Frac / 0.9 * 100))], ['→ CH2', t('val.inclBA', Math.round(r.ch2Frac / 0.9 * 100))]); break;
+    case 'ba1': case 'pmt1': case 'foldMirror': rows.push([t('row.curFilter'), filterLabel(state.ch1Filter)], [t('row.passband'), pb(FILTERS[state.ch1Filter])], [t('row.emPeak', L.dye), L.emPeak + ' nm'], [t('row.ch1sig'), Math.round(r.ch1Signal * 100) + ' %']); break;
+    case 'ba2': case 'pmt2': rows.push([t('row.curFilter'), filterLabel(state.ch2Filter)], [t('row.passband'), pb(FILTERS[state.ch2Filter])], [t('row.emPeak', L.dye), L.emPeak + ' nm'], [t('row.ch2sig'), Math.round(r.ch2Signal * 100) + ' %']); break;
+    case 'exDM': case 'fiber': case 'fiberPort': case 'combiner': rows.push([t('row.curLaser'), L.name], [t('row.excites'), L.dyes], [t('row.power'), state.power + ' %'], [t('row.fill'), Math.round(r.fillFactor * 100) + ' %']); break;
+    case 'galvoX': case 'galvoY': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push([t('row.scan'), state.scanning ? t('val.running') : t('val.stopped')], [t('row.speed'), `${state.scanSpeed} (${speedName(sp)})`], [t('row.image'), '256 × 256 px'], [t('row.dwell'), sp.dwell + ' μs'], [t('row.lineTime'), (sp.frame / 256 * 1000).toFixed(1) + ' ms'], [t('row.frameTime'), fmt(sp.frame, 2) + ' s'], [t('row.anim3d'), t('val.lps', scan.linesPerSec)]); break; }
+    case 'scanSpeed': case 'monitor': { const sp = SCAN_SPEEDS[state.scanSpeed]; rows.push([t('row.speed'), `${state.scanSpeed} / 5 (${speedName(sp)})`], [t('row.dwell'), sp.dwell + ' μs'], [t('row.frameTime256'), fmt(sp.frame, 2) + ' s'], [t('row.snr'), fmt(snrEstimate(), 0) + t('val.snr', state.power, Math.round(r.pinholeEff * 100))], [t('row.pinhole'), t('val.pinAU', state.pinhole, fmt(r.airyUnits, 1))], [t('row.zseqLayer'), t('val.zseqLayer', fmt(zSeqLayerSec(), 2))]); break; }
   }
-  if (part.startsWith('laser')) { const wl = +part.slice(5); const l = LASERS[wl]; rows.push(['狀態', l.installed ? (wl === state.laser ? '已安裝 · 使用中' : '已安裝') : '未安裝（預留）'], ['光束直徑', l.beamDia + ' mm'], ['發射峰 (' + l.dye + ')', l.emPeak + ' nm']); }
+  if (part.startsWith('laser')) { const wl = +part.slice(5); const l = LASERS[wl]; rows.push([t('row.status'), l.installed ? (wl === state.laser ? t('val.installedInUse') : t('val.installed')) : t('val.notInstalled')], [t('row.beamDia'), l.beamDia + ' mm'], [t('row.emPeakL', l.dye), l.emPeak + ' nm']); }
   return rows;
 }
 function showInfo(part, objKey, doHighlight = true) {
   const info = INFO[part]; if (!info) return;
   currentInfo = { part, objKey };
-  const rows = [...info.specs, ...liveRows(part, objKey)];
-  let title = info.zh;
-  if (part === 'objective' && objKey) title = OBJECTIVES[objKey].label + ' 物鏡';
-  const na = part.startsWith('laser') && !LASERS[+part.slice(5)].installed ? '<span class="tag na">未安裝</span>' : (part.startsWith('laser') && +part.slice(5) === state.laser ? '<span class="tag ok">使用中</span>' : '');
-  $('infoBody').innerHTML = `<div class="kind">${info.kind}</div><h2>${title}${na}</h2><div class="en">${info.en}</div><p>${info.desc}</p>` +
+  const rows = [...infoSpecs(part, info), ...liveRows(part, objKey)];
+  // 中文模式：中文名 + 英文副標；英文模式：英文名為主標、不再重複副標
+  let title = EN() ? info.en : info.zh;
+  if (part === 'objective' && objKey) title = t('title.objective', OBJECTIVES[objKey].label);
+  const na = part.startsWith('laser') && !LASERS[+part.slice(5)].installed ? `<span class="tag na">${t('tag.na')}</span>` : (part.startsWith('laser') && +part.slice(5) === state.laser ? `<span class="tag ok">${t('tag.inUse')}</span>` : '');
+  $('infoBody').innerHTML = `<div class="kind">${infoKind(info)}</div><h2>${title}${na}</h2>${EN() ? '<div class="en"></div>' : `<div class="en">${info.en}</div>`}<p>${infoDesc(part, info)}</p>` +
     (rows.length ? `<table>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>` : '');
   $('info').classList.add('show');
   if (doHighlight) highlight(part, objKey);
@@ -3076,7 +3431,7 @@ function updateLabels() {
   const show = state.labels;
   _lblVis.length = 0;
   for (const a of labelAnchors) {
-    if (!a.el) { a.el = document.createElement('div'); a.el.className = 'lbl3d'; a.el.textContent = a.text; labelLayer.appendChild(a.el); }
+    if (!a.el) { a.el = document.createElement('div'); a.el.className = 'lbl3d'; a.el.textContent = labelText(a.text); labelLayer.appendChild(a.el); }
     if (!show || (a.interior && !state.lidOpen && !state.xray)) { a.el.style.display = 'none'; continue; }
     a.obj.getWorldPosition(_wp); _wp.add(a.offset);
     const dist = _wp.distanceTo(camera.position);
@@ -3225,6 +3580,8 @@ function animate() {
   if (zTok && Number.isFinite(+zTok.slice(2))) state.zOffset = Math.max(-Z_RANGE, Math.min(Z_RANGE, Math.round(+zTok.slice(2) / Z_STEP) * Z_STEP));
   if (toks.includes('zseq')) { state.zSeq = true; zSeq.pos = state.zOffset; }
 }
+// 語言切換（applyLang → relabel）：重寫 3D 標籤並重量寬度，再用 syncUI 重寫所有動態文字、重畫 Z 剖面與說明卡
+window.relabel = () => { for (const a of labelAnchors) if (a.el) { a.el.textContent = labelText(a.text); a.w = 0; a.h = 0; } syncUI(); };
 syncUI();
 redrawImage();          // 依網址指定的 Z / pinhole 重畫一次（rescanAll 在解析網址前已跑過）
 $('loading').remove();

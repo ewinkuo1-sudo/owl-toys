@@ -71,7 +71,7 @@
   }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
   .titlebar { position: relative; width: 100%; max-width: 1152px; display: flex; align-items: center; justify-content: center; }
-  .titlebar #theme { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+  .titlebar .btns { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
   button.chip {
     background: none; color: var(--muted); border: 1px solid var(--grid);
     border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
@@ -80,7 +80,7 @@
   button.chip:hover { border-color: var(--muted); color: var(--ink); }
   @media (max-width: 720px) {
     .titlebar { flex-wrap: wrap; gap: 8px; }
-    .titlebar #theme { position: static; transform: none; }
+    .titlebar .btns { position: static; transform: none; }
   }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 860px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
@@ -142,16 +142,13 @@
 </head>
 <body>
 <div class="titlebar">
-  <h1>P-SHG 偏振極座標遊樂場 <span style="color:var(--muted);font-weight:400">v2.3</span></h1>
-  <button class="chip" id="theme" title="切換深色／淺色"></button>
+  <h1><span data-i18n="h1"></span> <span style="color:var(--muted);font-weight:400">v2.3</span></h1>
+  <span class="btns">
+    <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+    <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+  </span>
 </div>
-<p class="sub">
-  纖維狀組織（C₆ 圓柱對稱）的偏振解析 SHG 模型。單軸分子模型下
-  <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>，把花瓣形狀直接連到螺旋等效傾角 θe
-  （Tiaho 2007：肌凝蛋白 θe≈62°、膠原 θe≈49°）。
-  再加上出平面傾角 δ 與手性 χ₁₄——忽略這兩項正是文獻 ρ 值分歧的主因（Lee et al. 2023, APL）。
-  非手性部分仍假設 Kleinman 對稱（χ₁₅ = χ₃₁）；預設收總強度，可切 X/Y 分光。
-</p>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <div class="sidecol">
     <canvas id="polar" width="400" height="400"></canvas>
@@ -166,72 +163,111 @@
   </div>
   <div class="controls">
     <div class="presets">
-      <button id="presetCol">🩹 膠原 I 型<br><span style="color:var(--muted);font-size:0.72rem">ρ=1.40, θe≈50°</span></button>
-      <button id="presetMyo">💪 肌凝蛋白<br><span style="color:var(--muted);font-size:0.72rem">ρ=0.57, θe≈62°</span></button>
+      <button id="presetCol" data-i18n="preset.col"></button>
+      <button id="presetMyo" data-i18n="preset.myo"></button>
     </div>
     <div class="ctl">
       <label>ρ = χ₃₃/χ₁₅ <output id="rhoOut">1.40</output></label>
       <input type="range" id="rho" min="0.2" max="4" step="0.01" value="1.4">
     </div>
     <div class="ctl">
-      <label>螺旋傾角 θe = arctan√(2/ρ) <output id="teOut">50.1°</output></label>
+      <label><span data-i18n="lbl.te"></span><output id="teOut">50.1°</output></label>
       <input type="range" id="te" min="36" max="72" step="0.1" value="50.1">
     </div>
     <div class="ctl">
-      <label>纖維方位角 φ（面內） <output id="phiOut">0°</output></label>
+      <label><span data-i18n="lbl.phi"></span><output id="phiOut">0°</output></label>
       <input type="range" id="phi" min="0" max="360" step="1" value="0">
     </div>
     <div class="ctl">
-      <label>出平面傾角 δ <output id="deltaOut">0°</output></label>
+      <label><span data-i18n="lbl.delta"></span><output id="deltaOut">0°</output></label>
       <input type="range" id="delta" min="0" max="60" step="1" value="0">
     </div>
     <div class="ctl">
-      <label>手性 χ₁₄/χ₁₅ <output id="c14Out">0.00</output></label>
+      <label><span data-i18n="lbl.c14"></span><output id="c14Out">0.00</output></label>
       <input type="range" id="c14" min="-0.6" max="0.6" step="0.01" value="0">
     </div>
     <div class="ctl">
-      <label>組織雙折射延遲 Γ（深度×Δn） <output id="gamOut">0°</output></label>
+      <label><span data-i18n="lbl.gam"></span><output id="gamOut">0°</output></label>
       <input type="range" id="gam" min="0" max="90" step="1" value="0">
     </div>
     <div class="toggle">
       <input type="checkbox" id="split">
-      <label for="split">X/Y 分光偵測（拆成兩個偏振分量）</label>
+      <label for="split" data-i18n="lbl.split"></label>
     </div>
     <div class="legend" id="legend" style="display:none">
-      <span style="color:var(--ix)">— I_X（沿纖維）</span>
-      <span style="color:var(--iy)">— I_Y（垂直）</span>
-      <span style="color:var(--accent)">— 總強度</span>
+      <span style="color:var(--ix)" data-i18n="legend.ix"></span>
+      <span style="color:var(--iy)" data-i18n="legend.iy"></span>
+      <span style="color:var(--accent)" data-i18n="legend.tot"></span>
     </div>
     <div class="toggle">
       <input type="checkbox" id="refCol" checked>
-      <label for="refCol">參考曲線：膠原 ρ=1.4（橘虛線）</label>
+      <label for="refCol" data-i18n="lbl.refCol"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="refMyo">
-      <label for="refMyo">參考曲線：肌凝蛋白 ρ=0.57（紫虛線）</label>
+      <label for="refMyo" data-i18n="lbl.refMyo"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="spin">
-      <label for="spin">讓纖維自己轉（視野裡不同走向）</label>
+      <label for="spin" data-i18n="lbl.spin"></label>
     </div>
     <div class="expbar">
-      <button id="expGo">🎯 出題（噪聲擬合遊戲）</button>
-      <button id="expReveal" style="display:none">揭曉</button>
-      <button id="expClear" style="display:none">清除</button>
+      <button id="expGo" data-i18n="btn.expGo"></button>
+      <button id="expReveal" style="display:none" data-i18n="btn.expReveal"></button>
+      <button id="expClear" style="display:none" data-i18n="btn.expClear"></button>
     </div>
     <div class="expmsg" id="expMsg"></div>
     <details class="csv">
-      <summary>📄 匯入實驗數據（角度°,強度）</summary>
-      <textarea id="csvIn" rows="5" placeholder="0, 1.96&#10;10, 1.71&#10;20, 1.24&#10;…（逗號、空白或 tab 分隔皆可）"></textarea>
+      <summary data-i18n="csv.summary"></summary>
+      <textarea id="csvIn" rows="5" data-i18n-placeholder="csv.placeholder"></textarea>
       <div class="expbar">
-        <button id="csvFit">擬合數據</button>
-        <button id="csvClear">清除</button>
+        <button id="csvFit" data-i18n="btn.csvFit"></button>
+        <button id="csvClear" data-i18n="btn.csvClear"></button>
       </div>
       <div class="expmsg" id="csvMsg"></div>
     </details>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      <b>玩法提示：</b>ρ = 1 時兩個 χ 分量等強，各向異性全來自 sin²(2Δ) 交叉項——
+    <div class="hint" data-i18n="hint"></div>
+  </div>
+</div>
+<script>
+const polar = document.getElementById('polar');
+const cart = document.getElementById('cart');
+const fiber = document.getElementById('fiber');
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const SM = s => `<span style="color:var(--muted);font-size:0.72rem">${s}</span>`;
+const I18N = {
+zh: {
+  'title': 'P-SHG 偏振極座標遊樂場 v2.3 🦉',
+  'h1': 'P-SHG 偏振極座標遊樂場',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `纖維狀組織（C₆ 圓柱對稱）的偏振解析 SHG 模型。單軸分子模型下
+    <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>，把花瓣形狀直接連到螺旋等效傾角 θe
+    （Tiaho 2007：肌凝蛋白 θe≈62°、膠原 θe≈49°）。
+    再加上出平面傾角 δ 與手性 χ₁₄——忽略這兩項正是文獻 ρ 值分歧的主因（Lee et al. 2023, APL）。
+    非手性部分仍假設 Kleinman 對稱（χ₁₅ = χ₃₁）；預設收總強度，可切 X/Y 分光。`,
+  'preset.col': `🩹 膠原 I 型<br>${SM('ρ=1.40, θe≈50°')}`,
+  'preset.myo': `💪 肌凝蛋白<br>${SM('ρ=0.57, θe≈62°')}`,
+  'lbl.te': '螺旋傾角 θe = arctan√(2/ρ)',
+  'lbl.phi': '纖維方位角 φ（面內）',
+  'lbl.delta': '出平面傾角 δ',
+  'lbl.c14': '手性 χ₁₄/χ₁₅',
+  'lbl.gam': '組織雙折射延遲 Γ（深度×Δn）',
+  'lbl.split': 'X/Y 分光偵測（拆成兩個偏振分量）',
+  'legend.ix': '— I_X（沿纖維）', 'legend.iy': '— I_Y（垂直）', 'legend.tot': '— 總強度',
+  'lbl.refCol': '參考曲線：膠原 ρ=1.4（橘虛線）',
+  'lbl.refMyo': '參考曲線：肌凝蛋白 ρ=0.57（紫虛線）',
+  'lbl.spin': '讓纖維自己轉（視野裡不同走向）',
+  'btn.expGo': '🎯 出題（噪聲擬合遊戲）', 'btn.expGo.short': '🎯 出題（噪聲擬合遊戲）', 'btn.expReveal': '揭曉', 'btn.expClear': '清除',
+  'csv.summary': '📄 匯入實驗數據（角度°,強度）',
+  'csv.placeholder': '0, 1.96\n10, 1.71\n20, 1.24\n…（逗號、空白或 tab 分隔皆可）',
+  'btn.csvFit': '擬合數據', 'btn.csvClear': '清除',
+  'hint': `<b>玩法提示：</b>ρ = 1 時兩個 χ 分量等強，各向異性全來自 sin²(2Δ) 交叉項——
       花變成四瓣、對比只剩 2:1，瓣尖指向纖維軸 ±45°；方向仍讀得出來，只是 ρ 不再攜帶資訊。
       實驗上是反過來：轉入射偏振拍一圈，把 I(θ) 擬合回去解出 ρ 和 φ。<br>
       <b>δ 和 χ₁₄ 在搞什麼鬼：</b>纖維翹出影像平面（δ≠0）時，
@@ -242,15 +278,121 @@
       <b>第三個坑——組織雙折射：</b>入射偏振還沒到焦點就先被組織的 Δn 扭過。
       δ=0 時解析解很乾淨：I∥ 的交叉項 ×cos2Γ，Γ=45° 時交叉項歸零、花瓣重塑。
       這個 Δn 跟 PS-OCT 量的雙折射是同一個東西——兩台儀器看同一個物理量的兩面。
-      θe 對應請見 Tiaho, Recher &amp; Rouède (Opt. Express 15, 12286, 2007)。
-    </div>
-  </div>
-</div>
-<script>
-const polar = document.getElementById('polar');
-const cart = document.getElementById('cart');
-const fiber = document.getElementById('fiber');
-const $ = id => document.getElementById(id);
+      θe 對應請見 Tiaho, Recher &amp; Rouède (Opt. Express 15, 12286, 2007)。`,
+  // 畫布標籤
+  'polar.axis': '纖維軸',
+  'cart.x': '入射偏振角 θ', 'cart.y': 'SHG 強度（χ₁₅² 單位）',
+  'fiber.z': 'z 光軸', 'fiber.plane': '影像平面 x–y',
+  // 3D 纖維說明
+  'fc.right': '右旋（χ₁₄&gt;0）', 'fc.left': '左旋（χ₁₄&lt;0）', 'fc.none': 'χ₁₄=0（旋向不影響訊號）',
+  'fc.geom': (p, d, te, hand) => `纖維幾何：φ=${p}°、δ=${d}°｜螺旋 θe=${te}°、${hand}<br>`,
+  'fc.proj': '橘虛線＝纖維在影像平面上的投影（φ 方向）',
+  // 公式卡
+  'fm.model': `<span class="f">I(θ) ∝ (sin²Δ + ρ·cos²Δ)² + sin²2Δ</span>，<span class="f">Δ = θ − φ</span><br>`,
+  'fm.subst': (r, p) => `代入現值 ρ=<b>${r}</b>、φ=<b>${p}°</b>：<span class="f">I(θ) = (sin²(θ−${p}°) + ${r}·cos²(θ−${p}°))² + sin²(2θ−${2 * p}°)</span>`,
+  'fm.split': `<br><span style="color:var(--ix)">I_X = (sin²Δ + ρ·cos²Δ)²</span>　<span style="color:var(--iy)">I_Y = sin²2Δ</span>（以纖維軸為 X）`,
+  'fm.biref': g => `<br><span class="f">雙折射（δ=0 時）：交叉項 2ρ·sin²Δcos²Δ × cos2Γ</span>，Γ=<b>${g}°</b>`,
+  'fm.bias': v => `<br>⚠ δ、χ₁₄、Γ 有一項不為零時實際曲線偏離上式，硬擬合 → 表觀 ρ̂ = <b class="bias">${v}</b>`,
+  'fm.game': `<br>🎯 遊戲＝擬合這條式：調 ρ、φ 讓曲線穿過黃點`,
+  // 統計
+  'st.te': te => `螺旋傾角 θe：<b>${te}°</b>（膠原~49°，肌凝蛋白~62°）<br>`,
+  'st.naive': (ra, bias, teA) => `天真擬合表觀 ρ̂：<b class="bias">${ra}</b>（偏差 <b class="bias">${bias}</b>，θ̂e=${teA}°）<br>`,
+  'st.resid': (v, chiral) => `天真模型擬合殘差：<b>${v}%</b>${chiral ? '（手性讓曲線歪斜，天真模型跟不上）' : ''}<br>`,
+  'st.level': v => `總訊號 vs 無擾動：<b>${v}%</b>`,
+  'st.unbiased': `表觀 ρ̂ = 真實 ρ（無 δ/χ₁₄/Γ 擾動，天真模型無偏）<br>`,
+  'st.ratio': v => `平行/垂直強度比 I(φ)/I(φ+90°)：<b>${v}</b>（= ρ²）`,
+  'st.fourier': (r2, r4) => `<br>Fourier：a₂/a₀=<b>${r2}</b>、a₄/a₀=<b>${r4}</b>`,
+  // 噪聲擬合遊戲
+  'ex.rms': v => `殘差 RMS：<b>${v}%</b>　`,
+  'ex.answer': (r, p, mr, mp) => `<br>答案：ρ*=${r}、φ*=${p}°（你：ρ=${mr}、φ=${mp}°）`,
+  'ex.good': '✓ 擬合得不錯！按「揭曉」對答案',
+  'ex.drag': '拖 ρ 和 φ 讓曲線穿過黃點',
+  // CSV 匯入
+  'csv.need5': '至少需要 5 個「角度,強度」資料點',
+  'csv.fit': (rho, p, te, rms, r2, r4) => `擬合：ρ=<b>${rho}</b>、φ=${p}°、θe=${te}°、殘差 RMS ${rms}%<br>`
+    + `Fourier：a₂/a₀=${r2}、a₄/a₀=${r4}（實心圓點＝你的數據，已換算到 χ₁₅² 單位）`,
+},
+en: {
+  'title': 'P-SHG Polar Playground v2 🦉',
+  'h1': 'P-SHG Polar Playground',
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `A polarization-resolved SHG model of fibrous tissue (C₆ cylindrical symmetry). In the single-axis molecular model
+    <code>ρ = χ₃₃/χ₁₅ = 2/tan²θe</code>, which ties the petal shape directly to the effective helix pitch angle θe
+    (Tiaho 2007: myosin θe≈62°, collagen θe≈49°).
+    On top of that come the out-of-plane tilt δ and the chirality χ₁₄; ignoring these two is the main reason ρ values scatter across the literature (Lee et al. 2023, APL).
+    The achiral part still assumes Kleinman symmetry (χ₁₅ = χ₃₁); by default the total intensity is collected, with an X/Y split option.`,
+  'preset.col': `🩹 Collagen I<br>${SM('ρ=1.40, θe≈50°')}`,
+  'preset.myo': `💪 Myosin<br>${SM('ρ=0.57, θe≈62°')}`,
+  'lbl.te': 'Helix pitch angle θe = arctan√(2/ρ)',
+  'lbl.phi': 'Fiber azimuth φ (in-plane)',
+  'lbl.delta': 'Out-of-plane tilt δ',
+  'lbl.c14': 'Chirality χ₁₄/χ₁₅',
+  'lbl.gam': 'Tissue birefringence retardance Γ (depth × Δn)',
+  'lbl.split': 'X/Y split detection (two polarization components)',
+  'legend.ix': '—&nbsp;I_X (along fiber)', 'legend.iy': '—&nbsp;I_Y (perpendicular)', 'legend.tot': '—&nbsp;total',
+  'lbl.refCol': 'Reference: collagen ρ=1.4 (orange dashed)',
+  'lbl.refMyo': 'Reference: myosin ρ=0.57 (purple dashed)',
+  'lbl.spin': 'Let the fiber rotate (different orientations in the field of view)',
+  'btn.expGo': '🎯 New puzzle (noisy-fit game)', 'btn.expGo.short': '🎯 New puzzle', 'btn.expReveal': 'Reveal', 'btn.expClear': 'Clear',
+  'csv.summary': '📄 Import experimental data (angle°, intensity)',
+  'csv.placeholder': '0, 1.96\n10, 1.71\n20, 1.24\n… (comma, space or tab separated)',
+  'btn.csvFit': 'Fit data', 'btn.csvClear': 'Clear',
+  'hint': `<b>Things to try:</b> at ρ = 1 the two χ components are equally strong and all the anisotropy comes from the sin²(2Δ) cross term:
+      the flower turns four-lobed, the contrast drops to 2:1 and the lobe tips point ±45° from the fiber axis. You can still read the orientation, but ρ no longer carries information.
+      Experiments run the other way round: rotate the incident polarization through a full turn and fit I(θ) to recover ρ and φ.<br>
+      <b>What δ and χ₁₄ are up to:</b> when the fiber tilts out of the image plane (δ≠0),
+      fitting with the "naive" in-plane model gives a biased apparent ρ̂; the stats above show the bias live.
+      The chiral term χ₁₄ radiates along the optical axis at δ=0 and is almost invisible, but as soon as the fiber tilts it shows up and skews the lobes.
+      This is exactly how Lee et al. (APL 123, 133703, 2023) explain the scatter of ρ values in the literature,
+      and their motivation for improving precision with X/Y split detection.<br>
+      <b>The third trap, tissue birefringence:</b> the incident polarization is twisted by the tissue's Δn before it even reaches the focus.
+      At δ=0 the analytic solution is clean: the cross term of I∥ picks up a factor cos2Γ, so at Γ=45° the cross term vanishes and the lobes reshape.
+      This Δn is the very same birefringence PS-OCT measures: two instruments looking at two faces of one physical quantity.
+      For the θe mapping see Tiaho, Recher &amp; Rouède (Opt. Express 15, 12286, 2007).`,
+  // canvas labels
+  'polar.axis': 'fiber axis',
+  'cart.x': 'Incident polarization angle θ', 'cart.y': 'SHG intensity (units of χ₁₅²)',
+  'fiber.z': 'z optical axis', 'fiber.plane': 'image plane x–y',
+  // 3D fiber caption
+  'fc.right': 'right-handed (χ₁₄&gt;0)', 'fc.left': 'left-handed (χ₁₄&lt;0)', 'fc.none': 'χ₁₄=0 (handedness does not affect the signal)',
+  'fc.geom': (p, d, te, hand) => `Fiber geometry: φ=${p}°, δ=${d}° | helix θe=${te}°, ${hand}<br>`,
+  'fc.proj': 'orange dashed = projection of the fiber onto the image plane (direction φ)',
+  // formula card
+  'fm.model': `<span class="f">I(θ) ∝ (sin²Δ + ρ·cos²Δ)² + sin²2Δ</span>, <span class="f">Δ = θ − φ</span><br>`,
+  'fm.subst': (r, p) => `With the current ρ=<b>${r}</b>, φ=<b>${p}°</b>: <span class="f">I(θ) = (sin²(θ−${p}°) + ${r}·cos²(θ−${p}°))² + sin²(2θ−${2 * p}°)</span>`,
+  'fm.split': `<br><span style="color:var(--ix)">I_X = (sin²Δ + ρ·cos²Δ)²</span>&nbsp;&nbsp; <span style="color:var(--iy)">I_Y = sin²2Δ</span> (X = fiber axis)`,
+  'fm.biref': g => `<br><span class="f">Birefringence (at δ=0): cross term 2ρ·sin²Δcos²Δ × cos2Γ</span>, Γ=<b>${g}°</b>`,
+  'fm.bias': v => `<br>⚠ With any of δ, χ₁₄, Γ non-zero the real curve departs from this formula; forcing the fit → apparent ρ̂ = <b class="bias">${v}</b>`,
+  'fm.game': `<br>🎯 The game = fitting this formula: adjust ρ and φ until the curve passes through the yellow dots`,
+  // stats
+  'st.te': te => `Helix pitch angle θe: <b>${te}°</b> (collagen ~49°, myosin ~62°)<br>`,
+  'st.naive': (ra, bias, teA) => `Naive-fit apparent ρ̂: <b class="bias">${ra}</b> (bias <b class="bias">${bias}</b>, θ̂e=${teA}°)<br>`,
+  'st.resid': (v, chiral) => `Naive-model fit residual: <b>${v}%</b>${chiral ? ' (chirality skews the curve; the naive model cannot follow)' : ''}<br>`,
+  'st.level': v => `Total signal vs. unperturbed: <b>${v}%</b>`,
+  'st.unbiased': `Apparent ρ̂ = true ρ (no δ/χ₁₄/Γ perturbation, so the naive model is unbiased)<br>`,
+  'st.ratio': v => `Parallel/perpendicular ratio I(φ)/I(φ+90°): <b>${v}</b> (= ρ²)`,
+  'st.fourier': (r2, r4) => `<br>Fourier: a₂/a₀=<b>${r2}</b>, a₄/a₀=<b>${r4}</b>`,
+  // noisy-fit game
+  'ex.rms': v => `Residual RMS: <b>${v}%</b>&nbsp; `,
+  'ex.answer': (r, p, mr, mp) => `<br>Answer: ρ*=${r}, φ*=${p}° (you: ρ=${mr}, φ=${mp}°)`,
+  'ex.good': '✓ Nice fit! Press “Reveal” to check the answer',
+  'ex.drag': 'Drag ρ and φ until the curve passes through the yellow dots',
+  // CSV import
+  'csv.need5': 'Need at least 5 “angle, intensity” data points',
+  'csv.fit': (rho, p, te, rms, r2, r4) => `Fit: ρ=<b>${rho}</b>, φ=${p}°, θe=${te}°, residual RMS ${rms}%<br>`
+    + `Fourier: a₂/a₀=${r2}, a₄/a₀=${r4} (solid dots = your data, rescaled to units of χ₁₅²)`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
 
 // 高 DPI 畫布：實體像素 = 邏輯像素 × DPR，畫圖仍用邏輯座標
 const DPR = Math.min(2, window.devicePixelRatio || 1);
@@ -277,21 +419,41 @@ const rgba = (rgb, a) => `rgba(${rgb},${a})`;
 // 主題：預設淺色，記在 localStorage（owl-theme，全站共用），?theme=dark|light 可覆寫
 let booted = false;
 function redrawAll() { if (booted) render(); }
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = document.getElementById('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   readColors();
   redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+// 靜態文字走 data-i18n；動態文字（stats、公式卡、遊戲訊息、畫布標籤）都在 render() 裡經 t() 產生，重畫即更新。
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  showCsvMsg();
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 const RHO_COL = 1.4, RHO_MYO = 0.57;
 const D2R = Math.PI / 180;
@@ -546,7 +708,7 @@ function drawPolar(st) {
   pctx.stroke();
   pctx.setLineDash([]);
   pctx.fillStyle = C.ink;
-  pctx.fillText('纖維軸', cx + (R - 40) * Math.cos(st.phi), cy - (R - 40) * Math.sin(st.phi) - 8);
+  pctx.fillText(t('polar.axis'), cx + (R - 40) * Math.cos(st.phi), cy - (R - 40) * Math.sin(st.phi) - 8);
 }
 
 // --- 直角座標圖 -------------------------------------------------------------
@@ -579,10 +741,11 @@ function drawCart(st) {
     cctx.beginPath(); cctx.moveTo(x, mT); cctx.lineTo(x, mT + ph); cctx.stroke();
     cctx.fillText(a + '°', x - 10, h - 12);
   }
-  cctx.fillText('入射偏振角 θ', w / 2 - 30, h - 0.5);
+  const xl = t('cart.x'), yl = t('cart.y');
+  cctx.fillText(xl, mL + pw / 2 - cctx.measureText(xl).width / 2, h - 0.5);
   cctx.save();
-  cctx.translate(12, h / 2 + 30); cctx.rotate(-Math.PI / 2);
-  cctx.fillText('SHG 強度（χ₁₅² 單位）', 0, 0);
+  cctx.translate(12, mT + ph / 2 + cctx.measureText(yl).width / 2); cctx.rotate(-Math.PI / 2);
+  cctx.fillText(yl, 0, 0);
   cctx.restore();
 
   const trace = (pts, idx, color, lw, dashed) => {
@@ -654,8 +817,8 @@ function drawFiber(st, teDeg) {
   fctx.setLineDash([]);
   fctx.fillStyle = C.muted;
   fctx.font = '10px sans-serif';
-  fctx.fillText('z 光軸', z1[0] + 4, z1[1] + 3);
-  fctx.fillText('影像平面 x–y', 8, h - 8);
+  fctx.fillText(t('fiber.z'), z1[0] + 4, z1[1] + 3);
+  fctx.fillText(t('fiber.plane'), 8, h - 8);
 
   const cd = Math.cos(st.delta), sd = Math.sin(st.delta);
   const a = [cd * Math.cos(st.phi), cd * Math.sin(st.phi), sd];
@@ -713,36 +876,28 @@ function drawFiber(st, teDeg) {
 
 function fiberCap(st, te) {
   const handTxt = Math.abs(st.c14) > 1e-6
-    ? (st.c14 > 0 ? '右旋（χ₁₄&gt;0）' : '左旋（χ₁₄&lt;0）')
-    : 'χ₁₄=0（旋向不影響訊號）';
-  return `纖維幾何：φ=${Math.round(phiDeg)}°、δ=${Math.round(st.delta / D2R)}°｜`
-       + `螺旋 θe=${te.toFixed(1)}°、${handTxt}<br>`
-       + `<span style="color:var(--dim)">橘虛線＝纖維在影像平面上的投影（φ 方向）</span>`;
+    ? (st.c14 > 0 ? t('fc.right') : t('fc.left'))
+    : t('fc.none');
+  return t('fc.geom', Math.round(phiDeg), Math.round(st.delta / D2R), te.toFixed(1), handTxt)
+       + `<span style="color:var(--dim)">${t('fc.proj')}</span>`;
 }
 
 // --- 公式板 -----------------------------------------------------------------
 function formulaHTML(st, fit) {
   const p = Math.round(phiDeg), r = st.rho.toFixed(2);
-  let s = `<span class="f">I(θ) ∝ (sin²Δ + ρ·cos²Δ)² + sin²2Δ</span>，<span class="f">Δ = θ − φ</span><br>`;
-  s += `代入現值 ρ=<b>${r}</b>、φ=<b>${p}°</b>：`
-     + `<span class="f">I(θ) = (sin²(θ−${p}°) + ${r}·cos²(θ−${p}°))² + sin²(2θ−${2 * p}°)</span>`;
-  if (st.split) {
-    s += `<br><span style="color:var(--ix)">I_X = (sin²Δ + ρ·cos²Δ)²</span>　`
-       + `<span style="color:var(--iy)">I_Y = sin²2Δ</span>（以纖維軸為 X）`;
-  }
-  if (st.gamma > 1e-6) {
-    s += `<br><span class="f">雙折射（δ=0 時）：交叉項 2ρ·sin²Δcos²Δ × cos2Γ</span>，Γ=<b>${Math.round(st.gamma / D2R)}°</b>`;
-  }
-  if (fit) {
-    s += `<br>⚠ δ、χ₁₄、Γ 有一項不為零時實際曲線偏離上式，硬擬合 → 表觀 ρ̂ = <b class="bias">${fit.rhoA.toFixed(2)}</b>`;
-  } else if (exp) {
-    s += `<br>🎯 遊戲＝擬合這條式：調 ρ、φ 讓曲線穿過黃點`;
-  }
+  let s = t('fm.model');
+  s += t('fm.subst', r, p);
+  if (st.split) s += t('fm.split');
+  if (st.gamma > 1e-6) s += t('fm.biref', Math.round(st.gamma / D2R));
+  if (fit) s += t('fm.bias', fit.rhoA.toFixed(2));
+  else if (exp) s += t('fm.game');
   return s;
 }
 
 // --- 實驗模式（噪聲擬合遊戲） ----------------------------------------------
 let exp = null, csv = null;
+let csvMsg = null;                                  // { k, args }：最後一則 CSV 訊息，切語言時重生
+function showCsvMsg() { const el = $('csvMsg'); if (el) el.innerHTML = csvMsg ? t(csvMsg.k, ...csvMsg.args) : ''; }
 const randn = () => {
   let u = 0, v = 0;
   while (u === 0) u = Math.random();
@@ -805,6 +960,7 @@ function render() {
   $('c14Out').textContent = st.c14.toFixed(2);
   $('gamOut').textContent = Math.round(st.gamma / D2R) + '°';
   $('legend').style.display = st.split ? 'block' : 'none';
+  $('expGo').innerHTML = t(exp ? 'btn.expGo.short' : 'btn.expGo');   // 三顆按鈕並排時英文用短版
 
   drawPolar(st);
   drawCart(st);
@@ -815,7 +971,7 @@ function render() {
   $('formula').innerHTML = formulaHTML(st, fit);
   $('fiberCap').innerHTML = fiberCap(st, te);
 
-  let s = `螺旋傾角 θe：<b>${te.toFixed(1)}°</b>（膠原~49°，肌凝蛋白~62°）<br>`;
+  let s = t('st.te', te.toFixed(1));
   if (perturbed) {
     const teA = thetaE(fit.rhoA);
     const bias = (fit.rhoA / st.rho - 1) * 100;
@@ -824,29 +980,25 @@ function render() {
     for (const p of st.main.pts) sig += p[3];
     for (const p of flat.pts) sig0 += p[3];
     const lvl = sig / st.main.pts.length / (sig0 / flat.pts.length) * 100;
-    s += `天真擬合表觀 ρ̂：<b class="bias">${fit.rhoA.toFixed(2)}</b>`
-       + `（偏差 <b class="bias">${bias >= 0 ? '+' : ''}${bias.toFixed(0)}%</b>，θ̂e=${teA.toFixed(1)}°）<br>`
-       + `天真模型擬合殘差：<b>${(fit.resid * 100).toFixed(1)}%</b>`
-       + (Math.abs(st.c14) > 1e-6 && st.delta > 1e-6 ? '（手性讓曲線歪斜，天真模型跟不上）' : '') + '<br>'
-       + `總訊號 vs 無擾動：<b>${lvl.toFixed(0)}%</b>`;
+    s += t('st.naive', fit.rhoA.toFixed(2), `${bias >= 0 ? '+' : ''}${bias.toFixed(0)}%`, teA.toFixed(1))
+       + t('st.resid', (fit.resid * 100).toFixed(1), Math.abs(st.c14) > 1e-6 && st.delta > 1e-6)
+       + t('st.level', lvl.toFixed(0));
   } else {
-    s += `表觀 ρ̂ = 真實 ρ（無 δ/χ₁₄/Γ 擾動，天真模型無偏）<br>`
-       + `平行/垂直強度比 I(φ)/I(φ+90°)：<b>${(st.rho * st.rho).toFixed(2)}</b>（= ρ²）`;
+    s += t('st.unbiased') + t('st.ratio', (st.rho * st.rho).toFixed(2));
   }
   const fr = fourier(st.main.pts.map(p => [p[0], p[3]]));
-  s += `<br>Fourier：a₂/a₀=<b>${fr.r2.toFixed(2)}</b>、a₄/a₀=<b>${fr.r4.toFixed(2)}</b>`;
+  s += t('st.fourier', fr.r2.toFixed(2), fr.r4.toFixed(2));
   $('stats').innerHTML = s;
 
   if (exp) {
     const rms = expRms(st);
-    let m = `殘差 RMS：<b>${(rms * 100).toFixed(1)}%</b>　`;
+    let m = t('ex.rms', (rms * 100).toFixed(1));
     if (exp.revealed) {
-      m += `<br>答案：ρ*=${exp.rho.toFixed(2)}、φ*=${Math.round(exp.phi / D2R)}°`
-         + `（你：ρ=${st.rho.toFixed(2)}、φ=${Math.round(phiDeg)}°）`;
+      m += t('ex.answer', exp.rho.toFixed(2), Math.round(exp.phi / D2R), st.rho.toFixed(2), Math.round(phiDeg));
     } else if (rms < 0.05) {
-      m += '✓ 擬合得不錯！按「揭曉」對答案';
+      m += t('ex.good');
     } else {
-      m += '拖 ρ 和 φ 讓曲線穿過黃點';
+      m += t('ex.drag');
     }
     $('expMsg').innerHTML = m;
   } else {
@@ -897,20 +1049,18 @@ $('expGo').addEventListener('click', () => {
 $('expReveal').addEventListener('click', () => { if (exp) { exp.revealed = true; render(); } });
 $('csvFit').addEventListener('click', () => {
   const pts = parseCSV($('csvIn').value);
-  if (pts.length < 5) { $('csvMsg').textContent = '至少需要 5 個「角度,強度」資料點'; return; }
+  if (pts.length < 5) { csvMsg = { k: 'csv.need5', args: [] }; showCsvMsg(); return; }
   const fit = fitData(pts);
   csv = { pts: pts.map(([t, I]) => [t, fit.A > 0 ? I / fit.A : I]) };
   $('delta').value = 0; $('c14').value = 0; $('gam').value = 0;
   phiDeg = ((fit.phi / D2R) % 360 + 360) % 360;
   $('phi').value = phiDeg;
-  $('csvMsg').innerHTML =
-    `擬合：ρ=<b>${fit.rho.toFixed(2)}</b>、φ=${Math.round(phiDeg)}°、θe=${thetaE(fit.rho).toFixed(1)}°、`
-    + `殘差 RMS ${(fit.rms * 100).toFixed(1)}%<br>`
-    + `Fourier：a₂/a₀=${fit.fourier.r2.toFixed(2)}、a₄/a₀=${fit.fourier.r4.toFixed(2)}`
-    + `（實心圓點＝你的數據，已換算到 χ₁₅² 單位）`;
+  csvMsg = { k: 'csv.fit', args: [fit.rho.toFixed(2), Math.round(phiDeg), thetaE(fit.rho).toFixed(1),
+    (fit.rms * 100).toFixed(1), fit.fourier.r2.toFixed(2), fit.fourier.r4.toFixed(2)] };
+  showCsvMsg();
   setRho(fit.rho);
 });
-$('csvClear').addEventListener('click', () => { csv = null; $('csvMsg').textContent = ''; render(); });
+$('csvClear').addEventListener('click', () => { csv = null; csvMsg = null; showCsvMsg(); render(); });
 $('expClear').addEventListener('click', () => {
   exp = null;
   $('expReveal').style.display = 'none';
@@ -918,6 +1068,7 @@ $('expClear').addEventListener('click', () => {
   render();
 });
 
+applyLang();
 booted = true;
 render();
 </script>

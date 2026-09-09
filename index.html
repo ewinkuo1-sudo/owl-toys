@@ -25,7 +25,7 @@
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   h1 { font-size: 1.6rem; margin: 0; }
-  p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
+  p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; text-align: center; }
   a.card {
     display: block; width: min(560px, 100%);
     background: var(--panel); border-radius: 12px; padding: 18px 20px;
@@ -37,8 +37,8 @@
   .card h2 { margin: 0 0 6px; font-size: 1.05rem; color: var(--accent); }
   .card p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
   footer { margin-top: auto; padding-top: 32px; color: var(--dim); font-size: 0.78rem; }
+  .chips { position: fixed; top: 14px; right: 16px; z-index: 5; display: flex; gap: 6px; }
   button.chip {
-    position: fixed; top: 14px; right: 16px; z-index: 5;
     background: var(--panel); color: var(--muted); border: 1px solid var(--grid);
     border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
     font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
@@ -47,79 +47,200 @@
 </style>
 </head>
 <body>
-<button class="chip" id="theme" title="切換深色／淺色"></button>
 <script>
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
-  const b = document.getElementById('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
-}
+// 先套主題，避免首繪閃白／閃黑（完整邏輯在頁尾）
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  document.documentElement.dataset.theme = th;
 })();
-document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 </script>
-<h1>🦉 Owl Toys</h1>
-<p class="sub">貓頭鷹隨手做的互動小玩具。不為發表，純粹讓抽象的東西變得可以玩。</p>
+<div class="chips">
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</div>
+
+<h1 data-i18n="title"></h1>
+<p class="sub" data-i18n="sub"></p>
 
 <a class="card" href="fv300-3d-microscope.html">
-  <h2>FV300 3D 互動顯微鏡 <small>2026-09-06</small></h2>
-  <p>用 Three.js 搭的 FluoView FV300 / IX71 模型，外觀依實驗室實機照片建：拖曳旋轉、掀開掃描頭外殼看振鏡、激發 DM、傘齒輪帶動的 pinhole 轉盤、偵測 DM 滑軌與兩支 PMT；
-  激發與螢光回程用發光線條與流動光子表示，振鏡即時掃描、FluoView 螢幕同步顯示掃出來的合成細胞影像。
-  點任何零件跳出中英文說明與規格，切雷射（405/488，543/633 預留）、pinhole 段位、濾片組合、掃描速度、Z 軸位置，看切片厚度、雜訊與影像跟著變。</p>
+  <h2><span data-i18n="card.fv300.title"></span> <small>2026-09-06</small></h2>
+  <p data-i18n="card.fv300.desc"></p>
 </a>
 
 <a class="card" href="iq-homodyne-playground.html">
-  <h2>I/Q 零差解調遊樂場 <small>2026-09-02</small></h2>
-  <p>卓 lab 偵測鏈的物理直覺：PMT 載波裡拉曼（τ≈0）和螢光（τ>0）相位不同，兩顆混頻器＋90° 正交參考做 I/Q 解調。
-  訊號鏈逐段動畫、I-Q 平面上拉曼/螢光/混合三點的幾何關係、合成組織的 Fiji 四步重建（Ch1·Ch2→振幅·相位），
-  以及 φ₀ 沒校正時相位圖怎麼歪掉。</p>
+  <h2><span data-i18n="card.iq.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.iq.desc"></p>
 </a>
 
 <a class="card" href="cars-beat-playground.html">
-  <h2>CARS 拍頻遊樂場 <small>2026-09-02 · 09-08 重製</small></h2>
-  <p>pump 與 Stokes 兩道光「打拍子」（橫軸比例真實），拍頻對上分子振動 Ω 才推得動、才生出 anti-Stokes 訊號；
-  分子振動的相位落後、χ_NR 造成的峰位偏移與凹陷位置都即時算出。可調 pump 波長與 Ω／Γ，
-  切換自發拉曼 / CARS / SRS 三種模式並附比較表；中英文可切換（EN／中文）；網址帶參數可分享。</p>
+  <h2><span data-i18n="card.cars.title"></span> <small data-i18n="card.cars.date"></small></h2>
+  <p data-i18n="card.cars.desc"></p>
 </a>
 
 <a class="card" href="pshg-image-lab.html">
-  <h2>P-SHG 影像實驗室 <small>2026-09-02</small></h2>
-  <p>合成假組織（膠原束、肌肉帶、病變結節）→ 模擬多偏振角影像疊＋光子噪聲 →
-  逐像素 Fourier 分析反推 φ 方向圖與 ρ 圖。拉角度數和光子預算看 ρ 圖何時糊掉，
-  點像素檢視單點偏振曲線。</p>
+  <h2><span data-i18n="card.pshgimg.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.pshgimg.desc"></p>
 </a>
 
 <a class="card" href="flim-phasor-playground.html">
-  <h2>FLIM Phasor 遊樂場 <small>2026-09-02</small></h2>
-  <p>從 TCSPC 衰減直方圖取諧波得到 phasor：單指數在半圓上、混合在弦上；
-  IRF 把點轉走、參考染料校正拉回來、背景往原點拉。合成 FLIM 影像每個像素一個點，
-  在 phasor 圖上圈一團反查是哪些細胞。</p>
+  <h2><span data-i18n="card.flim.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.flim.desc"></p>
 </a>
 
 <a class="card" href="pinhole-playground.html">
-  <h2>共軛焦 Pinhole 模擬 <small>2026-09-02</small></h2>
-  <p>轉 FV300 的 CONFOCAL APERTURE 五段旋鈕，換算成 Airy 單位看光學切片厚度 vs 收光量的取捨（1 AU ≈ 84% 的甜蜜點）。
-  下半部用 2026-09-02 硬幣反射式實測當對照：最小針孔把刻線變成等高線，掃 z 看亮帶搬家，z-stack 重建高度圖。</p>
+  <h2><span data-i18n="card.pinhole.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.pinhole.desc"></p>
 </a>
 
 <a class="card" href="pshg-polar-playground.html">
-  <h2>P-SHG 偏振極座標遊樂場 v2 <small>2026-09-01</small></h2>
-  <p>偏振解析 SHG 完整模擬：ρ ↔ 螺旋傾角 θe 換算、出平面傾角 δ／手性 χ₁₄／組織雙折射 Γ
-  三種表觀 ρ 偏差來源、X/Y 分光偵測、Fourier 係數、匯入實驗 CSV 直接擬合、噪聲擬合遊戲。
-  根據 Tiaho 2007 (Opt. Express) 與 Lee 2023 (APL)。</p>
+  <h2><span data-i18n="card.pshgpolar.title"></span> <small>2026-09-01</small></h2>
+  <p data-i18n="card.pshgpolar.desc"></p>
 </a>
 
 <a class="card" href="pulse-comb-playground.html">
-  <h2>脈衝串 ↔ 頻率梳遊樂場 <small>2026-09-01</small></h2>
-  <p>週期脈衝串就是一支頻率梳。拉重複率、脈衝寬度、疊加諧波數，看尖脈衝怎麼從弦波長出來；
-  疊上螢光壽命低通，看 NADH 的 1f/2f 取頻取捨——訊號虧 1.4 倍、相位差 26°→40°。</p>
+  <h2><span data-i18n="card.comb.title"></span> <small>2026-09-01</small></h2>
+  <p data-i18n="card.comb.desc"></p>
 </a>
 
-<footer>made by 🦉 for MrEwin</footer>
+<footer data-i18n="footer"></footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+const I18N = {
+zh: {
+  'title': '🦉 Owl Toys',
+  'sub': '貓頭鷹隨手做的互動小玩具。不為發表，純粹讓抽象的東西變得可以玩。',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'footer': 'made by 🦉 for MrEwin',
+
+  'card.fv300.title': 'FV300 3D 互動顯微鏡',
+  'card.fv300.desc': `用 Three.js 搭的 FluoView FV300 / IX71 模型，外觀依實驗室實機照片建：拖曳旋轉、掀開掃描頭外殼看振鏡、激發 DM、傘齒輪帶動的 pinhole 轉盤、偵測 DM 滑軌與兩支 PMT；
+  激發與螢光回程用發光線條與流動光子表示，振鏡即時掃描、FluoView 螢幕同步顯示掃出來的合成細胞影像。
+  點任何零件跳出中英文說明與規格，切雷射（405/488，543/633 預留）、pinhole 段位、濾片組合、掃描速度、Z 軸位置，看切片厚度、雜訊與影像跟著變。`,
+
+  'card.iq.title': 'I/Q 零差解調遊樂場',
+  'card.iq.desc': `卓 lab 偵測鏈的物理直覺：PMT 載波裡拉曼（τ≈0）和螢光（τ>0）相位不同，兩顆混頻器＋90° 正交參考做 I/Q 解調。
+  訊號鏈逐段動畫、I-Q 平面上拉曼/螢光/混合三點的幾何關係、合成組織的 Fiji 四步重建（Ch1·Ch2→振幅·相位），
+  以及 φ₀ 沒校正時相位圖怎麼歪掉。`,
+
+  'card.cars.title': 'CARS 拍頻遊樂場',
+  'card.cars.date': '2026-09-02 · 09-08 重製',
+  'card.cars.desc': `pump 與 Stokes 兩道光「打拍子」（橫軸比例真實），拍頻對上分子振動 Ω 才推得動、才生出 anti-Stokes 訊號；
+  分子振動的相位落後、χ_NR 造成的峰位偏移與凹陷位置都即時算出。可調 pump 波長與 Ω／Γ，
+  切換自發拉曼 / CARS / SRS 三種模式並附比較表；中英文可切換（EN／中文）；網址帶參數可分享。`,
+
+  'card.pshgimg.title': 'P-SHG 影像實驗室',
+  'card.pshgimg.desc': `合成假組織（膠原束、肌肉帶、病變結節）→ 模擬多偏振角影像疊＋光子噪聲 →
+  逐像素 Fourier 分析反推 φ 方向圖與 ρ 圖。拉角度數和光子預算看 ρ 圖何時糊掉，
+  點像素檢視單點偏振曲線。`,
+
+  'card.flim.title': 'FLIM Phasor 遊樂場',
+  'card.flim.desc': `從 TCSPC 衰減直方圖取諧波得到 phasor：單指數在半圓上、混合在弦上；
+  IRF 把點轉走、參考染料校正拉回來、背景往原點拉。合成 FLIM 影像每個像素一個點，
+  在 phasor 圖上圈一團反查是哪些細胞。`,
+
+  'card.pinhole.title': '共軛焦 Pinhole 模擬',
+  'card.pinhole.desc': `轉 FV300 的 CONFOCAL APERTURE 五段旋鈕，換算成 Airy 單位看光學切片厚度 vs 收光量的取捨（1 AU ≈ 84% 的甜蜜點）。
+  下半部用 2026-09-02 硬幣反射式實測當對照：最小針孔把刻線變成等高線，掃 z 看亮帶搬家，z-stack 重建高度圖。`,
+
+  'card.pshgpolar.title': 'P-SHG 偏振極座標遊樂場 v2',
+  'card.pshgpolar.desc': `偏振解析 SHG 完整模擬：ρ ↔ 螺旋傾角 θe 換算、出平面傾角 δ／手性 χ₁₄／組織雙折射 Γ
+  三種表觀 ρ 偏差來源、X/Y 分光偵測、Fourier 係數、匯入實驗 CSV 直接擬合、噪聲擬合遊戲。
+  根據 Tiaho 2007 (Opt. Express) 與 Lee 2023 (APL)。`,
+
+  'card.comb.title': '脈衝串 ↔ 頻率梳遊樂場',
+  'card.comb.desc': `週期脈衝串就是一支頻率梳。拉重複率、脈衝寬度、疊加諧波數，看尖脈衝怎麼從弦波長出來；
+  疊上螢光壽命低通，看 NADH 的 1f/2f 取頻取捨——訊號虧 1.4 倍、相位差 26°→40°。`,
+},
+en: {
+  'title': '🦉 Owl Toys',
+  'sub': 'Little interactive toys an owl knocked together. Not for publication — just to make abstract things playable.',
+  'btn.lang.title': '切換為中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'footer': 'made by 🦉 for MrEwin',
+
+  'card.fv300.title': 'FV300 3D Interactive Microscope',
+  'card.fv300.desc': `A FluoView FV300 / IX71 model built in Three.js, styled after photos of the lab's real instrument: drag to rotate, lift the scan-head cover to see the galvos, the excitation DM, the bevel-gear-driven pinhole turret, the detection DM rail and the two PMTs.
+  Excitation and returning fluorescence are drawn as glowing lines with flowing photons; the galvos scan live while the FluoView screen shows the synthetic cell image being built up.
+  Click any part for a bilingual description and specs; switch lasers (405/488, with 543/633 reserved), pinhole step, filter set, scan speed and Z position, and watch section thickness, noise and the image change with them.`,
+
+  'card.iq.title': 'I/Q Homodyne Playground',
+  'card.iq.desc': `The physical intuition behind the TBL lab detection chain: inside the PMT carrier, Raman (τ≈0) and fluorescence (τ>0) sit at different phases, so two mixers plus a 90° quadrature reference do the I/Q demodulation.
+  Stage-by-stage signal-chain animation, the geometry of the Raman / fluorescence / mixed points on the I-Q plane, a four-step Fiji reconstruction of synthetic tissue (Ch1·Ch2 → amplitude·phase),
+  and how the phase map skews when φ₀ is not calibrated.`,
+
+  'card.cars.title': 'CARS Beat-Frequency Playground',
+  'card.cars.date': '2026-09-02 · remade 09-08',
+  'card.cars.desc': `The pump and Stokes beams "beat" against each other (horizontal axis drawn to true scale); only when the beat frequency lands on the molecular vibration Ω does it push the molecules and produce an anti-Stokes signal.
+  The phase lag of the vibration and the peak shift and dip caused by χ_NR are computed live. Adjust the pump wavelength and Ω/Γ,
+  switch between spontaneous Raman / CARS / SRS with a comparison table; Chinese/English toggle (EN / <span style="white-space:nowrap">中文</span>); URL parameters make it shareable.`,
+
+  'card.pshgimg.title': 'P-SHG Image Lab',
+  'card.pshgimg.desc': `Synthetic fake tissue (collagen bundles, muscle bands, lesion nodules) → a simulated multi-polarization-angle image stack plus photon noise →
+  pixel-by-pixel Fourier analysis to recover the φ orientation map and the ρ map. Drag the number of angles and the photon budget to see when the ρ map turns to mush;
+  click a pixel to inspect its polarization curve.`,
+
+  'card.flim.title': 'FLIM Phasor Playground',
+  'card.flim.desc': `Take one harmonic of the TCSPC decay histogram and you get a phasor: single exponentials sit on the semicircle, mixtures on the chord;
+  the IRF rotates points away, reference-dye calibration pulls them back, background drags them toward the origin. Every pixel of a synthetic FLIM image becomes a point —
+  circle a cluster on the phasor plot to find out which cells it came from.`,
+
+  'card.pinhole.title': 'Confocal Pinhole Simulator',
+  'card.pinhole.desc': `Turn the FV300's five-step CONFOCAL APERTURE knob, convert to Airy units and see the trade-off between optical section thickness and collected light (1 AU ≈ 84% is the sweet spot).
+  The lower half uses a real reflective coin measurement from 2026-09-02 as a reference: the smallest pinhole turns the engraving into contour lines, scanning z moves the bright band around, and a z-stack rebuilds the height map.`,
+
+  'card.pshgpolar.title': 'P-SHG Polar Playground v2',
+  'card.pshgpolar.desc': `A full polarization-resolved SHG simulation: ρ ↔ helical pitch angle θe conversion; three sources of apparent-ρ bias — out-of-plane tilt δ, chirality χ₁₄ and tissue birefringence Γ;
+  X/Y split detection, Fourier coefficients, import an experimental CSV to fit directly, and a noisy-fit game.
+  Based on Tiaho 2007 (Opt. Express) and Lee 2023 (APL).`,
+
+  'card.comb.title': 'Pulse Train ↔ Frequency Comb',
+  'card.comb.desc': `A periodic pulse train is a frequency comb. Drag the repetition rate, pulse width and number of summed harmonics to see how a sharp pulse grows out of sine waves;
+  stack a fluorescence-lifetime low-pass on top to see the 1f/2f trade-off for NADH — signal down 1.4×, phase difference 26° → 40°.`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  $('theme').textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
+}
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
+
+setTheme(document.documentElement.dataset.theme || 'light');
+applyLang();
+</script>
 </body>
 </html>

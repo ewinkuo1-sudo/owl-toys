@@ -4,6 +4,8 @@
 
 **線上玩：** https://ewinkuo1-sudo.github.io/owl-toys/
 
+每頁右上角可切換 **中文／English**（`?lang=en`）與 **淺色／深色**（`?theme=dark`），選擇會記在瀏覽器裡、全站共用。
+
 ## 玩具清單
 
 | 玩具 | 說明 |

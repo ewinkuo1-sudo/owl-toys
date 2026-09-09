@@ -40,8 +40,8 @@
   }
   .head { position: relative; width: 100%; max-width: 1260px; text-align: center; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  .head .btns { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
   button.chip {
-    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
     color: var(--muted); border: 1px solid var(--grid); border-radius: 999px;
     padding: 4px 10px; font-size: 0.78rem;
   }
@@ -59,8 +59,8 @@
     display: flex; flex-direction: column; gap: 14px; width: 300px;
   }
   .sec { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
-  .ctl label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
-  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 0.88rem; margin-bottom: 4px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); }
@@ -88,16 +88,13 @@
 </head>
 <body>
 <div class="head">
-  <h1>FLIM Phasor 遊樂場</h1>
-  <button class="chip" id="theme" title="切換深色／淺色"></button>
+  <h1 data-i18n="title"></h1>
+  <span class="btns">
+    <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+    <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+  </span>
 </div>
-<p class="sub">
-  這裡的相量不是套公式算的：右上圖那條 TCSPC 衰減直方圖 I(t) 在雷射重複頻率 f 上取第一諧波，
-  <code>g = ΣI·cos ωt / ΣI</code>、<code>s = ΣI·sin ωt / ΣI</code>，
-  就是左上圖的那個點。單指數落在半徑 0.5 的萬用半圓上；混合物落在弦上；
-  IRF 會把點旋轉並往圓心縮，背景光子會把點往原點 (0, 0) 拉。
-  下方的合成 FLIM 影像每個像素都有自己的相量，構成點雲；在 phasor 圖上拖曳游標可以反查是哪些像素。
-</p>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <div class="col">
     <canvas id="phasor" width="440" height="330"></canvas>
@@ -108,94 +105,243 @@
     <div class="stats" id="stats"></div>
   </div>
   <div class="controls">
-    <div class="sec">樣品</div>
+    <div class="sec" data-i18n="sec.sample"></div>
     <div class="ctl">
-      <label>τ₁（自由態 NADH 般） <output id="t1Out">0.40 ns</output></label>
+      <label><span data-i18n="lbl.t1"></span> <output id="t1Out">0.40 ns</output></label>
       <input type="range" id="t1" min="0.1" max="10" step="0.01" value="0.4">
     </div>
     <div class="ctl">
-      <label>τ₂（結合態 NADH 般） <output id="t2Out">2.50 ns</output></label>
+      <label><span data-i18n="lbl.t2"></span> <output id="t2Out">2.50 ns</output></label>
       <input type="range" id="t2" min="0.1" max="10" step="0.01" value="2.5">
     </div>
     <div class="ctl">
-      <label>A 群細胞的振幅分率 α₁ <output id="fracOut">0.50</output></label>
+      <label><span data-i18n="lbl.frac"></span> <output id="fracOut">0.50</output></label>
       <input type="range" id="frac" min="0" max="1" step="0.01" value="0.5">
     </div>
     <div class="ctl">
-      <label>B 群細胞的 α₁ 偏移 Δα <output id="dfracOut">+0.30</output></label>
+      <label><span data-i18n="lbl.dfrac"></span> <output id="dfracOut">+0.30</output></label>
       <input type="range" id="dfrac" min="-0.6" max="0.6" step="0.01" value="0.3">
     </div>
 
-    <div class="sec">儀器</div>
+    <div class="sec" data-i18n="sec.instr"></div>
     <div class="ctl">
-      <label>雷射重複頻率 f <output id="freqOut">80 MHz</output></label>
+      <label><span data-i18n="lbl.freq"></span> <output id="freqOut">80 MHz</output></label>
       <input type="range" id="freq" min="20" max="160" step="1" value="80">
     </div>
     <div class="ctl">
-      <label>IRF 寬度（FWHM） <output id="irfOut">0.30 ns</output></label>
+      <label><span data-i18n="lbl.irf"></span> <output id="irfOut">0.30 ns</output></label>
       <input type="range" id="irf" min="0" max="2" step="0.01" value="0.3">
     </div>
     <div class="ctl">
-      <label>背景光子比例 b <output id="bgOut">0.05</output></label>
+      <label><span data-i18n="lbl.bg"></span> <output id="bgOut">0.05</output></label>
       <input type="range" id="bg" min="0" max="0.6" step="0.01" value="0.05">
     </div>
     <div class="ctl">
-      <label>亮像素光子數 N（對數） <output id="photOut">1,000</output></label>
+      <label><span data-i18n="lbl.phot"></span> <output id="photOut">1,000</output></label>
       <input type="range" id="phot" min="2" max="5" step="0.01" value="3">
     </div>
 
-    <div class="sec">分析</div>
+    <div class="sec" data-i18n="sec.analysis"></div>
     <div class="toggle">
       <input type="checkbox" id="cal" checked>
-      <label for="cal">用 4.0 ns 參考染料校正 IRF</label>
+      <label for="cal" data-i18n="tg.cal"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="thr" checked>
-      <label for="thr">強度門檻：phasor 圖略過 N &lt; 30% 的像素</label>
+      <label for="thr" data-i18n="tg.thr"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="harm2">
-      <label for="harm2">看二次諧波 2f 的 phasor</label>
+      <label for="harm2" data-i18n="tg.harm2"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="logy">
-      <label for="logy">衰減圖用對數 y 軸</label>
+      <label for="logy" data-i18n="tg.logy"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="colorTau" checked>
-      <label for="colorTau">影像依 τ_φ 上色（亮度 = 光子數）</label>
+      <label for="colorTau" data-i18n="tg.colorTau"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="noise" checked>
-      <label for="noise">點雲每秒重抽幾次</label>
+      <label for="noise" data-i18n="tg.noise"></label>
     </div>
-    <button id="clearCur">清除 phasor 游標</button>
+    <button id="clearCur" data-i18n="btn.clearCur"></button>
   </div>
 </div>
 
-<div class="hint">
-  <p><b>相量就是直方圖的第一諧波。</b>把 I(t) 乘上 cos ωt、sin ωt 再積分，得到的就是 g、s，
-  和 IQ 零差解調是同一套數學。單指數的 Fourier 轉換恰好落在半圓上，所以「半圓」不是定義，是結果。
-  週期性激發下長壽命的尾巴會疊到下一個週期（衰減圖上的 T 線右邊其實接回左邊），但第一諧波不受影響，這是 phasor 的方便之處。</p>
-  <p><b>IRF 與校正。</b>量到的直方圖是真實衰減與儀器響應 IRF 的摺積，在頻域就是兩個相量相乘：IRF 的延遲把點轉一個角度、寬度把點往圓心縮。
-  把「校正」關掉看看原始點跑去哪；打開後程式用一個已知 τ = 4.0 ns 的參考染料量出 IRF 相量，再把所有像素除回去。
-  實驗上每次換濃度、換濾片、換偵測器都要重量參考。</p>
-  <p><b>背景是加法，校正救不回來。</b>均勻背景的第一諧波為零，所以它把每個點沿著「往原點」的方向拉，比例正好是 b。
-  校正是乘法，只會旋轉縮放，對加法性的偏移無能為力，所以實作上要先扣背景、再校正。</p>
-  <p><b>α 和 f 不是同一個權重。</b>擬合軟體回報的振幅分率 α₁ 是 t = 0 的高度比，phasor 弦上的位置卻由光子數分率
-  <code>f₁ = α₁τ₁ / (α₁τ₁ + (1−α₁)τ₂)</code> 決定，短壽命成分貢獻的光子遠比它的 α 少。
-  stats 裡另外列了 amplitude-weighted 與 intensity-weighted 平均壽命，它們和 τ_φ、τ_m 是四個不同的數，只有單指數時才全部相等。</p>
-  <p><b>點雲不是圓的。</b>每個像素有 N 個光子，g、s 是 N 個 cos、sin 的樣本平均，共變異數由二次諧波決定：
-  Var(g) = (1 + g₂ₙ)/2 − g² 再除以 N。所以靠近半圓兩端的點雲是扁的、方向沿著半圓切線，
-  暗像素的點雲又大得多，這就是為什麼 FLIM 軟體一定有強度門檻。關掉門檻，看細胞外那些幾十顆光子的像素把原點附近炸成一團。</p>
-  <p><b>游標與反查。</b>在 phasor 圖上按住拖曳（滾輪調大小）圈一團點，影像上對應的像素會變成桃紅，衰減圖也會畫出被圈像素的合計直方圖。
-  這就是 phasor FLIM 的工作流程：不擬合，先在相量空間看見群集，再問這些群集在影像上是誰。
-  A、B 兩群細胞的 Δα 拉大一點，兩團就分開；拉小、或把 N 調低，兩團就糊在一起，這時才輪到「多收光子」或「換頻率」。</p>
-  <p><b>頻率與諧波。</b>ωτ ≈ 1 時半圓上的刻度最疏、對壽命最敏感，stats 裡的「τ₁、τ₂ 弧距」就是這個分辨力。
-  二次諧波 2f 把所有壽命往半圓左下推，短壽命被拉開、長壽命被壓扁；同一組像素在 f 與 2f 各得一個相量，兩個一起用可以拆到三成分。</p>
-</div>
+<div class="hint" id="hints"></div>
 
 <script>
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': 'FLIM Phasor 遊樂場',
+  'sub': `這裡的相量不是套公式算的：右上圖那條 TCSPC 衰減直方圖 I(t) 在雷射重複頻率 f 上取第一諧波，
+  <code>g = ΣI·cos ωt / ΣI</code>、<code>s = ΣI·sin ωt / ΣI</code>，
+  就是左上圖的那個點。單指數落在半徑 0.5 的萬用半圓上；混合物落在弦上；
+  IRF 會把點旋轉並往圓心縮，背景光子會把點往原點 (0, 0) 拉。
+  下方的合成 FLIM 影像每個像素都有自己的相量，構成點雲；在 phasor 圖上拖曳游標可以反查是哪些像素。`,
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  // 控制面板
+  'sec.sample': '樣品', 'sec.instr': '儀器', 'sec.analysis': '分析',
+  'lbl.t1': 'τ₁（自由態 NADH 般）',
+  'lbl.t2': 'τ₂（結合態 NADH 般）',
+  'lbl.frac': 'A 群細胞的振幅分率 α₁',
+  'lbl.dfrac': 'B 群細胞的 α₁ 偏移 Δα',
+  'lbl.freq': '雷射重複頻率 f',
+  'lbl.irf': 'IRF 寬度（FWHM）',
+  'lbl.bg': '背景光子比例 b',
+  'lbl.phot': '亮像素光子數 N（對數）',
+  'tg.cal': '用 4.0 ns 參考染料校正 IRF',
+  'tg.thr': '強度門檻：phasor 圖略過 N &lt; 30% 的像素',
+  'tg.harm2': '看二次諧波 2f 的 phasor',
+  'tg.logy': '衰減圖用對數 y 軸',
+  'tg.colorTau': '影像依 τ_φ 上色（亮度 = 光子數）',
+  'tg.noise': '點雲每秒重抽幾次',
+  'btn.clearCur': '清除 phasor 游標',
+  // phasor 圖
+  'sep': '，',
+  'ph.ticks': '半圓刻度 = 單指數 τ（ns）',
+  'ph.freq': (n, f) => n === 2 ? `二次諧波 2f = ${2 * f} MHz` : `f = ${f} MHz`,
+  'ph.rawA': 'A 校正前',
+  // 衰減圖
+  'dc.period': T => `T = 1/f = ${T} ns，尾巴接回 t = 0`,
+  'dc.x': '時間 t（ns）',
+  'dc.y': '峰值歸一化 I(t)', 'dc.yLog': '峰值歸一化 I(t)（log）',
+  'dc.legIrf': '灰底：IRF',
+  'dc.legIdeal': '虛線：理想週期化單指數 e^(−t/τ₁)、e^(−t/τ₂)',
+  'dc.legMeas': '實線：A 群量到的直方圖（IRF 摺積＋背景）；點線：B 群',
+  'dc.legSel': '桃紅：游標圈到的像素合計直方圖',
+  // 影像
+  'img.grey': '灰階 = 光子數；桃紅 = 游標圈到的像素',
+  'img.grey.short': '灰階 = 光子數；桃紅 = 游標像素',
+  // 統計
+  'st.groups': (a1, f1, a1B, f1B) => `A 群：α₁ <b>${a1}</b> → 光子分率 f₁ <b>${f1}</b>；B 群：α₁ <b>${a1B}</b> → f₁ <b>${f1B}</b><br>`,
+  'st.phasorA': (cal, g, s) => `A 相量（${cal ? '校正後' : '未校正'}）：<b>g = ${g}</b>，<b>s = ${s}</b><br>`,
+  'st.rawA': (g, s) => `A 校正前：g = ${g}，s = ${s}<br>`,
+  'st.phiM': (phi, M) => `φ <b>${phi}°</b>　M <b>${M}</b><br>`,
+  'st.taus': (tp, tm) => `τ_φ = tan φ / ω：<b>${tp} ns</b>　τ_m = √(1/M²−1)/ω：<b>${tm} ns</b><br>`,
+  'st.avg': (ta, ti) => `amplitude-weighted ⟨τ⟩_α：<b>${ta} ns</b>　intensity-weighted ⟨τ⟩_I：<b>${ti} ns</b><br>`,
+  'st.v.single': 'τ_φ ≈ τ_m ⇒ 看起來像單指數',
+  'st.v.bg': 'τ_φ ≠ τ_m，但樣品是單指數 ⇒ 這是背景造成的',
+  'st.v.multi': 'τ_φ ≠ τ_m ⇒ 多指數（或背景）的指紋',
+  'st.verdict': (v, gap) => `<b>${v}</b>（τ_φ − τ_m 差 ${gap} ns）<br>`,
+  'st.arc': (arc, sa, ss) => `τ₁、τ₂ 弧距（分辨力）：<b>${arc}</b>；A 群亮像素 σ_g ≈ <b>${sa}</b>、σ_s ≈ <b>${ss}</b><br>`,
+  'st.cursor': (g, s, tp, tm, cnt) => `<span class="sel">游標 (${g}, ${s})：τ_φ ${tp} ns、τ_m ${tm} ns，圈到 <b>${cnt}</b> 個像素</span>`,
+  'st.noCursor': '<span class="sel">在 phasor 圖上按住拖曳放游標，滾輪改大小</span>',
+  // 說明卡
+  'hints': [
+    `<b>相量就是直方圖的第一諧波。</b>把 I(t) 乘上 cos ωt、sin ωt 再積分，得到的就是 g、s，
+  和 IQ 零差解調是同一套數學。單指數的 Fourier 轉換恰好落在半圓上，所以「半圓」不是定義，是結果。
+  週期性激發下長壽命的尾巴會疊到下一個週期（衰減圖上的 T 線右邊其實接回左邊），但第一諧波不受影響，這是 phasor 的方便之處。`,
+    `<b>IRF 與校正。</b>量到的直方圖是真實衰減與儀器響應 IRF 的摺積，在頻域就是兩個相量相乘：IRF 的延遲把點轉一個角度、寬度把點往圓心縮。
+  把「校正」關掉看看原始點跑去哪；打開後程式用一個已知 τ = 4.0 ns 的參考染料量出 IRF 相量，再把所有像素除回去。
+  實驗上每次換濃度、換濾片、換偵測器都要重量參考。`,
+    `<b>背景是加法，校正救不回來。</b>均勻背景的第一諧波為零，所以它把每個點沿著「往原點」的方向拉，比例正好是 b。
+  校正是乘法，只會旋轉縮放，對加法性的偏移無能為力，所以實作上要先扣背景、再校正。`,
+    `<b>α 和 f 不是同一個權重。</b>擬合軟體回報的振幅分率 α₁ 是 t = 0 的高度比，phasor 弦上的位置卻由光子數分率
+  <code>f₁ = α₁τ₁ / (α₁τ₁ + (1−α₁)τ₂)</code> 決定，短壽命成分貢獻的光子遠比它的 α 少。
+  stats 裡另外列了 amplitude-weighted 與 intensity-weighted 平均壽命，它們和 τ_φ、τ_m 是四個不同的數，只有單指數時才全部相等。`,
+    `<b>點雲不是圓的。</b>每個像素有 N 個光子，g、s 是 N 個 cos、sin 的樣本平均，共變異數由二次諧波決定：
+  Var(g) = (1 + g₂ₙ)/2 − g² 再除以 N。所以靠近半圓兩端的點雲是扁的、方向沿著半圓切線，
+  暗像素的點雲又大得多，這就是為什麼 FLIM 軟體一定有強度門檻。關掉門檻，看細胞外那些幾十顆光子的像素把原點附近炸成一團。`,
+    `<b>游標與反查。</b>在 phasor 圖上按住拖曳（滾輪調大小）圈一團點，影像上對應的像素會變成桃紅，衰減圖也會畫出被圈像素的合計直方圖。
+  這就是 phasor FLIM 的工作流程：不擬合，先在相量空間看見群集，再問這些群集在影像上是誰。
+  A、B 兩群細胞的 Δα 拉大一點，兩團就分開；拉小、或把 N 調低，兩團就糊在一起，這時才輪到「多收光子」或「換頻率」。`,
+    `<b>頻率與諧波。</b>ωτ ≈ 1 時半圓上的刻度最疏、對壽命最敏感，stats 裡的「τ₁、τ₂ 弧距」就是這個分辨力。
+  二次諧波 2f 把所有壽命往半圓左下推，短壽命被拉開、長壽命被壓扁；同一組像素在 f 與 2f 各得一個相量，兩個一起用可以拆到三成分。`,
+  ],
+},
+en: {
+  'title': 'FLIM Phasor Playground',
+  'sub': `The phasor here is not computed from a formula: the TCSPC decay histogram I(t) in the top-right panel is projected onto its first harmonic at the laser repetition rate f,
+  <code>g = ΣI·cos ωt / ΣI</code>, <code>s = ΣI·sin ωt / ΣI</code>,
+  and that is the dot in the top-left panel. A single exponential lands on the universal semicircle of radius 0.5; a mixture lands on the chord;
+  the IRF rotates the dot and shrinks it toward the centre, and background photons pull it toward the origin (0, 0).
+  Every pixel of the synthetic FLIM image below has its own phasor, forming the point cloud; drag a cursor on the phasor plot to look up which pixels they are.`,
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sec.sample': 'Sample', 'sec.instr': 'Instrument', 'sec.analysis': 'Analysis',
+  'lbl.t1': 'τ₁ (free-NADH-like)',
+  'lbl.t2': 'τ₂ (bound-NADH-like)',
+  'lbl.frac': 'Amplitude fraction α₁ of cells A',
+  'lbl.dfrac': 'α₁ offset Δα of cells B',
+  'lbl.freq': 'Laser repetition rate f',
+  'lbl.irf': 'IRF width (FWHM)',
+  'lbl.bg': 'Background photon fraction b',
+  'lbl.phot': 'Photons in a bright pixel N (log)',
+  'tg.cal': 'Calibrate the IRF with a 4.0 ns reference dye',
+  'tg.thr': 'Intensity threshold: phasor plot skips pixels with N &lt; 30%',
+  'tg.harm2': 'Show the second-harmonic (2f) phasor',
+  'tg.logy': 'Log y-axis on the decay plot',
+  'tg.colorTau': 'Colour the image by τ_φ (brightness = photons)',
+  'tg.noise': 'Re-sample the point cloud a few times per second',
+  'btn.clearCur': 'Clear phasor cursor',
+  'sep': ', ',
+  'ph.ticks': 'Semicircle ticks = single-exponential τ (ns)',
+  'ph.freq': (n, f) => n === 2 ? `2nd harmonic 2f = ${2 * f} MHz` : `f = ${f} MHz`,
+  'ph.rawA': 'A raw',
+  'dc.period': T => `T = 1/f = ${T} ns, tail wraps back to t = 0`,
+  'dc.x': 'Time t (ns)',
+  'dc.y': 'Peak-normalised I(t)', 'dc.yLog': 'Peak-normalised I(t) (log)',
+  'dc.legIrf': 'Grey fill: IRF',
+  'dc.legIdeal': 'Dashed: ideal periodic exponentials e^(−t/τ₁), e^(−t/τ₂)',
+  'dc.legMeas': 'Solid: histogram measured for cells A (IRF convolution + background); dotted: cells B',
+  'dc.legSel': 'Magenta: summed histogram of the circled pixels',
+  'img.grey': 'Grey = photon count; magenta = pixels inside the cursor',
+  'img.grey.short': 'Grey = photons; magenta = cursor pixels',
+  'st.groups': (a1, f1, a1B, f1B) => `Cells A: α₁ <b>${a1}</b> → photon fraction f₁ <b>${f1}</b>; cells B: α₁ <b>${a1B}</b> → f₁ <b>${f1B}</b><br>`,
+  'st.phasorA': (cal, g, s) => `Phasor of A (${cal ? 'calibrated' : 'uncalibrated'}): <b>g = ${g}</b>, <b>s = ${s}</b><br>`,
+  'st.rawA': (g, s) => `A before calibration: g = ${g}, s = ${s}<br>`,
+  'st.phiM': (phi, M) => `φ <b>${phi}°</b> &nbsp; M <b>${M}</b><br>`,
+  'st.taus': (tp, tm) => `τ_φ = tan φ / ω: <b>${tp} ns</b> &nbsp; τ_m = √(1/M²−1)/ω: <b>${tm} ns</b><br>`,
+  'st.avg': (ta, ti) => `amplitude-weighted ⟨τ⟩_α: <b>${ta} ns</b> &nbsp; intensity-weighted ⟨τ⟩_I: <b>${ti} ns</b><br>`,
+  'st.v.single': 'τ_φ ≈ τ_m ⇒ looks like a single exponential',
+  'st.v.bg': 'τ_φ ≠ τ_m, but the sample is single-exponential ⇒ this is the background',
+  'st.v.multi': 'τ_φ ≠ τ_m ⇒ fingerprint of a multi-exponential decay (or background)',
+  'st.verdict': (v, gap) => `<b>${v}</b> (τ_φ − τ_m differ by ${gap} ns)<br>`,
+  'st.arc': (arc, sa, ss) => `τ₁–τ₂ arc distance (resolving power): <b>${arc}</b>; bright pixels of A: σ_g ≈ <b>${sa}</b>, σ_s ≈ <b>${ss}</b><br>`,
+  'st.cursor': (g, s, tp, tm, cnt) => `<span class="sel">Cursor (${g}, ${s}): τ_φ ${tp} ns, τ_m ${tm} ns, <b>${cnt}</b> pixels circled</span>`,
+  'st.noCursor': '<span class="sel">Press and drag on the phasor plot to place a cursor; scroll to resize it</span>',
+  'hints': [
+    `<b>The phasor is just the first harmonic of the histogram.</b> Multiply I(t) by cos ωt and sin ωt and integrate: that gives g and s,
+  the same maths as I/Q homodyne demodulation. The Fourier transform of a single exponential happens to fall on a semicircle, so the “semicircle” is not a definition, it is a result.
+  Under periodic excitation the tail of a long lifetime spills into the next period (to the right of the T line on the decay plot it actually wraps back to the left),
+  but the first harmonic does not care: that is one of the conveniences of phasors.`,
+    `<b>IRF and calibration.</b> The measured histogram is the true decay convolved with the instrument response IRF; in the frequency domain that is two phasors multiplied:
+  the IRF delay rotates the dot by an angle, its width shrinks the dot toward the centre.
+  Switch “calibrate” off to see where the raw dot goes; with it on, the program measures the IRF phasor with a reference dye of known τ = 4.0 ns and divides every pixel by it.
+  In a real experiment you re-measure the reference every time you change concentration, filter or detector.`,
+    `<b>Background is additive; calibration cannot undo it.</b> The first harmonic of a uniform background is zero, so it pulls every dot straight toward the origin, by exactly the fraction b.
+  Calibration is multiplicative: it only rotates and scales, and can do nothing about an additive shift. In practice: subtract the background first, then calibrate.`,
+    `<b>α and f are not the same weight.</b> The amplitude fraction α₁ reported by fitting software is the ratio of heights at t = 0, but the position on the phasor chord is set by the photon fraction
+  <code>f₁ = α₁τ₁ / (α₁τ₁ + (1−α₁)τ₂)</code>: the short-lifetime component contributes far fewer photons than its α suggests.
+  The stats also list the amplitude-weighted and intensity-weighted mean lifetimes; together with τ_φ and τ_m these are four different numbers, and they are all equal only for a single exponential.`,
+    `<b>The point cloud is not round.</b> Each pixel has N photons; g and s are sample means of N cosines and sines, and their covariance is set by the second harmonic:
+  Var(g) = (1 + g₂ₙ)/2 − g², divided by N. So clouds near the two ends of the semicircle are flattened, stretched along the semicircle's tangent,
+  and clouds of dim pixels are much larger: that is why FLIM software always has an intensity threshold. Switch the threshold off and watch the extracellular pixels with a few dozen photons explode into a blob near the origin.`,
+    `<b>Cursor and look-up.</b> Press and drag on the phasor plot (scroll wheel to resize) to circle a cluster of dots: the matching pixels in the image turn magenta, and the decay plot shows the summed histogram of the circled pixels.
+  This is the phasor-FLIM workflow: no fitting; first see the clusters in phasor space, then ask who they are in the image.
+  Increase Δα between cell groups A and B a little and the two clouds separate; shrink it, or lower N, and they blur together. Only then is it time to “collect more photons” or “change the frequency”.`,
+    `<b>Frequency and harmonics.</b> At ωτ ≈ 1 the ticks on the semicircle are spaced widest, i.e. most sensitive to lifetime; the “τ₁–τ₂ arc distance” in the stats is exactly that resolving power.
+  The second harmonic 2f pushes every lifetime toward the lower left of the semicircle: short lifetimes get spread out, long ones squashed. The same pixels give one phasor at f and another at 2f; used together they can resolve three components.`,
+  ],
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+
 const ph = document.getElementById('phasor');
 const dc = document.getElementById('decay');
 const im = document.getElementById('img');
@@ -211,22 +357,54 @@ function readColors() {
   C.mutedRgb = css('--muted-rgb');
 }
 // 主題：預設淺色，記在 localStorage（key 全站共用 owl-theme），?theme=dark|light 可覆寫；只讀不寫 URL
-let redrawAll = null;   // 在 state 建好後指定，切主題時重畫
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+let redrawAll = null;   // 在 state 建好後指定，切主題／切語言時重畫
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = $('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   readColors();
   if (typeof redrawAll === 'function') redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title') + ' 🦉';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  $('hints').innerHTML = t('hints').map(p => `<p>${p}</p>`).join('');
+  if (typeof redrawAll === 'function') redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
+
+// 依寬度把一行文字折成多行（有空白就按字折，沒有就按字元折）
+function wrapText(ctx, s, maxW) {
+  if (ctx.measureText(s).width <= maxW) return [s];
+  const spaced = s.includes(' ');
+  const parts = spaced ? s.split(' ') : [...s], join = spaced ? ' ' : '';
+  const lines = []; let cur = '';
+  for (const p of parts) {
+    const nx = cur ? cur + join + p : p;
+    if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = p; } else cur = nx;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
 
 // ---------- 時間域模型 ----------
 const NB = 256;            // 每個雷射週期的時間箱數
@@ -271,8 +449,8 @@ function harm(H, n, T) {
   const w = 2 * Math.PI * n / T, dt = T / NB;
   let g = 0, s = 0, tot = 0;
   for (let k = 0; k < NB; k++) {
-    const t = (k + 0.5) * dt;
-    g += H[k] * Math.cos(w * t); s += H[k] * Math.sin(w * t); tot += H[k];
+    const tt = (k + 0.5) * dt;
+    g += H[k] * Math.cos(w * tt); s += H[k] * Math.sin(w * tt); tot += H[k];
   }
   return { g: g / tot, s: s / tot };
 }
@@ -451,7 +629,16 @@ function drawPhasor(st) {
     pctx.beginPath(); pctx.moveTo(x, y); pctx.lineTo(x + ux * 6, y - uy * 6); pctx.stroke();
     pctx.fillText(tau + '', x + ux * 10 - (ux < 0 ? 14 : -2), y - uy * 10 + 4);
   }
-  pctx.fillText(`半圓刻度 = 單指數 τ（ns），${st.n === 2 ? '二次諧波 2f = ' + 2 * st.f : 'f = ' + st.f} MHz`, PX(0.30), PY(0.70));
+  // 刻度說明：一行放得下就一行；放不下（英文）拆成兩行，並確保不超出右緣
+  {
+    const tk = t('ph.ticks'), fq = t('ph.freq', st.n, st.f), one = tk + t('sep') + fq;
+    const x0 = PX(0.30), xR = PX(1.06);
+    if (pctx.measureText(one).width <= xR - x0) pctx.fillText(one, x0, PY(0.70));
+    else {
+      const xs = Math.max(PX(0.02), Math.min(x0, xR - pctx.measureText(tk).width));
+      pctx.fillText(tk, xs, PY(0.70) - 14); pctx.fillText(fq, xs, PY(0.70));
+    }
+  }
 
   // 像素點雲
   const thrN = st.thr ? 0.3 * st.N : 0;
@@ -484,7 +671,7 @@ function drawPhasor(st) {
   if (st.cal && (Math.abs(A.raw.g - A.cal.g) > 1e-3 || Math.abs(A.raw.s - A.cal.s) > 1e-3)) {
     pctx.strokeStyle = C.accent; pctx.lineWidth = 1.5;
     pctx.beginPath(); pctx.arc(PX(A.raw.g), PY(A.raw.s), 6, 0, 2 * Math.PI); pctx.stroke();
-    pctx.fillStyle = C.muted; pctx.fillText('A 校正前', PX(A.raw.g) + 9, PY(A.raw.s) + 4);
+    pctx.fillStyle = C.muted; pctx.fillText(t('ph.rawA'), PX(A.raw.g) + 9, PY(A.raw.s) + 4);
     pctx.setLineDash([2, 3]); pctx.strokeStyle = C.muted;
     pctx.beginPath(); pctx.moveTo(PX(A.raw.g), PY(A.raw.s)); pctx.lineTo(PX(A.cal.g), PY(A.cal.s)); pctx.stroke();
     pctx.setLineDash([]);
@@ -510,7 +697,14 @@ function drawDecay(st, selH) {
   dctx.clearRect(0, 0, w, h);
   dctx.font = '11px sans-serif'; dctx.lineWidth = 1;
 
-  const X = t => mL + pw * t / T;
+  // 圖例先量好行數（英文較長會折行），T 標籤的高度跟著讓
+  const lx = mL + pw * 0.22;
+  const legItems = [[t('dc.legIrf'), C.muted], [t('dc.legIdeal'), C.ref], [t('dc.legMeas'), C.accent]];
+  if (selH) legItems.push([t('dc.legSel'), C.sel]);
+  const legLines = legItems.flatMap(([s, c]) => wrapText(dctx, s, w - mR - lx).map(l => [l, c]));
+  const legBottom = mT + 14 + 15 * legLines.length;
+
+  const X = tt => mL + pw * tt / T;
   const yMin = 1e-3;
   const Y = y => st.logy
     ? mT + pht - pht * (Math.log10(Math.max(y, yMin)) - Math.log10(yMin)) / (-Math.log10(yMin))
@@ -525,9 +719,9 @@ function drawDecay(st, selH) {
     dctx.fillText(lab, 10, y + 4);
   }
   const step = T > 20 ? 5 : T > 10 ? 2 : 1;
-  for (let t = 0; t <= T; t += step) {
-    dctx.beginPath(); dctx.moveTo(X(t), mT); dctx.lineTo(X(t), mT + pht); dctx.stroke();
-    dctx.fillText(t + '', X(t) - 4, h - mB + 16);
+  for (let tt = 0; tt <= T; tt += step) {
+    dctx.beginPath(); dctx.moveTo(X(tt), mT); dctx.lineTo(X(tt), mT + pht); dctx.stroke();
+    dctx.fillText(tt + '', X(tt) - 4, h - mB + 16);
   }
   // 週期線
   dctx.strokeStyle = C.ref; dctx.setLineDash([2, 3]);
@@ -535,13 +729,13 @@ function drawDecay(st, selH) {
   dctx.setLineDash([]);
   dctx.fillStyle = C.ref;
   dctx.textAlign = 'right';
-  dctx.fillText(`T = 1/f = ${T.toFixed(2)} ns，尾巴接回 t = 0`, X(T) - 4, mT + 92);
+  dctx.fillText(t('dc.period', T.toFixed(2)), X(T) - 4, Math.max(mT + 92, legBottom + 4));
   dctx.textAlign = 'left';
 
   dctx.fillStyle = C.ink;
-  dctx.fillText('時間 t（ns）', w / 2 - 30, h - 8);
+  dctx.fillText(t('dc.x'), w / 2 - 30, h - 8);
   dctx.save(); dctx.translate(14, h / 2 + 40); dctx.rotate(-Math.PI / 2);
-  dctx.fillText(st.logy ? '峰值歸一化 I(t)（log）' : '峰值歸一化 I(t)', 0, 0); dctx.restore();
+  dctx.fillText(st.logy ? t('dc.yLog') : t('dc.y'), 0, 0); dctx.restore();
 
   const traceArr = (arr, color, lw, dash) => {
     let mx = 0; for (let k = 0; k < NB; k++) mx = Math.max(mx, arr[k]);
@@ -569,12 +763,7 @@ function drawDecay(st, selH) {
   if (selH) traceArr(selH, C.sel, 2);
 
   let ly = mT + 14;
-  const lx = mL + pw * 0.22;
-  const legend = (txt, color) => { dctx.fillStyle = color; dctx.fillText(txt, lx, ly); ly += 15; };
-  legend('灰底：IRF', C.muted);
-  legend('虛線：理想週期化單指數 e^(−t/τ₁)、e^(−t/τ₂)', C.ref);
-  legend('實線：A 群量到的直方圖（IRF 摺積＋背景）；點線：B 群', C.accent);
-  if (selH) legend('桃紅：游標圈到的像素合計直方圖', C.sel);
+  for (const [line, color] of legLines) { dctx.fillStyle = color; dctx.fillText(line, lx, ly); ly += 15; }
 }
 
 // ---------- 影像 ----------
@@ -619,7 +808,9 @@ function drawImage(st) {
     ictx.fillText('τ_φ 0', 8, 309); ictx.fillText(TAU_MAX + ' ns', 250, 309);
   } else {
     ictx.fillStyle = C.muted;
-    ictx.fillText('灰階 = 光子數；桃紅 = 游標圈到的像素', 8, 309);
+    let s = t('img.grey');
+    if (ictx.measureText(s).width > im.width - 16) s = t('img.grey.short');
+    ictx.fillText(s, 8, 309);
   }
 }
 
@@ -637,27 +828,27 @@ function stats(st, selCnt) {
   const gap = Math.abs(L.tPhi - L.tMod);
   const single = Math.abs(st.t1 - st.t2) < 0.02 || st.a1 === 0 || st.a1 === 1;
   const verdict = gap < 0.02
-    ? 'τ_φ ≈ τ_m ⇒ 看起來像單指數'
-    : (single && st.bg > 0 ? 'τ_φ ≠ τ_m，但樣品是單指數 ⇒ 這是背景造成的' : 'τ_φ ≠ τ_m ⇒ 多指數（或背景）的指紋');
+    ? t('st.v.single')
+    : (single && st.bg > 0 ? t('st.v.bg') : t('st.v.multi'));
   const tAmp = st.a1 * st.t1 + (1 - st.a1) * st.t2;
   const tInt = (st.a1 * st.t1 * st.t1 + (1 - st.a1) * st.t2 * st.t2) / Math.max(1e-9, st.a1 * st.t1 + (1 - st.a1) * st.t2);
   const arc = Math.hypot(st.p1.g - st.p2.g, st.p1.s - st.p2.s);
   const sigA = A.L.a / Math.sqrt(st.N), sigS = Math.hypot(A.L.b, A.L.c) / Math.sqrt(st.N);
   let html =
-    `A 群：α₁ <b>${st.a1.toFixed(2)}</b> → 光子分率 f₁ <b>${st.f1.toFixed(2)}</b>；B 群：α₁ <b>${st.a1B.toFixed(2)}</b> → f₁ <b>${st.f1B.toFixed(2)}</b><br>` +
-    `A 相量（${st.cal ? '校正後' : '未校正'}）：<b>g = ${A.cal.g.toFixed(4)}</b>，<b>s = ${A.cal.s.toFixed(4)}</b><br>`;
-  if (st.cal && st.irfW > 0) html += `A 校正前：g = ${A.raw.g.toFixed(4)}，s = ${A.raw.s.toFixed(4)}<br>`;
+    t('st.groups', st.a1.toFixed(2), st.f1.toFixed(2), st.a1B.toFixed(2), st.f1B.toFixed(2)) +
+    t('st.phasorA', st.cal, A.cal.g.toFixed(4), A.cal.s.toFixed(4));
+  if (st.cal && st.irfW > 0) html += t('st.rawA', A.raw.g.toFixed(4), A.raw.s.toFixed(4));
   html +=
-    `φ <b>${(L.phi * 180 / Math.PI).toFixed(2)}°</b>　M <b>${L.M.toFixed(4)}</b><br>` +
-    `τ_φ = tan φ / ω：<b>${L.tPhi.toFixed(3)} ns</b>　τ_m = √(1/M²−1)/ω：<b>${L.tMod.toFixed(3)} ns</b><br>` +
-    `amplitude-weighted ⟨τ⟩_α：<b>${tAmp.toFixed(3)} ns</b>　intensity-weighted ⟨τ⟩_I：<b>${tInt.toFixed(3)} ns</b><br>` +
-    `<b>${verdict}</b>（τ_φ − τ_m 差 ${gap.toFixed(3)} ns）<br>` +
-    `τ₁、τ₂ 弧距（分辨力）：<b>${arc.toFixed(3)}</b>；A 群亮像素 σ_g ≈ <b>${sigA.toFixed(4)}</b>、σ_s ≈ <b>${sigS.toFixed(4)}</b><br>`;
+    t('st.phiM', (L.phi * 180 / Math.PI).toFixed(2), L.M.toFixed(4)) +
+    t('st.taus', L.tPhi.toFixed(3), L.tMod.toFixed(3)) +
+    t('st.avg', tAmp.toFixed(3), tInt.toFixed(3)) +
+    t('st.verdict', verdict, gap.toFixed(3)) +
+    t('st.arc', arc.toFixed(3), sigA.toFixed(4), sigS.toFixed(4));
   if (cursor) {
     const Lc = lifetimes(cursor, st.w);
-    html += `<span class="sel">游標 (${cursor.g.toFixed(3)}, ${cursor.s.toFixed(3)})：τ_φ ${Lc.tPhi.toFixed(2)} ns、τ_m ${Lc.tMod.toFixed(2)} ns，圈到 <b>${selCnt}</b> 個像素</span>`;
+    html += t('st.cursor', cursor.g.toFixed(3), cursor.s.toFixed(3), Lc.tPhi.toFixed(2), Lc.tMod.toFixed(2), selCnt);
   } else {
-    html += `<span class="sel">在 phasor 圖上按住拖曳放游標，滾輪改大小</span>`;
+    html += t('st.noCursor');
   }
   $('stats').innerHTML = html;
 }
@@ -751,6 +942,7 @@ ph.addEventListener('wheel', ev => {
   const q = new URLSearchParams(location.search).get('cursor');
   if (q) { const [g, s, r] = q.split(',').map(parseFloat); if (isFinite(g) && isFinite(s)) cursor = { g, s, r: isFinite(r) ? r : 0.04 }; }
 }
+applyLang();
 render();
 raf = requestAnimationFrame(tick);
 </script>

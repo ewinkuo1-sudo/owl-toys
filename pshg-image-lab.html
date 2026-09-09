@@ -30,7 +30,7 @@
   :root[data-theme="light"] canvas, :root[data-theme="light"] .controls, :root[data-theme="light"] .inspbox { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .mapbox { text-align: center; }
   .mapbox canvas { width: 300px; height: 300px; image-rendering: pixelated; cursor: crosshair; }
-  .mapbox .cap { font-size: 0.8rem; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .mapbox .cap { font-size: 0.8rem; color: var(--muted); margin: 6px auto 0; line-height: 1.5; max-width: 300px; }
   .rhobar {
     width: 220px; height: 10px; border-radius: 5px; margin: 4px auto 0;
     background: linear-gradient(90deg, #3b6bff, #e8e8e8, #ff5544);
@@ -54,6 +54,7 @@
   button:hover { border-color: var(--accent); }
   .head { display: flex; justify-content: space-between; align-items: center; }
   .head .title { font-size: 0.88rem; }
+  .head .btns { display: flex; gap: 6px; }
   button.chip {
     background: none; color: var(--muted); border: 1px solid var(--grid);
     border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; line-height: 1.2;
@@ -73,70 +74,152 @@
 </style>
 </head>
 <body>
-<h1>P-SHG 影像實驗室</h1>
-<p class="sub">
-  真實的 P-SHG 輸出不是一條曲線，是一疊影像：每個偏振角拍一張，逐像素做 Fourier 分析解出
-  纖維方向 φ 和 ρ = χ₃₃/χ₁₅。這裡合成一塊假組織（膠原束、肌肉帶、病變結節），
-  模擬光子噪聲，跑完整分析管線。拉角度數和光子數，看 ρ 圖什麼時候開始糊掉——
-  這就是實驗設計的取捨。點任一張圖可以檢視單一像素的偏振曲線。
-</p>
+<h1 data-i18n="title"></h1>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <div class="maps">
     <div class="mapbox">
       <canvas id="mInt" width="160" height="160"></canvas>
-      <div class="cap">平均 SHG 強度（你顯微鏡上看到的樣子）</div>
+      <div class="cap" data-i18n="cap.int"></div>
     </div>
     <div class="mapbox">
       <canvas id="mPhi" width="160" height="160"></canvas>
-      <div class="cap" id="capPhi">纖維方向 φ 圖（色相 = 方向，0–180°）</div>
+      <div class="cap" id="capPhi"></div>
     </div>
     <div class="mapbox">
       <canvas id="mRho" width="160" height="160"></canvas>
-      <div class="cap" id="capRho">ρ 圖</div>
+      <div class="cap" id="capRho"></div>
       <div class="rhobar"></div>
-      <div class="cap">ρ：0.3 ─ 1.4 ─ 2.5（肌肉 0.57／膠原 1.4／病變 2.0）</div>
+      <div class="cap" data-i18n="cap.rhobar"></div>
     </div>
   </div>
   <div class="inspbox">
     <canvas id="insp" width="400" height="240"></canvas>
-    <div class="cap" id="inspCap">👆 點上面任何一張圖，檢視該像素的 I(θ) 數據與擬合</div>
+    <div class="cap" id="inspCap"></div>
   </div>
   <div class="controls">
     <div class="head">
-      <span class="title">參數</span>
-      <button class="chip" id="theme" title="切換深色／淺色"></button>
+      <span class="title" data-i18n="ctl.title"></span>
+      <span class="btns">
+        <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+        <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+      </span>
     </div>
     <div class="ctl">
-      <label>偏振角度數（0–180° 均分）</label>
+      <label data-i18n="lbl.nAng"></label>
       <select id="nAng">
-        <option value="6">6 角</option>
-        <option value="9">9 角</option>
-        <option value="18" selected>18 角</option>
-        <option value="36">36 角</option>
+        <option value="6"></option>
+        <option value="9"></option>
+        <option value="18" selected></option>
+        <option value="36"></option>
       </select>
     </div>
     <div class="ctl">
-      <label>光子預算／像素／角度 <output id="phOut">300</output></label>
+      <label><span data-i18n="lbl.photons"></span><output id="phOut">300</output></label>
       <input type="range" id="photons" min="1.4" max="3.5" step="0.05" value="2.48">
     </div>
-    <button id="resim">🎲 重新模擬（新噪聲）</button>
+    <button id="resim" data-i18n="btn.resim"></button>
     <div class="toggle">
       <input type="checkbox" id="truth">
-      <label for="truth">顯示真值（ground truth）對照</label>
+      <label for="truth" data-i18n="lbl.truth"></label>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      管線：每像素取 I(θ) 的 Fourier 分量 c₀、c₂、c₄ →
-      φ̂ = arg(c₂)/2，ρ̂ 由 (|c₂|/c₀, |c₄|/c₀) 查表反推——
-      跟文獻常用的 FFT 法同一路數，對噪聲比逐點擬合穩。
-      玩法：把光子數拉到最低，看 ρ 圖先崩、φ 圖後崩（φ 只吃 c₂ 相位，比較耐噪）；
-      或把角度數降到 6，看係數估計變毛。病變結節（右上圓）ρ=2.0，
-      正常膠原 1.4——噪聲多大時你還分得出來？
-    </div>
+    <div class="hint" data-i18n="hint"></div>
   </div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': 'P-SHG 影像實驗室',
+  'sub': `真實的 P-SHG 輸出不是一條曲線，是一疊影像：每個偏振角拍一張，逐像素做 Fourier 分析解出
+    纖維方向 φ 和 ρ = χ₃₃/χ₁₅。這裡合成一塊假組織（膠原束、肌肉帶、病變結節），
+    模擬光子噪聲，跑完整分析管線。拉角度數和光子數，看 ρ 圖什麼時候開始糊掉——
+    這就是實驗設計的取捨。點任一張圖可以檢視單一像素的偏振曲線。`,
+  'cap.int': '平均 SHG 強度（你顯微鏡上看到的樣子）',
+  'cap.phi': truth => (truth ? '真值 ' : '估計 ') + '纖維方向 φ 圖（色相 = 方向，0–180°）',
+  'cap.rho': truth => (truth ? '真值 ' : '估計 ') + 'ρ 圖',
+  'cap.rhobar': 'ρ：0.3 ─ 1.4 ─ 2.5（肌肉 0.57／膠原 1.4／病變 2.0）',
+  'insp.hint': '👆 點上面任何一張圖，檢視該像素的 I(θ) 數據與擬合',
+  'insp.xlabel': '偏振角 θ（光子數）',
+  'insp.cap': (px, py, rho, phi, rhoT, phiT, n) =>
+    `像素 (${px}, ${py})：估計 <b>ρ̂=${rho}、φ̂=${phi}°</b>｜真值 ρ=${rhoT}、φ=${phiT}°`
+    + `（黃點＝${n} 角量測，藍線＝Fourier 反推的模型曲線）`,
+  'ctl.title': '參數',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'lbl.nAng': '偏振角度數（0–180° 均分）',
+  'opt.ang': n => `${n} 角`,
+  'lbl.photons': '光子預算／像素／角度 ',
+  'btn.resim': '🎲 重新模擬（新噪聲）',
+  'lbl.truth': '顯示真值（ground truth）對照',
+  'stats.head': (photons, n) => `每像素每角 <b>${photons}</b> 光子 × <b>${n}</b> 角<br>`,
+  'stats.row': (name, mean) => `${name}：估計 ρ̂ 平均 <b>${mean}</b><br>`,
+  'reg.bg': '背景',
+  'reg.muscle': '肌肉帶 (真值 ρ=0.57)',
+  'reg.collagen': '膠原束 (真值 ρ=1.40)',
+  'reg.lesion': '病變結節 (真值 ρ=2.00)',
+  'hint': `管線：每像素取 I(θ) 的 Fourier 分量 c₀、c₂、c₄ →
+    φ̂ = arg(c₂)/2，ρ̂ 由 (|c₂|/c₀, |c₄|/c₀) 查表反推——
+    跟文獻常用的 FFT 法同一路數，對噪聲比逐點擬合穩。
+    玩法：把光子數拉到最低，看 ρ 圖先崩、φ 圖後崩（φ 只吃 c₂ 相位，比較耐噪）；
+    或把角度數降到 6，看係數估計變毛。病變結節（右上圓）ρ=2.0，
+    正常膠原 1.4——噪聲多大時你還分得出來？`,
+},
+en: {
+  'title': 'P-SHG Image Lab',
+  'sub': `Real P-SHG output isn't a single curve — it's a stack of images: one frame per polarization angle,
+    then a pixel-by-pixel Fourier analysis solves for fiber orientation φ and ρ = χ₃₃/χ₁₅.
+    Here we synthesize a fake piece of tissue (collagen bundles, a muscle band, a lesion nodule),
+    simulate photon noise, and run the full analysis pipeline. Drag the number of angles and the photon count
+    and watch when the ρ map starts to smear — that's the trade-off in experiment design.
+    Click any image to inspect a single pixel's polarization curve.`,
+  'cap.int': 'Mean SHG intensity (what you see on the microscope)',
+  'cap.phi': truth => (truth ? 'Ground-truth ' : 'Estimated ') + 'fiber orientation φ map (hue = direction, 0–180°)',
+  'cap.rho': truth => (truth ? 'Ground-truth ' : 'Estimated ') + 'ρ map',
+  'cap.rhobar': 'ρ: 0.3 ─ 1.4 ─ 2.5 (muscle 0.57 / collagen 1.4 / lesion 2.0)',
+  'insp.hint': '👆 Click any image above to inspect that pixel\'s I(θ) data and fit',
+  'insp.xlabel': 'Polarization angle θ (photon counts)',
+  'insp.cap': (px, py, rho, phi, rhoT, phiT, n) =>
+    `Pixel (${px}, ${py}): estimated <b>ρ̂=${rho}, φ̂=${phi}°</b> | truth ρ=${rhoT}, φ=${phiT}°`
+    + ` (yellow dots = ${n} measured angles, blue line = model curve recovered by Fourier analysis)`,
+  'ctl.title': 'Parameters',
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'lbl.nAng': 'Number of polarization angles (evenly over 0–180°)',
+  'opt.ang': n => `${n} angles`,
+  'lbl.photons': 'Photon budget / pixel / angle ',
+  'btn.resim': '🎲 Re-simulate (new noise)',
+  'lbl.truth': 'Show ground truth for comparison',
+  'stats.head': (photons, n) => `<b>${photons}</b> photons / pixel / angle × <b>${n}</b> angles<br>`,
+  'stats.row': (name, mean) => `${name}: mean estimated ρ̂ <b>${mean}</b><br>`,
+  'reg.bg': 'Background',
+  'reg.muscle': 'Muscle band (truth ρ=0.57)',
+  'reg.collagen': 'Collagen bundle (truth ρ=1.40)',
+  'reg.lesion': 'Lesion nodule (truth ρ=2.00)',
+  'hint': `Pipeline: per pixel, take the Fourier components c₀, c₂, c₄ of I(θ) →
+    φ̂ = arg(c₂)/2, and ρ̂ is looked up from (|c₂|/c₀, |c₄|/c₀) with a table —
+    the same approach as the FFT method common in the literature, and more robust to noise than point-by-point fitting.
+    Things to try: drag the photon count to the minimum and watch the ρ map fall apart first while the φ map holds out longer
+    (φ only uses the phase of c₂, so it tolerates noise better); or drop the angle count to 6 and watch the coefficient
+    estimates get fuzzy. The lesion nodule (upper-right circle) has ρ=2.0, normal collagen 1.4 —
+    how much noise can you add and still tell them apart?`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+
 // --- 主題：預設淺色，記在 localStorage（owl-theme）；canvas 的 UI 色從 CSS 變數重讀 ------
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const C = {};
@@ -144,21 +227,41 @@ let inited = false;                       // runAll 跑過之後才允許 redraw
 function readColors() {
   for (const k of ['ink', 'muted', 'accent', 'data', 'grid', 'panel']) C[k] = css('--' + k);
 }
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = $('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   readColors();
   if (typeof redrawAll === 'function') redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title') + ' 🦉';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  [...$('nAng').options].forEach(o => { o.textContent = t('opt.ang', o.value); });
+  // 動態文字：圖說、統計、單像素檢視器（含 canvas 內的軸標籤）
+  if (inited) { updateCaps(); stats(); }
+  drawInspector();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 const D2R = Math.PI / 180;
 const SIZE = 160, NPIX = SIZE * SIZE;
@@ -305,6 +408,13 @@ function rhoColor(rho) {
   return [r, g, b];
 }
 
+// 圖說：真值／估計前綴依語言而變（applyLang 也會呼叫）
+function updateCaps() {
+  const truth = $('truth').checked;
+  $('capPhi').textContent = t('cap.phi', truth);
+  $('capRho').textContent = t('cap.rho', truth);
+}
+
 function drawMaps() {
   const truth = $('truth').checked;
   let iScale = 0;
@@ -336,19 +446,18 @@ function drawMaps() {
     const [r, g, b] = rhoColor(truth ? truthRho[i] : estRho[i]);
     return [r * (0.25 + 0.75 * Math.min(1, v * 1.6)), g * (0.25 + 0.75 * Math.min(1, v * 1.6)), b * (0.25 + 0.75 * Math.min(1, v * 1.6))];
   });
-  $('capPhi').textContent = (truth ? '真值 ' : '估計 ') + '纖維方向 φ 圖（色相 = 方向，0–180°）';
-  $('capRho').textContent = (truth ? '真值 ' : '估計 ') + 'ρ 圖';
+  updateCaps();
 }
 
 function stats() {
-  const names = ['背景', '肌肉帶 (真值 ρ=0.57)', '膠原束 (真值 ρ=1.40)', '病變結節 (真值 ρ=2.00)'];
-  let s = `每像素每角 <b>${photons}</b> 光子 × <b>${N}</b> 角<br>`;
+  const names = ['reg.bg', 'reg.muscle', 'reg.collagen', 'reg.lesion'];
+  let s = t('stats.head', photons, N);
   for (const reg of [1, 2, 3]) {
     let sum = 0, n = 0;
     for (let i = 0; i < NPIX; i++) {
       if (region[i] === reg && truthAmp[i] > 0.3) { sum += estRho[i]; n++; }
     }
-    if (n) s += `${names[reg]}：估計 ρ̂ 平均 <b>${(sum / n).toFixed(2)}</b><br>`;
+    if (n) s += t('stats.row', t(names[reg]), (sum / n).toFixed(2));
   }
   $('stats').innerHTML = s;
 }
@@ -360,7 +469,7 @@ function drawInspector() {
   const w = cv.width, h = cv.height, mL = 40, mB = 30, mT = 14, mR = 10;
   const pw = w - mL - mR, ph2 = h - mT - mB;
   ctx.clearRect(0, 0, w, h);
-  if (inspPix === null) return;
+  if (inspPix === null || !inited) { $('inspCap').innerHTML = t('insp.hint'); return; }
   const i = inspPix;
   const data = [];
   let dMax = 0;
@@ -395,7 +504,8 @@ function drawInspector() {
     ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, mT + ph2); ctx.stroke();
     ctx.fillText(a + '°', x - 8, h - 14);
   }
-  ctx.fillText('偏振角 θ（光子數）', w / 2 - 40, h - 2);
+  const xl = t('insp.xlabel');                  // 量寬置中，英文較長也不會偏出
+  ctx.fillText(xl, (w - ctx.measureText(xl).width) / 2, h - 2);
 
   ctx.strokeStyle = C.accent; ctx.lineWidth = 2;
   ctx.beginPath();
@@ -410,10 +520,8 @@ function drawInspector() {
     ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
   }
   const px = i % SIZE, py = Math.floor(i / SIZE);
-  $('inspCap').innerHTML =
-    `像素 (${px}, ${py})：估計 <b>ρ̂=${rho.toFixed(2)}、φ̂=${Math.round(estPhi[i] / D2R)}°</b>｜`
-    + `真值 ρ=${truthRho[i].toFixed(2)}、φ=${Math.round(truthPhi[i] / D2R)}°`
-    + `（黃點＝${N} 角量測，藍線＝Fourier 反推的模型曲線）`;
+  $('inspCap').innerHTML = t('insp.cap', px, py, rho.toFixed(2), Math.round(estPhi[i] / D2R),
+    truthRho[i].toFixed(2), Math.round(truthPhi[i] / D2R), N);
 }
 
 for (const id of ['mInt', 'mPhi', 'mRho']) {
@@ -445,9 +553,10 @@ $('photons').addEventListener('input', () => {
 $('resim').addEventListener('click', runAll);
 $('truth').addEventListener('change', () => { drawMaps(); });
 
+applyLang();
 makeTissue();
-runAll();
 inited = true;
+runAll();
 </script>
 </body>
 </html>

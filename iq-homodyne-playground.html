@@ -77,11 +77,11 @@
     font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
   }
   button.chip:hover { border-color: var(--muted); color: var(--ink); }
-  #theme { position: absolute; top: 16px; right: 16px; }
+  .topbtns { position: absolute; top: 16px; right: 16px; display: flex; gap: 6px; }
   :root[data-theme="light"] .panel, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   @media (max-width: 700px) {
     body { padding: 10px; }
-    #theme { top: 8px; right: 8px; }
+    .topbtns { top: 8px; right: 8px; }
     .controls { width: 100%; flex: 1 1 100%; }
     .col { flex: 1 1 100%; }
   }
@@ -89,18 +89,17 @@
 </head>
 <body>
 
-<button class="chip" id="theme" title="切換深色／淺色"></button>
-<h1>I/Q 零差解調遊樂場</h1>
-<p class="sub">
-  卓 lab 偵測鏈的核心：PMT 收到的 80 MHz 載波裡，<b>拉曼光子</b>（τ≈0）和<b>螢光光子</b>（τ>0）的相位不同。
-  兩顆混頻器搭 90° 正交參考做 I/Q 解調，算出 <code>振幅 √(I²+Q²)</code> 和 <code>相位 φ = atan2(Q, I)</code>，
-  就能在同一張影像裡把兩者分開——<b>不需要光學濾片</b>。
-</p>
+<span class="topbtns">
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</span>
+<h1 data-i18n="h1"></h1>
+<p class="sub" data-i18n="sub"></p>
 
 <div class="tabs" id="tabBar">
-  <button class="active" data-tab="chain">訊號鏈</button>
-  <button data-tab="phasor">I-Q 平面</button>
-  <button data-tab="image">合成影像</button>
+  <button class="active" data-tab="chain" data-i18n="tab.chain"></button>
+  <button data-tab="phasor" data-i18n="tab.phasor"></button>
+  <button data-tab="image" data-i18n="tab.image"></button>
 </div>
 
 <!-- ===== TAB 1: Signal Chain ===== -->
@@ -108,51 +107,47 @@
   <div class="wrap">
     <div class="col" style="flex:1 1 620px">
       <div class="panel">
-        <h2>① PMT 輸出 <small>80 MHz 載波 × 螢光衰減包絡</small></h2>
+        <h2><span data-i18n="p1.title"></span> <small data-i18n="p1.small"></small></h2>
         <canvas id="cPmt" height="150"></canvas>
       </div>
       <div class="panel">
-        <h2>② 混頻器輸出 <small>訊號 × 參考（藍=I路 0°, 橘=Q路 90°）</small></h2>
+        <h2><span data-i18n="p2.title"></span> <small data-i18n="p2.small"></small></h2>
         <canvas id="cMix" height="150"></canvas>
       </div>
       <div class="panel">
-        <h2>③ 低通後 → SR570 <small>只剩 DC 分量（I 和 Q 值）</small></h2>
+        <h2><span data-i18n="p3.title"></span> <small data-i18n="p3.small"></small></h2>
         <canvas id="cDC" height="120"></canvas>
       </div>
     </div>
     <div class="controls" id="ctrlChain">
-      <div class="sec">樣品參數</div>
+      <div class="sec" data-i18n="sec.sample"></div>
       <div class="ctl">
-        <label>螢光壽命 τ <output id="oTau1">2.0 ns</output></label>
+        <label><span data-i18n="lbl.tau"></span><output id="oTau1">2.0 ns</output></label>
         <input type="range" id="sTau1" min="0" max="8" step="0.1" value="2">
       </div>
       <div class="ctl">
-        <label>拉曼佔比 <output id="oRaman1">30%</output></label>
+        <label><span data-i18n="lbl.raman"></span><output id="oRaman1">30%</output></label>
         <input type="range" id="sRaman1" min="0" max="100" step="1" value="30">
       </div>
-      <div class="sec">儀器</div>
+      <div class="sec" data-i18n="sec.instr"></div>
       <div class="ctl">
-        <label>φ₀ 儀器偏移 <output id="oPhi0">0°</output></label>
+        <label><span data-i18n="lbl.phi0"></span><output id="oPhi0">0°</output></label>
         <input type="range" id="sPhi0" min="-90" max="90" step="1" value="0">
       </div>
       <div class="ctl">
-        <label>雜訊 <output id="oNoise1">低</output></label>
+        <label><span data-i18n="lbl.noise"></span><output id="oNoise1"></output></label>
         <input type="range" id="sNoise1" min="0" max="100" step="1" value="15">
       </div>
-      <div class="sec">預設情境</div>
+      <div class="sec" data-i18n="sec.presets"></div>
       <div class="presets" id="presets1">
-        <button data-p="raman">純拉曼</button>
-        <button data-p="fluo">純螢光</button>
-        <button data-p="mix">混合</button>
+        <button data-p="raman" data-i18n="preset.raman"></button>
+        <button data-p="fluo" data-i18n="preset.fluo"></button>
+        <button data-p="mix" data-i18n="preset.mix"></button>
         <button data-p="nadh">NADH</button>
       </div>
-      <div class="sec">讀數</div>
+      <div class="sec" data-i18n="sec.readout"></div>
       <div class="readout" id="readout1"></div>
-      <div class="info">
-        <b>重點：</b>拉曼 τ≈0 → Q≈0，螢光 τ>0 → Q>0。
-        φ₀ 是電纜和電路的延遲，沒校正前相位圖不能當 τ 用。
-        調 φ₀ 滑桿看看整個訊號怎麼旋轉。
-      </div>
+      <div class="info" data-i18n="info1"></div>
     </div>
   </div>
 </div>
@@ -162,42 +157,38 @@
   <div class="wrap">
     <div class="col" style="flex:1 1 500px">
       <div class="panel">
-        <h2>I-Q 平面 <small>每個點 = 一個像素的 (I, Q) 值</small></h2>
+        <h2><span data-i18n="p4.title"></span> <small data-i18n="p4.small"></small></h2>
         <canvas id="cIQ" width="500" height="500"></canvas>
         <div class="legend" style="margin-top:8px">
-          <span><span class="dot" style="background:var(--raman)"></span> 拉曼 (τ≈0)</span>
-          <span><span class="dot" style="background:var(--fluo)"></span> 螢光 (τ>0)</span>
-          <span><span class="dot" style="background:var(--ref)"></span> 混合</span>
-          <span><span class="dot" style="background:var(--violet)"></span> 加上 φ₀ 後</span>
+          <span><span class="dot" style="background:var(--raman)"></span> <span data-i18n="leg.raman"></span></span>
+          <span><span class="dot" style="background:var(--fluo)"></span> <span data-i18n="leg.fluo"></span></span>
+          <span><span class="dot" style="background:var(--ref)"></span> <span data-i18n="leg.mix"></span></span>
+          <span><span class="dot" style="background:var(--violet)"></span> <span data-i18n="leg.phi0"></span></span>
         </div>
       </div>
     </div>
     <div class="controls" id="ctrlPhasor">
-      <div class="sec">螢光</div>
+      <div class="sec" data-i18n="sec.fluo"></div>
       <div class="ctl">
-        <label>τ <output id="oTau2">2.0 ns</output></label>
+        <label><span>τ</span><output id="oTau2">2.0 ns</output></label>
         <input type="range" id="sTau2" min="0.1" max="8" step="0.1" value="2">
       </div>
-      <div class="sec">混合比</div>
+      <div class="sec" data-i18n="sec.mix"></div>
       <div class="ctl">
-        <label>拉曼佔比 <output id="oRaman2">30%</output></label>
+        <label><span data-i18n="lbl.raman"></span><output id="oRaman2">30%</output></label>
         <input type="range" id="sRaman2" min="0" max="100" step="1" value="30">
       </div>
-      <div class="sec">儀器偏移</div>
+      <div class="sec" data-i18n="sec.offset"></div>
       <div class="ctl">
-        <label>φ₀ <output id="oPhi02">0°</output></label>
+        <label><span>φ₀</span><output id="oPhi02">0°</output></label>
         <input type="range" id="sPhi02" min="-90" max="90" step="1" value="0">
       </div>
-      <div class="sec">顯示</div>
-      <label class="toggle"><input type="checkbox" id="cbSweep" checked> τ 掃描軌跡 (0→8 ns)</label>
-      <label class="toggle"><input type="checkbox" id="cbUC"> 萬用半圓</label>
-      <div class="sec">讀數</div>
+      <div class="sec" data-i18n="sec.display"></div>
+      <label class="toggle"><input type="checkbox" id="cbSweep" checked> <span data-i18n="tog.sweep"></span></label>
+      <label class="toggle"><input type="checkbox" id="cbUC"> <span data-i18n="tog.uc"></span></label>
+      <div class="sec" data-i18n="sec.readout"></div>
       <div class="readout" id="readout2"></div>
-      <div class="info">
-        <b>觀察：</b>拉曼在 I 軸上（φ=0），螢光隨 τ 增加沿半圓移動。
-        混合訊號落在兩者的連線上。
-        φ₀ 把所有點繞原點旋轉 — 校正就是把拉曼點轉回 I 軸。
-      </div>
+      <div class="info" data-i18n="info2"></div>
     </div>
   </div>
 </div>
@@ -216,50 +207,145 @@
           <canvas id="cQ" width="200" height="200"></canvas>
         </div>
         <div style="text-align:center">
-          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">振幅 √(I²+Q²)</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px" data-i18n="img.amp"></div>
           <canvas id="cAmp" width="200" height="200"></canvas>
         </div>
         <div style="text-align:center">
-          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">相位 φ</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px" data-i18n="img.phi"></div>
           <canvas id="cPhi" width="200" height="200"></canvas>
         </div>
       </div>
       <div class="panel">
-        <h2>合成組織 <small>綠=拉曼區、粉=螢光區、橘=混合區</small></h2>
+        <h2><span data-i18n="p5.title"></span> <small data-i18n="p5.small"></small></h2>
         <canvas id="cTissue" width="600" height="200"></canvas>
       </div>
     </div>
     <div class="controls" id="ctrlImage">
-      <div class="sec">組織參數</div>
+      <div class="sec" data-i18n="sec.tissue"></div>
       <div class="ctl">
-        <label>螢光區 τ <output id="oTau3">3.0 ns</output></label>
+        <label><span data-i18n="lbl.tau3"></span><output id="oTau3">3.0 ns</output></label>
         <input type="range" id="sTau3" min="0.5" max="8" step="0.1" value="3">
       </div>
       <div class="ctl">
-        <label>混合區拉曼% <output id="oMix3">50%</output></label>
+        <label><span data-i18n="lbl.mix3"></span><output id="oMix3">50%</output></label>
         <input type="range" id="sMix3" min="0" max="100" step="1" value="50">
       </div>
       <div class="ctl">
-        <label>φ₀ <output id="oPhi03">0°</output></label>
+        <label><span>φ₀</span><output id="oPhi03">0°</output></label>
         <input type="range" id="sPhi03" min="-90" max="90" step="1" value="0">
       </div>
       <div class="ctl">
-        <label>光子雜訊 <output id="oNoise3">中</output></label>
+        <label><span data-i18n="lbl.noise3"></span><output id="oNoise3"></output></label>
         <input type="range" id="sNoise3" min="0" max="100" step="1" value="30">
       </div>
-      <div class="info">
-        <b>Fiji 重建步驟：</b><br>
-        ① Ch2 ÷ Ch1 → atan → ×57.3 = 相位(°)<br>
-        ② Ch1² + Ch2² → √ = 振幅<br>
-        拉曼區 φ≈0（暗色），螢光區 φ>0（亮色）。<br>
-        <b>調 φ₀ 看「沒校正的相位圖」會怎樣。</b>
-      </div>
+      <div class="info" data-i18n="info3"></div>
     </div>
   </div>
 </div>
 
 <script>
 "use strict";
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': 'I/Q 零差解調遊樂場 🦉',
+  'h1': 'I/Q 零差解調遊樂場',
+  'sub': `卓 lab 偵測鏈的核心：PMT 收到的 80 MHz 載波裡，<b>拉曼光子</b>（τ≈0）和<b>螢光光子</b>（τ>0）的相位不同。
+  兩顆混頻器搭 90° 正交參考做 I/Q 解調，算出 <code>振幅 √(I²+Q²)</code> 和 <code>相位 φ = atan2(Q, I)</code>，
+  就能在同一張影像裡把兩者分開——<b>不需要光學濾片</b>。`,
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'tab.chain': '訊號鏈', 'tab.phasor': 'I-Q 平面', 'tab.image': '合成影像',
+  // 分頁 1：訊號鏈
+  'p1.title': '① PMT 輸出', 'p1.small': '80 MHz 載波 × 螢光衰減包絡',
+  'p2.title': '② 混頻器輸出', 'p2.small': '訊號 × 參考（藍=I路 0°, 橘=Q路 90°）',
+  'p3.title': '③ 低通後 → SR570', 'p3.small': '只剩 DC 分量（I 和 Q 值）',
+  'sec.sample': '樣品參數', 'sec.instr': '儀器', 'sec.presets': '預設情境', 'sec.readout': '讀數',
+  'lbl.tau': '螢光壽命 τ', 'lbl.raman': '拉曼佔比', 'lbl.phi0': 'φ₀ 儀器偏移', 'lbl.noise': '雜訊',
+  'preset.raman': '純拉曼', 'preset.fluo': '純螢光', 'preset.mix': '混合',
+  'info1': `<b>重點：</b>拉曼 τ≈0 → Q≈0，螢光 τ>0 → Q>0。
+        φ₀ 是電纜和電路的延遲，沒校正前相位圖不能當 τ 用。
+        調 φ₀ 滑桿看看整個訊號怎麼旋轉。`,
+  'noise.low': '低', 'noise.mid': '中', 'noise.high': '高', 'noise.xhigh': '極高',
+  'c.result': (a, p) => `振幅 = ${a}    相位 φ = ${p}°`,
+  'c.truePhi': (tp, p0) => `（真實 φ_signal = ${tp}°，差值就是 φ₀ = ${p0}°）`,
+  'rd.amp': '振幅', 'rd.phase': '相位 φ', 'rd.truePhi': '真實 φ_sig', 'rd.tauRecov': 'τ 反推',
+  'rd.phiMeas': 'φ 量測',
+  // 分頁 2：I-Q 平面
+  'p4.title': 'I-Q 平面', 'p4.small': '每個點 = 一個像素的 (I, Q) 值',
+  'leg.raman': '拉曼 (τ≈0)', 'leg.fluo': '螢光 (τ>0)', 'leg.mix': '混合', 'leg.phi0': '加上 φ₀ 後',
+  'sec.fluo': '螢光', 'sec.mix': '混合比', 'sec.offset': '儀器偏移', 'sec.display': '顯示',
+  'tog.sweep': 'τ 掃描軌跡 (0→8 ns)', 'tog.uc': '萬用半圓',
+  'info2': `<b>觀察：</b>拉曼在 I 軸上（φ=0），螢光隨 τ 增加沿半圓移動。
+        混合訊號落在兩者的連線上。
+        φ₀ 把所有點繞原點旋轉 — 校正就是把拉曼點轉回 I 軸。`,
+  'pl.raman': '拉曼 τ=0', 'pl.fluo': tau => `螢光 τ=${tau}`, 'pl.mix': pct => `混合 ${pct}%R`,
+  // 分頁 3：合成影像
+  'img.amp': '振幅 √(I²+Q²)', 'img.phi': '相位 φ',
+  'p5.title': '合成組織', 'p5.small': '綠=拉曼區、粉=螢光區、橘=混合區',
+  'sec.tissue': '組織參數',
+  'lbl.tau3': '螢光區 τ', 'lbl.mix3': '混合區拉曼%', 'lbl.noise3': '光子雜訊',
+  'info3': `<b>Fiji 重建步驟：</b><br>
+        ① Ch2 ÷ Ch1 → atan → ×57.3 = 相位(°)<br>
+        ② Ch1² + Ch2² → √ = 振幅<br>
+        拉曼區 φ≈0（暗色），螢光區 φ>0（亮色）。<br>
+        <b>調 φ₀ 看「沒校正的相位圖」會怎樣。</b>`,
+  'zone.raman': '拉曼區', 'zone.mix': '混合區', 'zone.fluo': '螢光區',
+},
+en: {
+  'title': 'I/Q Homodyne Playground 🦉',
+  'h1': 'I/Q Homodyne Playground',
+  'sub': `The heart of the TBL lab detection chain: inside the 80 MHz carrier the PMT picks up, <b>Raman photons</b> (τ≈0) and <b>fluorescence photons</b> (τ>0) carry different phases.
+  Two mixers fed with 90°-offset references do the I/Q demodulation; from <code>amplitude √(I²+Q²)</code> and <code>phase φ = atan2(Q, I)</code>
+  you can separate the two in a single image — <b>no optical filter needed</b>.`,
+  'btn.lang.title': '切換成中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'tab.chain': 'Signal chain', 'tab.phasor': 'I-Q plane', 'tab.image': 'Synthetic image',
+  'p1.title': '① PMT output', 'p1.small': '80 MHz carrier × fluorescence-decay envelope',
+  'p2.title': '② Mixer outputs', 'p2.small': 'signal × reference (blue = I, 0°; orange = Q, 90°)',
+  'p3.title': '③ After low-pass → SR570', 'p3.small': 'only the DC part is left (the I and Q values)',
+  'sec.sample': 'Sample', 'sec.instr': 'Instrument', 'sec.presets': 'Presets', 'sec.readout': 'Readout',
+  'lbl.tau': 'Fluorescence lifetime τ', 'lbl.raman': 'Raman fraction', 'lbl.phi0': 'φ₀ instrument offset', 'lbl.noise': 'Noise',
+  'preset.raman': 'Pure Raman', 'preset.fluo': 'Pure fluorescence', 'preset.mix': 'Mixed',
+  'info1': `<b>Key point:</b> Raman τ≈0 → Q≈0; fluorescence τ>0 → Q>0.
+        φ₀ is the delay of cables and electronics — until it is calibrated, the phase image cannot be read as τ.
+        Drag the φ₀ slider and watch the whole signal rotate.`,
+  'noise.low': 'low', 'noise.mid': 'medium', 'noise.high': 'high', 'noise.xhigh': 'very high',
+  'c.result': (a, p) => `Amplitude = ${a}    Phase φ = ${p}°`,
+  'c.truePhi': (tp, p0) => `(true φ_signal = ${tp}°; the difference is φ₀ = ${p0}°)`,
+  'rd.amp': 'Amplitude', 'rd.phase': 'Phase φ', 'rd.truePhi': 'True φ_sig', 'rd.tauRecov': 'τ recovered',
+  'rd.phiMeas': 'φ measured',
+  'p4.title': 'I-Q plane', 'p4.small': 'each dot = the (I, Q) value of one pixel',
+  'leg.raman': 'Raman (τ≈0)', 'leg.fluo': 'Fluorescence (τ>0)', 'leg.mix': 'Mixed', 'leg.phi0': 'after adding φ₀',
+  'sec.fluo': 'Fluorescence', 'sec.mix': 'Mixing ratio', 'sec.offset': 'Instrument offset', 'sec.display': 'Display',
+  'tog.sweep': 'τ sweep trace (0→8 ns)', 'tog.uc': 'Universal semicircle',
+  'info2': `<b>Watch:</b> Raman sits on the I axis (φ=0); fluorescence moves along the semicircle as τ grows.
+        A mixed signal lands on the line joining the two.
+        φ₀ rotates every point about the origin — calibration just means turning the Raman point back onto the I axis.`,
+  'pl.raman': 'Raman τ=0', 'pl.fluo': tau => `Fluo τ=${tau}`, 'pl.mix': pct => `Mixed ${pct}%R`,
+  'img.amp': 'Amplitude √(I²+Q²)', 'img.phi': 'Phase φ',
+  'p5.title': 'Synthetic tissue', 'p5.small': 'green = Raman zone, pink = fluorescence zone, orange = mixed zone',
+  'sec.tissue': 'Tissue',
+  'lbl.tau3': 'Fluorescence-zone τ', 'lbl.mix3': 'Mixed-zone Raman %', 'lbl.noise3': 'Photon noise',
+  'info3': `<b>Reconstruction in Fiji:</b><br>
+        ① Ch2 ÷ Ch1 → atan → ×57.3 = phase (°)<br>
+        ② Ch1² + Ch2² → √ = amplitude<br>
+        Raman zone φ≈0 (dark), fluorescence zone φ>0 (bright).<br>
+        <b>Drag φ₀ to see what an uncalibrated phase image looks like.</b>`,
+  'zone.raman': 'Raman zone', 'zone.mix': 'Mixed zone', 'zone.fluo': 'Fluorescence zone',
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
 // --- Theme: 預設淺色，記在 localStorage('owl-theme')，?theme=dark|light 可覆寫 ---
 const C = {};
 function readColors() {
@@ -269,21 +355,38 @@ function readColors() {
 }
 let uiReady = false;   // 初次 draw() 之後才允許主題切換觸發重畫
 function redrawAll() { if (uiReady) draw(); }
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('owl-theme', t); } catch (e) {}
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
   const b = document.getElementById('theme');
-  if (b) b.textContent = t === 'dark' ? '☀ 淺色' : '🌙 深色';
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
   readColors();
   redrawAll();
 }
 (() => {
-  let t = 'light'; try { t = localStorage.getItem('owl-theme') || t; } catch (e) {}
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
   const q = new URLSearchParams(location.search).get('theme');
-  if (q === 'dark' || q === 'light') t = q;
-  setTheme(t);
+  if (q === 'dark' || q === 'light') th = q;
+  setTheme(th);
 })();
 document.getElementById('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// --- Language: 預設中文，記在 localStorage('owl-lang')，?lang=en|zh 可覆寫 ---
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.getElementById('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  document.getElementById('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  if (uiReady) { updateOutputs(); draw(); }   // 重寫雜訊等級字樣、重畫目前分頁的 canvas 與讀數
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+document.getElementById('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 const TAU_2PI = 2 * Math.PI;
 const F_MOD = 80e6;
@@ -325,7 +428,7 @@ const sTau3 = document.getElementById('sTau3'), sMix3 = document.getElementById(
 const sPhi03 = document.getElementById('sPhi03'), sNoise3 = document.getElementById('sNoise3');
 const cbSweep = document.getElementById('cbSweep'), cbUC = document.getElementById('cbUC');
 
-function noiseLabel(v) { return v < 20 ? '低' : v < 50 ? '中' : v < 80 ? '高' : '極高'; }
+function noiseLabel(v) { return t(v < 20 ? 'noise.low' : v < 50 ? 'noise.mid' : v < 80 ? 'noise.high' : 'noise.xhigh'); }
 
 function updateOutputs() {
   document.getElementById('oTau1').textContent = (+sTau1.value).toFixed(1) + ' ns';
@@ -550,7 +653,7 @@ function drawChain() {
     ctx.fillStyle = C.green;
     ctx.font = 'bold 13px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(`振幅 = ${ampVal.toFixed(3)}    相位 φ = ${phiVal.toFixed(1)}°`, w / 2, 95);
+    ctx.fillText(t('c.result', ampVal.toFixed(3), phiVal.toFixed(1)), w / 2, 95);
 
     if (Math.abs(phi0_deg) > 2) {
       const truePhiDeg = Math.atan2(
@@ -559,7 +662,7 @@ function drawChain() {
       ) * 180 / Math.PI;
       ctx.fillStyle = C.faint;
       ctx.font = '11px system-ui';
-      ctx.fillText(`（真實 φ_signal = ${truePhiDeg.toFixed(1)}°，差值就是 φ₀ = ${phi0_deg}°）`, w / 2, 112);
+      ctx.fillText(t('c.truePhi', truePhiDeg.toFixed(1), phi0_deg), w / 2, 112);
     }
   }
 
@@ -574,15 +677,21 @@ function drawChain() {
     document.getElementById('readout1').innerHTML = `
       <div><span>I</span><span>${iq.I.toFixed(3)}</span></div>
       <div><span>Q</span><span>${iq.Q.toFixed(3)}</span></div>
-      <div><span>振幅</span><span>${ampVal.toFixed(3)}</span></div>
-      <div class="hl"><span>相位 φ</span><span>${phiVal.toFixed(1)}°</span></div>
-      <div><span>真實 φ_sig</span><span>${truePhi.toFixed(1)}°</span></div>
-      <div><span>τ 反推</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
+      <div><span>${t('rd.amp')}</span><span>${ampVal.toFixed(3)}</span></div>
+      <div class="hl"><span>${t('rd.phase')}</span><span>${phiVal.toFixed(1)}°</span></div>
+      <div><span>${t('rd.truePhi')}</span><span>${truePhi.toFixed(1)}°</span></div>
+      <div><span>${t('rd.tauRecov')}</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
     `;
   }
 }
 
 // --- Tab 2: I-Q Phasor ---
+// 點旁邊的標籤：預設放右側；右側放不下（英文較寬、或點靠近 I=1）就改放左側，避免被畫布裁掉
+function dotLabel(ctx, s, x, y, w) {
+  const tw = ctx.measureText(s).width;
+  if (x + 10 + tw > w - 4) { ctx.textAlign = 'right'; ctx.fillText(s, x - 10, y + 4); }
+  else { ctx.textAlign = 'left'; ctx.fillText(s, x + 10, y + 4); }
+}
 function drawPhasor() {
   const c = document.getElementById('cIQ');
   c.width = 500; c.height = 500;
@@ -679,8 +788,7 @@ function drawPhasor() {
     ctx.fill();
     ctx.fillStyle = C.raman;
     ctx.font = 'bold 11px system-ui';
-    ctx.textAlign = 'left';
-    ctx.fillText('拉曼 τ=0', x + 10, y + 4);
+    dotLabel(ctx, t('pl.raman'), x, y, w);
   }
 
   // Fluo point
@@ -692,8 +800,7 @@ function drawPhasor() {
     ctx.fillStyle = C.fluo;
     ctx.fill();
     ctx.font = 'bold 11px system-ui';
-    ctx.textAlign = 'left';
-    ctx.fillText(`螢光 τ=${tau_ns.toFixed(1)}`, x + 10, y + 4);
+    dotLabel(ctx, t('pl.fluo', tau_ns.toFixed(1)), x, y, w);
   }
 
   // Mixed point
@@ -705,8 +812,7 @@ function drawPhasor() {
     ctx.fillStyle = C.ref;
     ctx.fill();
     ctx.font = '11px system-ui';
-    ctx.textAlign = 'left';
-    ctx.fillText(`混合 ${ramanPct}%R`, x + 10, y + 4);
+    dotLabel(ctx, t('pl.mix', ramanPct), x, y, w);
 
     // line from origin
     ctx.beginPath();
@@ -743,10 +849,10 @@ function drawPhasor() {
     document.getElementById('readout2').innerHTML = `
       <div><span>I</span><span>${iq.I.toFixed(3)}</span></div>
       <div><span>Q</span><span>${iq.Q.toFixed(3)}</span></div>
-      <div><span>振幅</span><span>${ampVal.toFixed(3)}</span></div>
-      <div class="hl"><span>φ 量測</span><span>${phiVal.toFixed(1)}°</span></div>
+      <div><span>${t('rd.amp')}</span><span>${ampVal.toFixed(3)}</span></div>
+      <div class="hl"><span>${t('rd.phiMeas')}</span><span>${phiVal.toFixed(1)}°</span></div>
       <div><span>φ − φ₀</span><span>${(phiVal - phi0_deg).toFixed(1)}°</span></div>
-      <div><span>τ 反推</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
+      <div><span>${t('rd.tauRecov')}</span><span>${tauRecov >= 0 ? tauRecov.toFixed(2) + ' ns' : '—'}</span></div>
     `;
   }
 }
@@ -892,9 +998,9 @@ function drawImage() {
     ctx.font = 'bold 14px system-ui';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText('拉曼區', w * 0.15, h / 2 + 5);
-    ctx.fillText('混合區', w * 0.47, h / 2 + 5);
-    ctx.fillText('螢光區', w * 0.82, h / 2 + 5);
+    ctx.fillText(t('zone.raman'), w * 0.15, h / 2 + 5);
+    ctx.fillText(t('zone.mix'), w * 0.47, h / 2 + 5);
+    ctx.fillText(t('zone.fluo'), w * 0.82, h / 2 + 5);
   }
 }
 
@@ -906,6 +1012,7 @@ function draw() {
   else if (activeTab === 'image') drawImage();
 }
 
+applyLang();          // 靜態文字先就位，再第一次繪圖
 updateOutputs();
 uiReady = true;
 draw();
