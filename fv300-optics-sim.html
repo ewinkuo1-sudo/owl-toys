@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FV300 光路模擬器 🦉</title>
 <style>
-  :root {
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #0f1116;
     --panel: #171a21;
     --panel2: #1e222b;
@@ -22,6 +23,12 @@
     --amber: #ffb86c;
     --purple: #d2a8ff;
     --cyan: #79c0ff;
+    --canvas-bg: #0a0c10;
+    --box-fill: #1a1e28;
+    --box-line: #3a4050;
+    --em-fill: rgba(255,255,255,0.08);
+    --chip-on-ink: #0c1219;
+    --card-shadow: none;
     --radius: 14px;
     --laser-488: #00bbff;
     --laser-543: #8aff5a;
@@ -29,6 +36,32 @@
     --fluor-green: #44ff88;
     --fluor-red: #ff8844;
     --fluor-far-red: #ff4466;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6;
+    --panel: #ffffff;
+    --panel2: #eceef3;
+    --line: #dfe2e9;
+    --ink: #1c1f27;
+    --muted: #5b6272;
+    --faint: #8b91a0;
+    --accent: #1e6fc0;
+    --accent-dim: rgba(30,111,192,0.12);
+    --green: #1f8f55;
+    --green-dim: rgba(31,143,85,0.14);
+    --red: #c93c34;
+    --red-dim: rgba(201,60,52,0.12);
+    --amber: #d4741a;
+    --purple: #7a4fc2;
+    --cyan: #2a7fd4;
+    /* 光路圖在淺色模式下仍用深底：雷射／螢光色線在白底上會發灰 */
+    --canvas-bg: #1a1d25;
+    --box-fill: #262a35;
+    --box-line: #4a5060;
+    --em-fill: rgba(255,255,255,0.08);
+    --chip-on-ink: #ffffff;
+    --card-shadow: 0 1px 3px rgba(20,24,40,0.06);
   }
   * { box-sizing: border-box; }
   html { background: var(--bg); }
@@ -51,7 +84,14 @@
   h2 small { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
   h3 { font-size: 0.8rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--card-shadow); }
+  .topchips { position: fixed; top: 14px; right: 16px; z-index: 5; display: flex; gap: 6px; }
+  button.chip {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   .grid { display: grid; gap: 18px; }
   .main-grid { grid-template-columns: 1fr; }
   .ctrl-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -65,10 +105,10 @@
     border: 1px solid var(--line); border-radius: 999px; transition: all .12s;
   }
   .chips button:hover { color: var(--ink); border-color: var(--faint); }
-  .chips button.on { background: var(--accent); color: #0c1219; border-color: var(--accent); font-weight: 600; }
-  .chips button.laser-488.on { background: var(--laser-488); border-color: var(--laser-488); }
+  .chips button.on { background: var(--accent); color: var(--chip-on-ink); border-color: var(--accent); font-weight: 600; }
+  .chips button.laser-488.on { background: var(--laser-488); border-color: var(--laser-488); color: #0c1219; }
   .chips button.laser-543.on { background: var(--laser-543); border-color: var(--laser-543); color: #0c1219; }
-  .chips button.laser-633.on { background: var(--laser-633); border-color: var(--laser-633); }
+  .chips button.laser-633.on { background: var(--laser-633); border-color: var(--laser-633); color: #0c1219; }
 
   .ctl label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; margin-bottom: 4px; color: var(--muted); }
   .ctl output { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -79,7 +119,7 @@
   .stat-box .val { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .stat-box .lbl { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
 
-  canvas { display: block; width: 100%; border-radius: 8px; background: #0a0c10; }
+  canvas { display: block; width: 100%; border-radius: 8px; background: var(--canvas-bg); }
 
   .tag { display: inline-block; padding: 2px 8px; font-size: 0.72rem; border-radius: 999px; font-weight: 600; }
   .tag.pass { background: var(--green-dim); color: var(--green); }
@@ -92,61 +132,73 @@
 </style>
 </head>
 <body>
+<script>
+// 先套主題，避免首繪閃白／閃黑（完整邏輯在頁尾）
+(() => {
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') th = q;
+  document.documentElement.dataset.theme = th;
+})();
+</script>
+<div class="topchips">
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</div>
 <div class="page">
 
   <div class="hero">
     <div class="eyebrow">Owl Toys — Optics</div>
-    <h1>FV300 光路模擬器</h1>
-    <p>互動式模擬 <b>Olympus FluoView FV300 / IX71</b> 共軛焦顯微鏡的完整光路。
-       調整入射光發散度、振鏡角度、針孔大小、濾片組合，觀察光線追跡與成像效果。</p>
+    <h1 data-i18n="title"></h1>
+    <p data-i18n="sub"></p>
   </div>
 
   <!-- ===== 控制面板 ===== -->
   <div class="grid ctrl-grid">
     <div class="card stack">
-      <h2>雷射光源 <small>Laser Source</small></h2>
-      <h3>選擇雷射</h3>
+      <h2><span data-i18n="h.laser"></span> <small data-i18n="h.laser.sub"></small></h2>
+      <h3 data-i18n="h3.laser"></h3>
       <div class="chips" id="laserChips">
         <button class="laser-488" data-laser="488" onclick="setLaser(488)">Ar 488 nm</button>
         <button class="laser-543 on" data-laser="543" onclick="setLaser(543)">HeNe 543 nm</button>
         <button class="laser-633" data-laser="633" onclick="setLaser(633)">HeNe 633 nm</button>
       </div>
       <div class="ctl">
-        <label>光束發散半角 <output id="divOut">0.5</output> mrad</label>
+        <label><span data-i18n="lbl.div"></span> <span><output id="divOut">0.5</output> mrad</span></label>
         <input type="range" id="divSlider" min="0.1" max="5" step="0.1" value="0.5"
                oninput="state.divergence=+this.value; divOut.textContent=this.value; update()">
       </div>
       <div class="ctl">
-        <label>雷射功率 <output id="powerOut">10</output> %</label>
+        <label><span data-i18n="lbl.power"></span> <span><output id="powerOut">10</output> %</span></label>
         <input type="range" id="powerSlider" min="1" max="100" step="1" value="10"
                oninput="state.power=+this.value; powerOut.textContent=this.value; update()">
       </div>
-      <div class="note">發散角越大 → 光束到物鏡時越粗 → 不完全填充瞳孔時解析度下降</div>
+      <div class="note" data-i18n="note.laser"></div>
     </div>
 
     <div class="card stack">
-      <h2>掃描頭 <small>Scan Unit</small></h2>
+      <h2><span data-i18n="h.scan"></span> <small data-i18n="h.scan.sub"></small></h2>
       <div class="ctl">
-        <label>振鏡 X 角度 <output id="galvoXOut">0.0</output>°</label>
+        <label><span data-i18n="lbl.galvoX"></span> <span><output id="galvoXOut">0.0</output>°</span></label>
         <input type="range" id="galvoX" min="-12" max="12" step="0.5" value="0"
                oninput="state.galvoX=+this.value; galvoXOut.textContent=(+this.value).toFixed(1); update()">
       </div>
       <div class="ctl">
-        <label>振鏡 Y 角度 <output id="galvoYOut">0.0</output>°</label>
+        <label><span data-i18n="lbl.galvoY"></span> <span><output id="galvoYOut">0.0</output>°</span></label>
         <input type="range" id="galvoY" min="-12" max="12" step="0.5" value="0"
                oninput="state.galvoY=+this.value; galvoYOut.textContent=(+this.value).toFixed(1); update()">
       </div>
       <div class="ctl">
-        <label>Pinhole 段位 <output id="pinOut">3</output></label>
+        <label><span data-i18n="lbl.pinhole"></span> <output id="pinOut">3</output></label>
         <input type="range" id="pinSlider" min="1" max="5" step="1" value="3"
                oninput="state.pinhole=+this.value; pinOut.textContent=this.value; update()">
       </div>
-      <div class="note">Pinhole 1 = 最小（~60 μm）→ 最薄光學切片；5 = 最大（~300 μm）→ 最亮</div>
+      <div class="note" data-i18n="note.pinhole"></div>
     </div>
 
     <div class="card stack">
-      <h2>偵測光路 <small>Detection Path</small></h2>
-      <h3>偵測分光鏡</h3>
+      <h2><span data-i18n="h.det"></span> <small data-i18n="h.det.sub"></small></h2>
+      <h3 data-i18n="h3.dm"></h3>
       <div class="chips" id="dmChips">
         <button onclick="setDM('mirror')">Mirror</button>
         <button class="on" onclick="setDM('DM570')">DM570</button>
@@ -156,20 +208,20 @@
       <div class="chips" id="ch1Chips">
         <button class="on" onclick="setCH1('BA505-525')">BA505-525</button>
         <button onclick="setCH1('BA510-550')">BA510-550</button>
-        <button onclick="setCH1('none')">無</button>
+        <button onclick="setCH1('none')" data-i18n="filter.none"></button>
       </div>
       <h3>CH2 Barrier Filter</h3>
       <div class="chips" id="ch2Chips">
         <button class="on" onclick="setCH2('BA560-600')">BA560-600</button>
         <button onclick="setCH2('BA660IF')">BA660IF</button>
         <button onclick="setCH2('BA610IF')">BA610IF</button>
-        <button onclick="setCH2('none')">無</button>
+        <button onclick="setCH2('none')" data-i18n="filter.none"></button>
       </div>
     </div>
 
     <div class="card stack">
-      <h2>物鏡 / 樣品 <small>Objective & Sample</small></h2>
-      <h3>物鏡選擇</h3>
+      <h2><span data-i18n="h.obj"></span> <small data-i18n="h.obj.sub"></small></h2>
+      <h3 data-i18n="h3.obj"></h3>
       <div class="chips" id="objChips">
         <button onclick="setObj('10x')">UPLSAPO 10X</button>
         <button class="on" onclick="setObj('20x')">UPLAPO 20X</button>
@@ -177,17 +229,17 @@
         <button onclick="setObj('60x')">UPLSAPO 60X Oil</button>
       </div>
       <div class="ctl">
-        <label>樣品焦面深度 <output id="zOut">0</output> μm</label>
+        <label><span data-i18n="lbl.z"></span> <span><output id="zOut">0</output> μm</span></label>
         <input type="range" id="zSlider" min="-50" max="50" step="1" value="0"
                oninput="state.zOffset=+this.value; zOut.textContent=this.value; update()">
       </div>
-      <div class="note">離焦時焦外螢光被 pinhole 擋住 → 影像亮度下降、切片效果顯現</div>
+      <div class="note" data-i18n="note.z"></div>
     </div>
   </div>
 
   <!-- ===== 光路圖 ===== -->
   <div class="card">
-    <h2>光路追跡 <small>Ray Trace — 側視圖 (XZ 平面)</small></h2>
+    <h2><span data-i18n="h.path"></span> <small data-i18n="h.path.sub"></small></h2>
     <canvas id="pathCanvas" height="520"></canvas>
   </div>
 
@@ -195,33 +247,33 @@
   <div class="grid result-grid">
     <div class="card stat-box">
       <div class="val" id="spotVal">--</div>
-      <div class="lbl">物鏡焦點光斑 (μm)</div>
+      <div class="lbl" data-i18n="stat.spot"></div>
     </div>
     <div class="card stat-box">
       <div class="val" id="airyVal">--</div>
-      <div class="lbl">Airy disk 半徑 (μm)</div>
+      <div class="lbl" data-i18n="stat.airy"></div>
     </div>
     <div class="card stat-box">
       <div class="val" id="sliceVal">--</div>
-      <div class="lbl">光學切片厚度 (μm)</div>
+      <div class="lbl" data-i18n="stat.slice"></div>
     </div>
     <div class="card stat-box">
       <div class="val" id="pinholeEffVal">--</div>
-      <div class="lbl">Pinhole 效率</div>
+      <div class="lbl" data-i18n="stat.pinEff"></div>
     </div>
     <div class="card stat-box">
       <div class="val" id="ch1Val">--</div>
-      <div class="lbl">CH1 PMT 訊號</div>
+      <div class="lbl" data-i18n="stat.ch1"></div>
     </div>
     <div class="card stat-box">
       <div class="val" id="ch2Val">--</div>
-      <div class="lbl">CH2 PMT 訊號</div>
+      <div class="lbl" data-i18n="stat.ch2"></div>
     </div>
   </div>
 
   <!-- ===== 濾片光譜圖 ===== -->
   <div class="card">
-    <h2>濾片透射光譜 <small>Filter Transmission Spectra</small></h2>
+    <h2><span data-i18n="h.spec"></span> <small data-i18n="h.spec.sub"></small></h2>
     <canvas id="specCanvas" height="280"></canvas>
   </div>
 
@@ -231,6 +283,133 @@
 // ============================================================
 //  FV300 Optics Simulator — Core Engine
 // ============================================================
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+const I18N = {
+zh: {
+  'title': 'FV300 光路模擬器',
+  'doc.title': 'FV300 光路模擬器 🦉',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `互動式模擬 <b>Olympus FluoView FV300 / IX71</b> 共軛焦顯微鏡的完整光路。
+       調整入射光發散度、振鏡角度、針孔大小、濾片組合，觀察光線追跡與成像效果。`,
+  'h.laser': '雷射光源', 'h.laser.sub': 'Laser Source',
+  'h3.laser': '選擇雷射',
+  'lbl.div': '光束發散半角', 'lbl.power': '雷射功率',
+  'note.laser': '發散角越大 → 光束到物鏡時越粗 → 不完全填充瞳孔時解析度下降',
+  'h.scan': '掃描頭', 'h.scan.sub': 'Scan Unit',
+  'lbl.galvoX': '振鏡 X 角度', 'lbl.galvoY': '振鏡 Y 角度', 'lbl.pinhole': 'Pinhole 段位',
+  'note.pinhole': 'Pinhole 1 = 最小（~60 μm）→ 最薄光學切片；5 = 最大（~300 μm）→ 最亮',
+  'h.det': '偵測光路', 'h.det.sub': 'Detection Path',
+  'h3.dm': '偵測分光鏡', 'filter.none': '無',
+  'h.obj': '物鏡 / 樣品', 'h.obj.sub': 'Objective & Sample',
+  'h3.obj': '物鏡選擇', 'lbl.z': '樣品焦面深度',
+  'note.z': '離焦時焦外螢光被 pinhole 擋住 → 影像亮度下降、切片效果顯現',
+  'h.path': '光路追跡', 'h.path.sub': 'Ray Trace — 側視圖 (XZ 平面)',
+  'stat.spot': '物鏡焦點光斑 (μm)', 'stat.airy': 'Airy disk 半徑 (μm)',
+  'stat.slice': '光學切片厚度 (μm)', 'stat.pinEff': 'Pinhole 效率',
+  'stat.ch1': 'CH1 PMT 訊號', 'stat.ch2': 'CH2 PMT 訊號',
+  'h.spec': '濾片透射光譜', 'h.spec.sub': 'Filter Transmission Spectra',
+  // canvas
+  'cv.exDM': '激發 DM',
+  'cv.galvoX': v => `振鏡 X: ${v}°`, 'cv.galvoY': v => `振鏡 Y: ${v}°`,
+  'cv.scanLens': '掃描透鏡', 'cv.tubeLens': '管鏡 f=180mm',
+  'cv.sample': '樣品焦面', 'cv.glass': '調整玻璃',
+  'cv.fill': v => `光束填充率: ${v}%`, 'cv.na': v => `有效 NA: ${v}`,
+  'cv.spot': v => `光斑: ${v} μm`, 'cv.slice': v => `切片厚度: ${v} μm`,
+  'cv.defocus': (z, e) => `離焦 ${z} μm → pinhole 效率 ${e}%`,
+  'cv.mirrorAll': 'Mirror → 全部至 CH1', 'cv.trans': '透射率',
+  'cv.emPeak': v => `螢光發射峰 ~${v} nm`,
+},
+en: {
+  'title': 'FV300 Optical Path Simulator',
+  'doc.title': 'FV300 Optical Path Simulator 🦉',
+  'btn.lang.title': '切換為中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `An interactive model of the full optical path of the <b>Olympus FluoView FV300 / IX71</b> confocal microscope.
+       Adjust beam divergence, galvo angles, pinhole size and filter set, and watch the ray trace and the resulting signal respond.`,
+  'h.laser': 'Laser Source', 'h.laser.sub': '',
+  'h3.laser': 'Laser line',
+  'lbl.div': 'Beam divergence (half-angle)', 'lbl.power': 'Laser power',
+  'note.laser': 'Larger divergence → a wider beam at the objective → resolution drops once the pupil is no longer fully filled',
+  'h.scan': 'Scan Unit', 'h.scan.sub': '',
+  'lbl.galvoX': 'Galvo X angle', 'lbl.galvoY': 'Galvo Y angle', 'lbl.pinhole': 'Pinhole step',
+  'note.pinhole': 'Pinhole 1 = smallest (~60 μm) → thinnest optical section; 5 = largest (~300 μm) → brightest',
+  'h.det': 'Detection Path', 'h.det.sub': '',
+  'h3.dm': 'Detection dichroic', 'filter.none': 'None',
+  'h.obj': 'Objective & Sample', 'h.obj.sub': '',
+  'h3.obj': 'Objective', 'lbl.z': 'Focal-plane depth in sample',
+  'note.z': 'When defocused, out-of-focus fluorescence is blocked by the pinhole → image dims and the sectioning effect appears',
+  'h.path': 'Ray Trace', 'h.path.sub': 'side view (XZ plane)',
+  'stat.spot': 'Focal spot at objective (μm)', 'stat.airy': 'Airy disk radius (μm)',
+  'stat.slice': 'Optical section thickness (μm)', 'stat.pinEff': 'Pinhole efficiency',
+  'stat.ch1': 'CH1 PMT signal', 'stat.ch2': 'CH2 PMT signal',
+  'h.spec': 'Filter Transmission Spectra', 'h.spec.sub': '',
+  // canvas
+  'cv.exDM': 'Excitation DM',
+  'cv.galvoX': v => `Galvo X: ${v}°`, 'cv.galvoY': v => `Galvo Y: ${v}°`,
+  'cv.scanLens': 'Scan lens', 'cv.tubeLens': 'Tube lens f=180mm',
+  'cv.sample': 'Sample focal plane', 'cv.glass': 'Alignment plates',
+  'cv.fill': v => `Pupil fill: ${v}%`, 'cv.na': v => `Effective NA: ${v}`,
+  'cv.spot': v => `Spot: ${v} μm`, 'cv.slice': v => `Section: ${v} μm`,
+  'cv.defocus': (z, e) => `Defocus ${z} μm → pinhole efficiency ${e}%`,
+  'cv.mirrorAll': 'Mirror → everything to CH1', 'cv.trans': 'Transmission',
+  'cv.emPeak': v => `Emission peak ~${v} nm`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = {};
+function readColors() {
+  const map = { ink: '--ink', muted: '--muted', faint: '--faint', accent: '--accent', line: '--line',
+                green: '--green', red: '--red', amber: '--amber', purple: '--purple', cyan: '--cyan',
+                boxFill: '--box-fill', boxLine: '--box-line', emFill: '--em-fill' };
+  for (const k in map) C[k] = css(map[k]);
+  // 光路圖／光譜圖始終畫在深底上，文字用固定的亮色系才看得清
+  C.cvInk = '#e8e9ee'; C.cvMuted = '#98a0b0'; C.cvFaint = '#8a92a4';
+  C.cvGrid = '#2a303c'; C.cvAccent = '#6ec6ff'; C.cvGreen = '#7ee787'; C.cvRed = '#ff7b72';
+  C.cvPurple = '#d2a8ff'; C.cvCyan = '#79c0ff'; C.cvAmber = '#ffb86c';
+}
+let booted = false;
+function redrawAll() { if (booted) update(); }
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  const b = $('theme');
+  if (b) b.textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
+  readColors();
+  redrawAll();
+}
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 // --- State ---
 const state = {
@@ -269,13 +448,13 @@ const FILTERS = {
   'BA560-600': { type: 'bp', lo: 560, hi: 600, label: 'BA560-600', color: '#ff8844' },
   'BA660IF':   { type: 'lp', lo: 660, hi: 900, label: 'BA660IF',   color: '#ff4466' },
   'BA610IF':   { type: 'lp', lo: 610, hi: 900, label: 'BA610IF',   color: '#ff6644' },
-  'none':      { type: 'open', lo: 400, hi: 900, label: '無', color: '#888' },
+  'none':      { type: 'open', lo: 400, hi: 900, label: 'none', color: '#888' },
 };
 
 const DMS = {
-  'mirror':  { cutoff: null, label: 'Mirror (全反射至 CH1)' },
-  'DM570':   { cutoff: 570,  label: 'DM570 (570 nm 分割)' },
-  'DM630':   { cutoff: 630,  label: 'DM630 (630 nm 分割)' },
+  'mirror':  { cutoff: null },
+  'DM570':   { cutoff: 570 },
+  'DM630':   { cutoff: 630 },
 };
 
 // Common fluorophore emission peaks for reference
@@ -514,16 +693,16 @@ function drawPath(canvas, result) {
   ctx.textBaseline = 'middle';
 
   function drawBox(x, y, w, h, label, sublabel, borderColor) {
-    ctx.fillStyle = '#1a1e28';
-    ctx.strokeStyle = borderColor || '#3a4050';
+    ctx.fillStyle = C.boxFill;
+    ctx.strokeStyle = borderColor || C.boxLine;
     ctx.lineWidth = 2;
     roundRect(ctx, x - w/2, y - h/2, w, h, 6);
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#e8e9ee';
+    ctx.fillStyle = C.cvInk;
     ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
     ctx.fillText(label, x, sublabel ? y - 7 : y);
     if (sublabel) {
-      ctx.fillStyle = '#98a0b0';
+      ctx.fillStyle = C.cvMuted;
       ctx.font = '10px "Noto Sans TC", sans-serif';
       ctx.fillText(sublabel, x, y + 9);
     }
@@ -541,7 +720,7 @@ function drawPath(canvas, result) {
     ctx.quadraticCurveTo(x - 10, y, x, y + h/2);
     ctx.stroke();
     if (label) {
-      ctx.fillStyle = '#98a0b0';
+      ctx.fillStyle = C.cvMuted;
       ctx.font = '9px "Noto Sans TC", sans-serif';
       ctx.fillText(label, x, y + h/2 + 12);
     }
@@ -613,7 +792,7 @@ function drawPath(canvas, result) {
   ctx.stroke();
 
   // Excitation Dichroic Mirror
-  drawMirror(axisX, 100, 45, '激發 DM', '#d2a8ff');
+  drawMirror(axisX, 100, 45, t('cv.exDM'), '#d2a8ff');
 
   // ExDM → GalvoX
   ctx.strokeStyle = laserColor;
@@ -628,7 +807,7 @@ function drawPath(canvas, result) {
   ctx.fillStyle = '#79c0ff';
   ctx.font = '10px "Noto Sans TC", sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText(`振鏡 X: ${state.galvoX.toFixed(1)}°`, axisX - 26, 185);
+  ctx.fillText(t('cv.galvoX', state.galvoX.toFixed(1)), axisX - 26, 185);
   ctx.textAlign = 'center';
 
   // GalvoX → GalvoY
@@ -645,7 +824,7 @@ function drawPath(canvas, result) {
   ctx.fillStyle = '#79c0ff';
   ctx.font = '10px "Noto Sans TC", sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText(`振鏡 Y: ${state.galvoY.toFixed(1)}°`, axisX + gxDeflect - 26, 245);
+  ctx.fillText(t('cv.galvoY', state.galvoY.toFixed(1)), axisX + gxDeflect - 26, 245);
   ctx.textAlign = 'center';
 
   // GalvoY → Scan Lens
@@ -657,7 +836,7 @@ function drawPath(canvas, result) {
   ctx.stroke();
 
   // Scan Lens
-  drawLens(axisX + gyDeflect * 0.2, 305, 30, '掃描透鏡');
+  drawLens(axisX + gyDeflect * 0.2, 305, 30, t('cv.scanLens'));
 
   // Scan Lens → Tube Lens
   ctx.strokeStyle = laserColor;
@@ -667,7 +846,7 @@ function drawPath(canvas, result) {
   ctx.stroke();
 
   // Tube Lens
-  drawLens(axisX + gyDeflect * 0.1, 355, 34, '管鏡 f=180mm');
+  drawLens(axisX + gyDeflect * 0.1, 355, 34, t('cv.tubeLens'));
 
   // Tube Lens → Objective
   ctx.strokeStyle = laserColor;
@@ -678,8 +857,8 @@ function drawPath(canvas, result) {
 
   // Objective
   const objY = 400;
-  ctx.fillStyle = '#1a1e28';
-  ctx.strokeStyle = '#6ec6ff';
+  ctx.fillStyle = C.boxFill;
+  ctx.strokeStyle = C.cvAccent;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(axisX - 22, objY - 15);
@@ -688,10 +867,10 @@ function drawPath(canvas, result) {
   ctx.lineTo(axisX - 16, objY + 18);
   ctx.closePath();
   ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#e8e9ee';
+  ctx.fillStyle = C.cvInk;
   ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
   ctx.fillText(result.obj.label, axisX, objY);
-  ctx.fillStyle = '#98a0b0';
+  ctx.fillStyle = C.cvMuted;
   ctx.font = '9px sans-serif';
   ctx.fillText(`NA ${result.obj.na}`, axisX, objY + 12);
 
@@ -718,7 +897,7 @@ function drawPath(canvas, result) {
   ctx.setLineDash([]);
   ctx.fillStyle = '#7ee787';
   ctx.font = '10px "Noto Sans TC", sans-serif';
-  ctx.fillText('樣品焦面', axisX, sampleY + 14);
+  ctx.fillText(t('cv.sample'), axisX, sampleY + 14);
 
   // Focal spot indicator
   const spotSize = Math.max(2, Math.min(10, result.spotRadius * 3));
@@ -764,9 +943,9 @@ function drawPath(canvas, result) {
   ctx.beginPath();
   ctx.moveTo(retX - 18, 88); ctx.lineTo(retX - 14, 112);
   ctx.stroke();
-  ctx.fillStyle = '#5c6474';
+  ctx.fillStyle = C.cvFaint;
   ctx.font = '8px "Noto Sans TC", sans-serif';
-  ctx.fillText('調整玻璃', retX - 20, 80);
+  ctx.fillText(t('cv.glass'), retX - 20, 80);
 
   // Pinhole
   drawPinhole(retX, 100, state.pinhole);
@@ -802,12 +981,12 @@ function drawPath(canvas, result) {
   ctx.globalAlpha = 0.6;
   ctx.fillRect(ch1X - 12, 50, 24, 6);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = '#98a0b0';
+  ctx.fillStyle = C.cvMuted;
   ctx.font = '8px sans-serif';
-  ctx.fillText(state.ch1Filter, ch1X, 44);
+  ctx.fillText(FILTERS[state.ch1Filter].label === 'none' ? t('filter.none') : state.ch1Filter, ch1X, 44);
 
   // CH1 PMT
-  drawBox(ch1X, 28, 70, 28, 'CH1 PMT', null, ch1Signal > 0.05 ? '#7ee787' : '#3a4050');
+  drawBox(ch1X, 28, 70, 28, 'CH1 PMT', null, ch1Signal > 0.05 ? C.cvGreen : C.boxLine);
 
   // CH2: transmitted rightward
   const ch2X = detDMX + 90;
@@ -825,28 +1004,28 @@ function drawPath(canvas, result) {
   ctx.globalAlpha = 0.6;
   ctx.fillRect(ch2X - 18, 95, 6, 12);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = '#98a0b0';
+  ctx.fillStyle = C.cvMuted;
   ctx.font = '8px sans-serif';
-  ctx.fillText(state.ch2Filter, ch2X - 14, 88);
+  ctx.fillText(FILTERS[state.ch2Filter].label === 'none' ? t('filter.none') : state.ch2Filter, ch2X - 14, 88);
 
   // CH2 PMT
-  drawBox(ch2X + 20, 100, 70, 28, 'CH2 PMT', null, result.ch2Signal > 0.05 ? '#7ee787' : '#3a4050');
+  drawBox(ch2X + 20, 100, 70, 28, 'CH2 PMT', null, result.ch2Signal > 0.05 ? C.cvGreen : C.boxLine);
 
   // ---- Labels & annotations ----
   ctx.globalAlpha = 1;
-  ctx.fillStyle = '#5c6474';
+  ctx.fillStyle = C.cvFaint;
   ctx.font = '10px "Noto Sans TC", sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`光束填充率: ${(result.fillFactor * 100).toFixed(0)}%`, 20, H - 40);
-  ctx.fillText(`有效 NA: ${result.effectiveNA.toFixed(3)}`, 20, H - 24);
-  ctx.fillText(`光斑: ${(result.spotRadius * 2).toFixed(2)} μm`, 200, H - 40);
-  ctx.fillText(`切片厚度: ${result.sliceThickness.toFixed(1)} μm`, 200, H - 24);
+  ctx.fillText(t('cv.fill', (result.fillFactor * 100).toFixed(0)), 20, H - 40);
+  ctx.fillText(t('cv.na', result.effectiveNA.toFixed(3)), 20, H - 24);
+  ctx.fillText(t('cv.spot', (result.spotRadius * 2).toFixed(2)), 200, H - 40);
+  ctx.fillText(t('cv.slice', result.sliceThickness.toFixed(1)), 200, H - 24);
 
   // Defocus indicator
   if (state.zOffset !== 0) {
     ctx.fillStyle = '#ff7b72';
     ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
-    ctx.fillText(`離焦 ${state.zOffset} μm → pinhole 效率 ${(result.pinholeEff * 100).toFixed(0)}%`, 400, H - 32);
+    ctx.fillText(t('cv.defocus', state.zOffset, (result.pinholeEff * 100).toFixed(0)), 400, H - 32);
   }
 }
 
@@ -871,12 +1050,12 @@ function drawSpectra(canvas, result) {
   function tToY(t) { return bottom - t * plotH; }
 
   // Grid
-  ctx.strokeStyle = '#262b36';
+  ctx.strokeStyle = C.cvGrid;
   ctx.lineWidth = 1;
   for (let wl = 400; wl <= 800; wl += 50) {
     const x = wlToX(wl);
     ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
-    ctx.fillStyle = '#5c6474';
+    ctx.fillStyle = C.cvFaint;
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(wl + ' nm', x, bottom + 16);
@@ -943,7 +1122,7 @@ function drawSpectra(canvas, result) {
     ctx.fillStyle = '#6ec6ff';
     ctx.font = '9px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('Mirror → 全部至 CH1', left + 4, top + 14);
+    ctx.fillText(t('cv.mirrorAll'), left + 4, top + 14);
   }
 
   // CH1 filter band
@@ -977,18 +1156,18 @@ function drawSpectra(canvas, result) {
   }
 
   // Y axis
-  ctx.fillStyle = '#5c6474';
+  ctx.fillStyle = C.cvFaint;
   ctx.font = '10px "Noto Sans TC", sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('透射率', left - 8, top + 5);
+  ctx.fillText(t('cv.trans'), left - 8, top + 5);
   ctx.fillText('1.0', left - 8, top + 14);
   ctx.fillText('0', left - 8, bottom + 4);
 
   // Emission peak label
-  ctx.fillStyle = '#98a0b0';
+  ctx.fillStyle = C.cvMuted;
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`螢光發射峰 ~${result.emPeak} nm`, wlToX(result.emPeak), tToY(1) - 12);
+  ctx.fillText(t('cv.emPeak', result.emPeak), wlToX(result.emPeak), tToY(1) - 12);
 }
 
 // ============================================================
@@ -1007,8 +1186,8 @@ function update() {
   document.getElementById('ch2Val').textContent = (result.ch2Signal * 100).toFixed(1) + '%';
 
   // Color coding for signals
-  document.getElementById('ch1Val').style.color = result.ch1Signal > 0.05 ? '#7ee787' : '#5c6474';
-  document.getElementById('ch2Val').style.color = result.ch2Signal > 0.05 ? '#7ee787' : '#5c6474';
+  document.getElementById('ch1Val').style.color = result.ch1Signal > 0.05 ? C.green : C.faint;
+  document.getElementById('ch2Val').style.color = result.ch2Signal > 0.05 ? C.green : C.faint;
 
   drawPath(document.getElementById('pathCanvas'), result);
   drawSpectra(document.getElementById('specCanvas'), result);
@@ -1019,6 +1198,9 @@ function update() {
 // ============================================================
 
 window.addEventListener('resize', () => update());
+setTheme(document.documentElement.dataset.theme || 'light');
+applyLang();
+booted = true;
 update();
 </script>
 </body>

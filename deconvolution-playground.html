@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>反卷積互動實驗台 🦉</title>
 <style>
-  :root {
-    --bg: #14161c;
-    --panel: #1d2028;
-    --ink: #e6e6ec;
-    --muted: #9aa0ae;
-    --accent: #6ec6ff;
-    --ref: #ffb86c;
-    --grid: #2e3340;
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --accent: #6ec6ff; --ref: #ffb86c; --grid: #2e3340;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --ink: #1c1f27; --muted: #5b6272;
+    --accent: #1e6fc0; --ref: #d4741a; --grid: #dfe2e9;
   }
   * { box-sizing: border-box; }
   body {
@@ -21,18 +22,28 @@
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px;  max-width: 100%; height: auto; }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 20px;
     display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+    flex: 1 1 280px; max-width: 100%;   /* 寬螢幕時貼在畫布旁邊，而不是掉到下一行撐滿 */
   }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
+  #cCurve { align-self: flex-start; }
   .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
   .toggle input { accent-color: var(--ref); }
   .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
@@ -46,52 +57,163 @@
 </style>
 </head>
 <body>
-<h1>反卷積互動實驗台</h1>
-<p class="sub">
-  真值先被高斯 PSF 模糊、再加上光子雜訊（Poisson，此處以 σ = √λ 的高斯近似），然後用 Richardson–Lucy 疊代往回推：
-  <code>e ← e · (PSF ⊛ [d / (PSF ⊛ e)])</code>。
-  重點不是「疊代越多越好」，而是 <b>半收斂（semi-convergence）</b>——
-  誤差先降後升，過了甜蜜點就開始把雜訊放大成振鈴。
-</p>
+<script>
+// 先套主題，避免首繪閃白／閃黑（完整邏輯在頁尾）
+(() => {
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') th = q;
+  document.documentElement.dataset.theme = th;
+})();
+</script>
+<div class="head">
+  <h1 data-i18n="title"></h1>
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</div>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <canvas id="cTruth" width="256" height="280"></canvas>
   <canvas id="cData" width="256" height="280"></canvas>
   <canvas id="cRest" width="256" height="280"></canvas>
   <div class="controls">
     <div class="ctl">
-      <label>PSF 高斯寬度 σ <output id="sigOut">1.50 px</output></label>
+      <label><span data-i18n="lbl.sigma"></span> <output id="sigOut">1.50 px</output></label>
       <input type="range" id="sigma" min="0.5" max="4" step="0.05" value="1.5">
     </div>
     <div class="ctl">
-      <label>光子預算（峰值計數）<output id="phOut">40</output></label>
+      <label><span data-i18n="lbl.photon"></span> <output id="phOut">40</output></label>
       <input type="range" id="photon" min="0" max="1" step="0.001" value="0.2">
     </div>
     <div class="ctl">
-      <label>RL 疊代次數 <output id="itOut">30</output></label>
+      <label><span data-i18n="lbl.iter"></span> <output id="itOut">30</output></label>
       <input type="range" id="iter" min="0" max="200" step="1" value="30">
     </div>
     <div class="toggle">
       <input type="checkbox" id="stretch">
-      <label for="stretch">√ 拉伸顯示（把暗處雜訊與振鈴放大來看）</label>
+      <label for="stretch" data-i18n="lbl.stretch"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="play">
-      <label for="play">自動播放疊代（0 → 200 循環）</label>
+      <label for="play" data-i18n="lbl.play"></label>
     </div>
     <canvas id="cCurve" width="240" height="130"></canvas>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      玩法提示：RL 是最大概似解，它會忠實擬合「資料」——包含資料裡的雜訊。
-      過了甜蜜點之後，多出來的疊代都花在解釋雜訊上，於是尖銳邊緣（圓盤邊、細條紋）
-      冒出振鈴，背景長出斑點。把光子預算調低，甜蜜點會提早出現而且變淺。
-      真實套件靠正規化（TV 等）或早停來壓住它；共軛焦／雙光子 z-stack 的反卷積是同一個取捨。
-    </div>
+    <div class="hint" data-i18n="hint"></div>
   </div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': '反卷積互動實驗台',
+  'doc.title': '反卷積互動實驗台 🦉',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `真值先被高斯 PSF 模糊、再加上光子雜訊（Poisson，此處以 σ = √λ 的高斯近似），然後用 Richardson–Lucy 疊代往回推：
+    <code>e ← e · (PSF ⊛ [d / (PSF ⊛ e)])</code>。
+    重點不是「疊代越多越好」，而是 <b>半收斂（semi-convergence）</b>——
+    誤差先降後升，過了甜蜜點就開始把雜訊放大成振鈴。`,
+  'lbl.sigma': 'PSF 高斯寬度 σ',
+  'lbl.photon': '光子預算（峰值計數）',
+  'lbl.iter': 'RL 疊代次數',
+  'lbl.stretch': '√ 拉伸顯示（把暗處雜訊與振鈴放大來看）',
+  'lbl.play': '自動播放疊代（0 → 200 循環）',
+  'hint': `玩法提示：RL 是最大概似解，它會忠實擬合「資料」——包含資料裡的雜訊。
+    過了甜蜜點之後，多出來的疊代都花在解釋雜訊上，於是尖銳邊緣（圓盤邊、細條紋）
+    冒出振鈴，背景長出斑點。把光子預算調低，甜蜜點會提早出現而且變淺。
+    真實套件靠正規化（TV 等）或早停來壓住它；共軛焦／雙光子 z-stack 的反卷積是同一個取捨。`,
+  'cv.truth': '原始（真值）',
+  'cv.data': '模糊＋雜訊',
+  'cv.rest': 'RL 還原',
+  'cv.iter': n => `第 ${n} 次疊代`,
+  'cv.curve': 'RMSE vs 疊代',
+  'st.cur': v => `目前 RMSE（還原 vs 真值）：<b>${v}</b>`,
+  'st.busy': ' <span class="warn">計算中…</span>',
+  'st.best': (k, v) => `已算過的最佳疊代：<b>${k}</b> 次，RMSE <b>${v}</b>`,
+  'st.base': v => `未還原（模糊＋雜訊）RMSE：<b>${v}</b>`,
+  'st.past': n => `<span class="warn">⚠ 已越過甜蜜點 ${n} 次疊代：正在放大雜訊</span>`,
+  'st.ok': '曲線還在下降，或剛好停在最低點',
+},
+en: {
+  'title': 'Deconvolution Playground',
+  'doc.title': 'Deconvolution Playground 🦉',
+  'btn.lang.title': '切換為中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `The ground truth is blurred by a Gaussian PSF, then photon noise is added (Poisson, approximated here as Gaussian with σ = √λ), and Richardson–Lucy iterates its way back:
+    <code>e ← e · (PSF ⊛ [d / (PSF ⊛ e)])</code>.
+    The point is not "more iterations are better" but <b>semi-convergence</b> —
+    the error falls, then rises again; past the sweet spot the noise gets amplified into ringing.`,
+  'lbl.sigma': 'PSF Gaussian width σ',
+  'lbl.photon': 'Photon budget (peak counts)',
+  'lbl.iter': 'RL iterations',
+  'lbl.stretch': '√ stretch display (magnify dark-region noise and ringing)',
+  'lbl.play': 'Auto-play iterations (0 → 200 loop)',
+  'hint': `How to play: RL is a maximum-likelihood solution — it faithfully fits the "data", noise included.
+    Past the sweet spot every extra iteration goes into explaining noise, so sharp edges (the disc rim, thin bars)
+    sprout ringing and the background grows speckle. Lower the photon budget and the sweet spot arrives earlier and shallower.
+    Real packages tame it with regularization (TV etc.) or early stopping; deconvolving confocal / two-photon z-stacks is the same trade-off.`,
+  'cv.truth': 'Original (truth)',
+  'cv.data': 'Blurred + noise',
+  'cv.rest': 'RL restored',
+  'cv.iter': n => `iteration ${n}`,
+  'cv.curve': 'RMSE vs iteration',
+  'st.cur': v => `Current RMSE (restored vs truth): <b>${v}</b>`,
+  'st.busy': ' <span class="warn">computing…</span>',
+  'st.best': (k, v) => `Best iteration so far: <b>${k}</b>, RMSE <b>${v}</b>`,
+  'st.base': v => `Unrestored (blurred + noise) RMSE: <b>${v}</b>`,
+  'st.past': n => `<span class="warn">⚠ ${n} iterations past the sweet spot: amplifying noise</span>`,
+  'st.ok': 'Still descending, or sitting right at the minimum',
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid'), panel: css('--panel') };
+const C = {};
+function readColors() {
+  const map = { ink: '--ink', muted: '--muted', accent: '--accent', ref: '--ref', grid: '--grid', panel: '--panel' };
+  for (const k in map) C[k] = css(map[k]);
+}
+let booted = false;
+function redrawAll() { if (booted) render(); }   // 切主題／語言後主動重畫
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  $('theme').textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
+  readColors();
+  redrawAll();
+}
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
 const N = 128, NP = N * N;
 const off = document.createElement('canvas');
@@ -293,7 +415,7 @@ function drawCurve(cur, best) {
     ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, mT + ph); ctx.stroke();
     ctx.fillText(k, x - 6, h - 6);
   }
-  ctx.fillText('RMSE vs 疊代', mL + 2, mT - 3);
+  ctx.fillText(t('cv.curve'), mL + 2, mT - 3);
 
   ctx.strokeStyle = C.ref; ctx.setLineDash([3, 3]);
   ctx.beginPath(); ctx.moveTo(mL, Y(baseRmse)); ctx.lineTo(w - mR, Y(baseRmse)); ctx.stroke();
@@ -323,20 +445,18 @@ function render() {
   let best = 0;
   for (let k = 1; k < rmseHist.length; k++) if (rmseHist[k] < rmseHist[best]) best = k;
 
-  drawField($('cTruth'), truth, '原始（真值）', N + '×' + N);
-  drawField($('cData'), data, '模糊＋雜訊', 'σ=' + sigma.toFixed(1) + ', P=' + P);
-  drawField($('cRest'), hist[cur], 'RL 還原', '第 ' + cur + ' 次疊代');
+  drawField($('cTruth'), truth, t('cv.truth'), N + '×' + N);
+  drawField($('cData'), data, t('cv.data'), 'σ=' + sigma.toFixed(1) + ', P=' + P);
+  drawField($('cRest'), hist[cur], t('cv.rest'), t('cv.iter', cur));
   drawCurve(cur, best);
 
   const busy = cur < target;
   const past = cur > best && best < rmseHist.length - 1;
   $('stats').innerHTML =
-    `目前 RMSE（還原 vs 真值）：<b>${rmseHist[cur].toFixed(4)}</b>${busy ? ' <span class="warn">計算中…</span>' : ''}<br>` +
-    `已算過的最佳疊代：<b>${best}</b> 次，RMSE <b>${rmseHist[best].toFixed(4)}</b><br>` +
-    `未還原（模糊＋雜訊）RMSE：<b>${baseRmse.toFixed(4)}</b><br>` +
-    (past
-      ? `<span class="warn">⚠ 已越過甜蜜點 ${cur - best} 次疊代：正在放大雜訊</span>`
-      : `曲線還在下降，或剛好停在最低點`);
+    t('st.cur', rmseHist[cur].toFixed(4)) + (busy ? t('st.busy') : '') + '<br>' +
+    t('st.best', best, rmseHist[best].toFixed(4)) + '<br>' +
+    t('st.base', baseRmse.toFixed(4)) + '<br>' +
+    (past ? t('st.past', cur - best) : t('st.ok'));
 }
 
 /* ---------- 事件 ---------- */
@@ -361,6 +481,10 @@ $('play').addEventListener('change', e => {
   if (playing) tick(); else cancelAnimationFrame(raf);
 });
 
+setTheme(document.documentElement.dataset.theme || 'light');
+applyLang();
+rebuild();
+booted = true;
 reset();
 </script>
 </body>

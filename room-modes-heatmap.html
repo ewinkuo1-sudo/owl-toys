@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>房間模態 2D 駐波熱圖 🦉</title>
 <style>
-  :root {
-    --bg: #14161c;
-    --panel: #1d2028;
-    --ink: #e6e6ec;
-    --muted: #9aa0ae;
-    --accent: #6ec6ff;
-    --ref: #ffb86c;
-    --grid: #2e3340;
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --accent: #6ec6ff; --ref: #ffb86c; --grid: #2e3340; --btn: #262a34;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --ink: #1c1f27; --muted: #5b6272;
+    --accent: #1e6fc0; --ref: #d4741a; --grid: #dfe2e9; --btn: #eceef3;
   }
   * { box-sizing: border-box; }
   body {
@@ -21,7 +22,14 @@
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
   .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
@@ -29,7 +37,9 @@
   .controls {
     background: var(--panel); border-radius: 12px; padding: 20px;
     display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+    flex: 1 1 280px; max-width: 100%;   /* 寬螢幕時貼在畫布旁邊，而不是掉到下一行撐滿 */
   }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -37,6 +47,7 @@
   .toggle input { accent-color: var(--ref); }
   .stats { font-size: 0.85rem; color: var(--muted); line-height: 1.8; border-top: 1px solid var(--grid); padding-top: 12px; }
   .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stats .o { color: var(--ref); }
   .hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--grid); padding-top: 12px; }
   .ptitle { font-size: 0.85rem; color: var(--ink); }
   .modes { display: flex; flex-direction: column; gap: 3px; max-height: 340px; overflow-y: auto; }
@@ -45,7 +56,7 @@
     font-size: 0.8rem; color: var(--muted); padding: 5px 8px;
     border-radius: 6px; border: 1px solid transparent;
   }
-  .mode:hover { background: #262a34; }
+  .mode:hover { background: var(--btn); }
   .mode.sel { border-color: var(--accent); color: var(--ink); }
   .mode.hit { color: var(--ref); }
   .mode .f { margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -57,53 +68,163 @@
 </style>
 </head>
 <body>
-<h1>房間模態 2D 駐波熱圖</h1>
-<p class="sub">
-  剛性牆矩形房間的平面駐波：<code>p(x,y) = cos(nπx/Lx)·cos(mπy/Ly)</code>，
-  <code>f = (c/2)·√((n/Lx)² + (m/Ly)²)</code>，c = 343 m/s。
-  你在 REW 量到的 69 Hz 峰 → <code>343/(2·69) ≈ 2.49 m</code>，正是某個 ~2.5 m 邊長的軸向模態。
-  拖動房間裡的聽者圖示，看同一顆低音在不同座位差多少 dB。
-</p>
+<script>
+// 先套主題，避免首繪閃白／閃黑（完整邏輯在頁尾）
+(() => {
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') th = q;
+  document.documentElement.dataset.theme = th;
+})();
+</script>
+<div class="head">
+  <h1 data-i18n="title"></h1>
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</div>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <canvas id="room" width="520" height="400"></canvas>
   <div class="controls" style="min-width:230px">
-    <div class="ptitle">模態列表（低頻前 10 個）</div>
+    <div class="ptitle" data-i18n="ptitle"></div>
     <div class="modes" id="modes"></div>
   </div>
   <div class="controls">
     <div class="ctl">
-      <label>房間長 Lx <output id="lxOut">2.50 m</output></label>
+      <label><span data-i18n="lbl.lx"></span> <output id="lxOut">2.50 m</output></label>
       <input type="range" id="lx" min="2" max="6" step="0.05" value="2.5">
     </div>
     <div class="ctl">
-      <label>房間寬 Ly <output id="lyOut">3.20 m</output></label>
+      <label><span data-i18n="lbl.ly"></span> <output id="lyOut">3.20 m</output></label>
       <input type="range" id="ly" min="2" max="6" step="0.05" value="3.2">
     </div>
     <div class="toggle">
       <input type="checkbox" id="anim" checked>
-      <label for="anim">播放駐波動畫（大幅放慢的來回擺盪）</label>
+      <label for="anim" data-i18n="lbl.anim"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="rms">
-      <label for="rms">顯示 RMS |p|（你真正聽到的大小聲地圖）</label>
+      <label for="rms" data-i18n="lbl.rms"></label>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      壓力最大值永遠貼在牆面與角落：<b>角落放超低音會激發所有模態</b>（耦合最強）；
-      反過來，<b>坐在節線上低音會直接消失</b>。
-      EQ 可以削掉一個峰，卻填不回一個零點——那是干涉抵消，跟梳狀濾波同一套邏輯，
-      訊號在該點本來就被自己的反射抵掉了，推再多功率也只是把零點推大聲一點點。
-      真正有效的槓桿是<b>移動聽位與喇叭位置</b>（再加低頻陷阱）。
-      注意這個 2D 玩具忽略了高度方向（地板—天花板）的模態，真實房間是三維的。
-    </div>
+    <div class="hint" data-i18n="hint"></div>
   </div>
 </div>
 <script>
-const cv = document.getElementById('room');
-const ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
+
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': '房間模態 2D 駐波熱圖',
+  'doc.title': '房間模態 2D 駐波熱圖 🦉',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `剛性牆矩形房間的平面駐波：<code>p(x,y) = cos(nπx/Lx)·cos(mπy/Ly)</code>，
+    <code>f = (c/2)·√((n/Lx)² + (m/Ly)²)</code>，c = 343 m/s。
+    你在 REW 量到的 69 Hz 峰 → <code>343/(2·69) ≈ 2.49 m</code>，正是某個 ~2.5 m 邊長的軸向模態。
+    拖動房間裡的聽者圖示，看同一顆低音在不同座位差多少 dB。`,
+  'ptitle': '模態列表（低頻前 10 個）',
+  'lbl.lx': '房間長 Lx',
+  'lbl.ly': '房間寬 Ly',
+  'lbl.anim': '播放駐波動畫（大幅放慢的來回擺盪）',
+  'lbl.rms': '顯示 RMS |p|（你真正聽到的大小聲地圖）',
+  'hint': `壓力最大值永遠貼在牆面與角落：<b>角落放超低音會激發所有模態</b>（耦合最強）；
+    反過來，<b>坐在節線上低音會直接消失</b>。
+    EQ 可以削掉一個峰，卻填不回一個零點——那是干涉抵消，跟梳狀濾波同一套邏輯，
+    訊號在該點本來就被自己的反射抵掉了，推再多功率也只是把零點推大聲一點點。
+    真正有效的槓桿是<b>移動聽位與喇叭位置</b>（再加低頻陷阱）。
+    注意這個 2D 玩具忽略了高度方向（地板—天花板）的模態，真實房間是三維的。`,
+  'mode.axial': '軸向',
+  'mode.tang': '切向',
+  'mode.hit': '≈ 你量到的 69 Hz',
+  'st.sel': (n, m, type) => `選定模態：<b>(${n}, ${m})</b> ${type}`,
+  'st.yours': ' <span class="o">← 你的 69 Hz</span>',
+  'st.f': v => `模態頻率 f：<b>${v} Hz</b>`,
+  'st.lambda': (l, h) => `波長 λ = c/f：<b>${l} m</b>（半波長 <b>${h} m</b>）`,
+  'st.pos': (x, y) => `聽位 (x, y)：<b>${x}, ${y}</b> m`,
+  'st.level': v => `該點相對音壓：<b>${v} dB</b>（0 dB = 牆角最大值）`,
+},
+en: {
+  'title': 'Room Modes: 2D Standing-Wave Heatmap',
+  'doc.title': 'Room Modes 2D Heatmap 🦉',
+  'btn.lang.title': '切換為中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `Planar standing waves in a rigid-walled rectangular room: <code>p(x,y) = cos(nπx/Lx)·cos(mπy/Ly)</code>,
+    <code>f = (c/2)·√((n/Lx)² + (m/Ly)²)</code>, c = 343 m/s.
+    The 69 Hz peak you measured in REW → <code>343/(2·69) ≈ 2.49 m</code>: an axial mode of some ~2.5 m dimension.
+    Drag the listener icon around the room to see how many dB the same bass note changes from seat to seat.`,
+  'ptitle': 'Mode list (lowest 10)',
+  'lbl.lx': 'Room length Lx',
+  'lbl.ly': 'Room width Ly',
+  'lbl.anim': 'Animate the standing wave (heavily slowed down)',
+  'lbl.rms': 'Show RMS |p| (the loudness map you actually hear)',
+  'hint': `Pressure maxima always hug the walls and corners: <b>a subwoofer in a corner excites every mode</b> (strongest coupling);
+    conversely, <b>sit on a nodal line and the bass simply vanishes</b>.
+    EQ can shave a peak but cannot fill a null — that is interference cancellation, the same logic as the comb filter:
+    the signal at that spot is already cancelled by its own reflection, and more power just makes the null a little louder.
+    The levers that work are <b>moving the listening position and the speakers</b> (plus bass traps).
+    Note this 2D toy ignores the height (floor–ceiling) modes; real rooms are three-dimensional.`,
+  'mode.axial': 'axial',
+  'mode.tang': 'tangential',
+  'mode.hit': '≈ your measured 69 Hz',
+  'st.sel': (n, m, type) => `Selected mode: <b>(${n}, ${m})</b> ${type}`,
+  'st.yours': ' <span class="o">← your 69 Hz</span>',
+  'st.f': v => `Mode frequency f: <b>${v} Hz</b>`,
+  'st.lambda': (l, h) => `Wavelength λ = c/f: <b>${l} m</b> (half-wave <b>${h} m</b>)`,
+  'st.pos': (x, y) => `Listener (x, y): <b>${x}, ${y}</b> m`,
+  'st.level': v => `Relative pressure there: <b>${v} dB</b> (0 dB = corner maximum)`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+const C = {};
+function readColors() {
+  const map = { ink: '--ink', muted: '--muted', accent: '--accent', ref: '--ref', grid: '--grid', panel: '--panel' };
+  for (const k in map) C[k] = css(map[k]);
+}
+let booted = false;
+function redrawAll() { if (booted && raf === null) render(); }   // 動畫中每幀本來就會重畫
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  $('theme').textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
+  readColors();
+  redrawAll();
+}
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
+
+const cv = $('room');
+const ctx = cv.getContext('2d');
 
 const SPEED = 343;          // 音速 m/s
 const TARGET = 69;          // REW 量到的峰
@@ -134,7 +255,7 @@ function buildModes(Lx, Ly) {
     for (let m = 0; m <= 4; m++) {
       if (!n && !m) continue;
       const f = modeFreq(n, m, Lx, Ly);
-      out.push({ n, m, f, type: (n === 0 || m === 0) ? '軸向' : '切向', hit: Math.abs(f - TARGET) <= 3 });
+      out.push({ n, m, f, axial: (n === 0 || m === 0), hit: Math.abs(f - TARGET) <= 3 });
     }
   }
   out.sort((a, b) => a.f - b.f);
@@ -208,11 +329,12 @@ function drawOverlay(Lx, Ly, g, db) {
   ctx.fillText('Ly = ' + Ly.toFixed(2) + ' m', 0, 0);
   ctx.restore();
 
+  // 聽者圖示畫在熱圖上，固定用亮色才看得到（熱圖本身不隨主題變）
   const px = g.x + listener.fx * g.w, py = g.y + listener.fy * g.h;
-  ctx.strokeStyle = C.ink;
+  ctx.strokeStyle = '#e6e6ec';
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI); ctx.stroke();
-  ctx.fillStyle = C.ink;
+  ctx.fillStyle = '#e6e6ec';
   ctx.beginPath(); ctx.arc(px, py, 3, 0, 2 * Math.PI); ctx.fill();
   ctx.beginPath(); ctx.arc(px, py, 14, 0, 2 * Math.PI);
   ctx.strokeStyle = 'rgba(230,230,236,0.35)'; ctx.lineWidth = 1; ctx.stroke();
@@ -223,7 +345,7 @@ function drawOverlay(Lx, Ly, g, db) {
   const bx = clamp(px - tw / 2, 2, cv.width - tw - 2), by = clamp(py - 34, 2, cv.height - 22);
   ctx.fillStyle = 'rgba(20,22,28,0.82)';
   ctx.fillRect(bx, by, tw, 18);
-  ctx.fillStyle = db <= -20 ? C.accent : C.ref;
+  ctx.fillStyle = db <= -20 ? '#6ec6ff' : '#ffb86c';
   ctx.fillText(label, bx + tw / 2, by + 13);
   ctx.textAlign = 'left';
 }
@@ -236,7 +358,7 @@ function levelAt(n, m) {
 let modeKey = '';
 function renderModes(modes) {
   // 動畫每幀都會呼叫 render()，列表沒變就別重建 DOM（否則點擊會被吃掉）
-  const key = modes.map(md => `${md.n}${md.m}${md.f.toFixed(1)}`).join('|') + `#${sel.n}${sel.m}`;
+  const key = modes.map(md => `${md.n}${md.m}${md.f.toFixed(1)}`).join('|') + `#${sel.n}${sel.m}#${LANG}`;
   if (key === modeKey) return;
   modeKey = key;
   const box = $('modes');
@@ -244,8 +366,8 @@ function renderModes(modes) {
   modes.forEach(md => {
     const el = document.createElement('div');
     el.className = 'mode' + (md.n === sel.n && md.m === sel.m ? ' sel' : '') + (md.hit ? ' hit' : '');
-    el.innerHTML = `<span>(${md.n},${md.m}) ${md.type}</span>` +
-      (md.hit ? '<span class="tag">≈ 你量到的 69 Hz</span>' : '') +
+    el.innerHTML = `<span>(${md.n},${md.m}) ${t(md.axial ? 'mode.axial' : 'mode.tang')}</span>` +
+      (md.hit ? `<span class="tag">${t('mode.hit')}</span>` : '') +
       `<span class="f">${md.f.toFixed(1)} Hz</span>`;
     el.addEventListener('click', () => { sel = { n: md.n, m: md.m }; render(); });
     box.appendChild(el);
@@ -274,12 +396,12 @@ function render() {
 
   const near = Math.abs(f - TARGET) <= 3;
   $('stats').innerHTML =
-    `選定模態：<b>(${sel.n}, ${sel.m})</b> ${(sel.n === 0 || sel.m === 0) ? '軸向' : '切向'}` +
-    (near ? ` <span style="color:${C.ref}">← 你的 69 Hz</span>` : '') + '<br>' +
-    `模態頻率 f：<b>${f.toFixed(1)} Hz</b><br>` +
-    `波長 λ = c/f：<b>${(SPEED / f).toFixed(2)} m</b>（半波長 <b>${(SPEED / f / 2).toFixed(2)} m</b>）<br>` +
-    `聽位 (x, y)：<b>${(listener.fx * Lx).toFixed(2)}, ${(listener.fy * Ly).toFixed(2)}</b> m<br>` +
-    `該點相對音壓：<b>${db <= -39.9 ? '≤ −40' : db.toFixed(1)} dB</b>（0 dB = 牆角最大值）`;
+    t('st.sel', sel.n, sel.m, t((sel.n === 0 || sel.m === 0) ? 'mode.axial' : 'mode.tang')) +
+    (near ? t('st.yours') : '') + '<br>' +
+    t('st.f', f.toFixed(1)) + '<br>' +
+    t('st.lambda', (SPEED / f).toFixed(2), (SPEED / f / 2).toFixed(2)) + '<br>' +
+    t('st.pos', (listener.fx * Lx).toFixed(2), (listener.fy * Ly).toFixed(2)) + '<br>' +
+    t('st.level', db <= -39.9 ? '≤ −40' : db.toFixed(1));
 }
 
 function loop() {
@@ -323,6 +445,9 @@ $('ly').addEventListener('input', () => { if (raf === null) render(); });
 $('anim').addEventListener('change', sync);
 $('rms').addEventListener('change', sync);
 
+setTheme(document.documentElement.dataset.theme || 'light');
+applyLang();
+booted = true;
 sync();
 </script>
 </body>

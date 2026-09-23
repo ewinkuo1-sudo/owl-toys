@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面反射梳狀濾波模擬 🦉</title>
 <style>
-  :root {
-    --bg: #14161c;
-    --panel: #1d2028;
-    --ink: #e6e6ec;
-    --muted: #9aa0ae;
-    --accent: #6ec6ff;
-    --ref: #ffb86c;
-    --grid: #2e3340;
+  :root, :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #14161c; --panel: #1d2028; --ink: #e6e6ec; --muted: #9aa0ae;
+    --accent: #6ec6ff; --ref: #ffb86c; --grid: #2e3340;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f3f6; --panel: #ffffff; --ink: #1c1f27; --muted: #5b6272;
+    --accent: #1e6fc0; --ref: #d4741a; --grid: #dfe2e9;
   }
   * { box-sizing: border-box; }
   body {
@@ -21,15 +22,24 @@
     font-family: "Noto Sans TC", system-ui, sans-serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+  button.chip {
+    background: none; color: var(--muted); border: 1px solid var(--grid);
+    border-radius: 8px; padding: 5px 9px; font-size: 0.78rem; cursor: pointer;
+    font-family: inherit; line-height: 1.2; transition: border-color .12s, color .12s;
+  }
+  button.chip:hover { border-color: var(--muted); color: var(--ink); }
   .sub { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 720px; text-align: center; line-height: 1.6; }
   .sub code { color: var(--accent); background: none; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; }
   canvas { background: var(--panel); border-radius: 12px;  max-width: 100%; height: auto; }
   .controls {
     background: var(--panel); border-radius: 12px; padding: 20px;
     display: flex; flex-direction: column; gap: 18px; min-width: 280px;
+    flex: 1 1 280px; max-width: 100%;   /* 寬螢幕時貼在畫布旁邊，而不是掉到下一行撐滿 */
   }
+  :root[data-theme="light"] canvas, :root[data-theme="light"] .controls { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
   .ctl label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
   .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -45,61 +55,174 @@
 </style>
 </head>
 <body>
-<h1>桌面反射梳狀濾波模擬</h1>
-<p class="sub">
-  桌上型喇叭的高音單體發出的聲音，一路直達耳朵，一路打到桌面再彈上來。兩條路徑差
-  <code>Δ = L_r − L_d</code>，疊加後 <code>H(f) = 1 + R·(L_d/L_r)·e^(−j2πfΔ/c)</code>，
-  在 <code>f₁ = c/2Δ</code> 及其奇數倍完全反相 → 梳狀凹陷。這就是 REW 在 600 Hz 附近量到的那個坑。
-</p>
+<script>
+// 先套主題，避免首繪閃白／閃黑（完整邏輯在頁尾）
+(() => {
+  let th = 'light'; try { th = localStorage.getItem('owl-theme') || th; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') th = q;
+  document.documentElement.dataset.theme = th;
+})();
+</script>
+<div class="head">
+  <h1 data-i18n="title"></h1>
+  <button class="chip" id="lang" data-i18n-title="btn.lang.title"></button>
+  <button class="chip" id="theme" data-i18n-title="btn.theme.title"></button>
+</div>
+<p class="sub" data-i18n="sub"></p>
 <div class="wrap">
   <canvas id="geo" width="520" height="300"></canvas>
   <canvas id="resp" width="520" height="300"></canvas>
   <div class="controls">
     <div class="ctl">
-      <label>高音單體高度 h <output id="hOut">25 cm</output></label>
+      <label><span data-i18n="lbl.h"></span> <output id="hOut">25 cm</output></label>
       <input type="range" id="h" min="5" max="50" step="1" value="25">
     </div>
     <div class="ctl">
-      <label>水平距離 d <output id="dOut">50 cm</output></label>
+      <label><span data-i18n="lbl.d"></span> <output id="dOut">50 cm</output></label>
       <input type="range" id="d" min="30" max="120" step="1" value="50">
     </div>
     <div class="ctl">
-      <label>耳朵高度 h<sub>e</sub> <output id="heOut">40 cm</output></label>
+      <label><span data-i18n="lbl.he"></span> <output id="heOut">40 cm</output></label>
       <input type="range" id="he" min="20" max="60" step="1" value="40">
     </div>
     <div class="ctl">
-      <label>桌面反射係數 R <output id="rOut">0.80</output></label>
+      <label><span data-i18n="lbl.r"></span> <output id="rOut">0.80</output></label>
       <input type="range" id="r" min="0" max="1" step="0.01" value="0.8">
     </div>
     <div class="toggle">
       <input type="checkbox" id="showNotch" checked>
-      <label for="showNotch">標出 f₁、3f₁、5f₁ 凹陷位置</label>
+      <label for="showNotch" data-i18n="lbl.notch"></label>
     </div>
     <div class="toggle">
       <input type="checkbox" id="showSmooth">
-      <label for="showSmooth">疊上 1/3 倍頻程平滑（REW 的平滑，橘）</label>
+      <label for="showSmooth" data-i18n="lbl.smooth"></label>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="hint">
-      為什麼 EQ 補不回來：凹陷不是喇叭「少發了那個頻率」，而是兩條路徑在你耳朵的位置相位相消。
-      你在 575 Hz 加 6 dB，直達音跟反射音同時被加 6 dB，到耳朵還是照樣抵銷，
-      結果只是把房間裡其他位置、其他方向的能量一起灌大，SPL 上去、凹陷還在。
-      而且它跟位置綁死：頭往上抬 5 cm、椅子往後拉 10 cm，Δ 就變、凹陷頻率就跑掉，
-      EQ 曲線立刻對不上。真正有效的做法是動幾何跟吸收：把喇叭墊高／內傾讓高音直射耳朵、
-      在桌面第一反射點鋪桌墊或吸音材、或改用支架把喇叭移離桌面、調整聆聽位置。
-      拉滑桿看看：h 拉大、d 拉近，f₁ 就往下掉；R 拉到 0 等於「桌面完全吸掉」，梳狀就消失了。
-    </div>
+    <div class="hint" data-i18n="hint"></div>
   </div>
 </div>
 <script>
-const geo = document.getElementById('geo');
-const resp = document.getElementById('resp');
-const gctx = geo.getContext('2d');
-const rctx = resp.getContext('2d');
 const $ = id => document.getElementById(id);
 
+// ═══════════════════════════ 文字字典 / Strings ═══════════════════════════
+// 值可以是字串，或吃參數的函式。t(key, ...args) 取用。
+const I18N = {
+zh: {
+  'title': '桌面反射梳狀濾波模擬',
+  'doc.title': '桌面反射梳狀濾波模擬 🦉',
+  'btn.lang.title': 'Switch to English',
+  'btn.theme.title': '切換深色／淺色',
+  'theme.light': '☀ 淺色', 'theme.dark': '🌙 深色',
+  'sub': `桌上型喇叭的高音單體發出的聲音，一路直達耳朵，一路打到桌面再彈上來。兩條路徑差
+    <code>Δ = L_r − L_d</code>，疊加後 <code>H(f) = 1 + R·(L_d/L_r)·e^(−j2πfΔ/c)</code>，
+    在 <code>f₁ = c/2Δ</code> 及其奇數倍完全反相 → 梳狀凹陷。這就是 REW 在 600 Hz 附近量到的那個坑。`,
+  'lbl.h': '高音單體高度 h',
+  'lbl.d': '水平距離 d',
+  'lbl.he': '耳朵高度 h<sub>e</sub>',
+  'lbl.r': '桌面反射係數 R',
+  'lbl.notch': '標出 f₁、3f₁、5f₁ 凹陷位置',
+  'lbl.smooth': '疊上 1/3 倍頻程平滑（REW 的平滑，橘）',
+  'hint': `為什麼 EQ 補不回來：凹陷不是喇叭「少發了那個頻率」，而是兩條路徑在你耳朵的位置相位相消。
+    你在 575 Hz 加 6 dB，直達音跟反射音同時被加 6 dB，到耳朵還是照樣抵銷，
+    結果只是把房間裡其他位置、其他方向的能量一起灌大，SPL 上去、凹陷還在。
+    而且它跟位置綁死：頭往上抬 5 cm、椅子往後拉 10 cm，Δ 就變、凹陷頻率就跑掉，
+    EQ 曲線立刻對不上。真正有效的做法是動幾何跟吸收：把喇叭墊高／內傾讓高音直射耳朵、
+    在桌面第一反射點鋪桌墊或吸音材、或改用支架把喇叭移離桌面、調整聆聽位置。
+    拉滑桿看看：h 拉大、d 拉近，f₁ 就往下掉；R 拉到 0 等於「桌面完全吸掉」，梳狀就消失了。`,
+  'cv.desk': '桌面',
+  'cv.mirror': '鏡像音源',
+  'cv.direct': v => '直接音 L_d = ' + v,
+  'cv.refl': v => '反射音 L_r = ' + v,
+  'cv.freq': '頻率 (Hz，對數)',
+  'cv.resp': '相對響應 (dB)',
+  'st.delta': (dl, ld, lr) => `路徑差 Δ：<b>${dl} cm</b>（L_d ${ld} → L_r ${lr} cm）`,
+  'st.f1': v => `第一個凹陷 f₁ = c/2Δ：<b>${v} Hz</b>`,
+  'st.spacing': v => `凹陷間距 c/Δ：<b>${v} Hz</b>（f₁、3f₁、5f₁ …）`,
+  'st.dip': (dip, pk) => `最深凹陷：<b>${dip} dB</b>；波峰 <b>+${pk} dB</b>`,
+},
+en: {
+  'title': 'Desk-Reflection Comb Filter',
+  'doc.title': 'Desk-Reflection Comb Filter 🦉',
+  'btn.lang.title': '切換為中文',
+  'btn.theme.title': 'Toggle dark / light',
+  'theme.light': '☀ Light', 'theme.dark': '🌙 Dark',
+  'sub': `Sound from a desktop speaker's tweeter reaches your ear two ways: straight, and bounced off the desk. The path difference is
+    <code>Δ = L_r − L_d</code>; the sum is <code>H(f) = 1 + R·(L_d/L_r)·e^(−j2πfΔ/c)</code>,
+    fully out of phase at <code>f₁ = c/2Δ</code> and its odd multiples → comb notches. That's the dip REW measures near 600 Hz.`,
+  'lbl.h': 'Tweeter height h',
+  'lbl.d': 'Horizontal distance d',
+  'lbl.he': 'Ear height h<sub>e</sub>',
+  'lbl.r': 'Desk reflection coefficient R',
+  'lbl.notch': 'Mark the f₁, 3f₁, 5f₁ notches',
+  'lbl.smooth': 'Overlay 1/3-octave smoothing (REW-style, orange)',
+  'hint': `Why EQ can't fill it in: the notch isn't the speaker "emitting less" at that frequency — it's two paths cancelling in phase at your ear.
+    Boost 6 dB at 575 Hz and both the direct and reflected sound go up 6 dB; they still cancel at the ear.
+    All you've done is pump more energy into every other spot and direction in the room: SPL goes up, the notch stays.
+    And it's tied to position: lift your head 5 cm or pull the chair back 10 cm and Δ changes, the notch frequency moves, and the EQ curve no longer lines up.
+    What actually works is geometry and absorption: raise / tilt the speakers so the tweeter fires straight at the ear,
+    put a mat or absorber at the first-reflection point on the desk, move the speakers off the desk onto stands, or move the listening position.
+    Try the sliders: bigger h or smaller d pulls f₁ down; R at 0 means "the desk absorbs everything" and the comb disappears.`,
+  'cv.desk': 'desk',
+  'cv.mirror': 'image source',
+  'cv.direct': v => 'direct L_d = ' + v,
+  'cv.refl': v => 'reflected L_r = ' + v,
+  'cv.freq': 'Frequency (Hz, log)',
+  'cv.resp': 'Relative response (dB)',
+  'st.delta': (dl, ld, lr) => `Path difference Δ: <b>${dl} cm</b> (L_d ${ld} → L_r ${lr} cm)`,
+  'st.f1': v => `First notch f₁ = c/2Δ: <b>${v} Hz</b>`,
+  'st.spacing': v => `Notch spacing c/Δ: <b>${v} Hz</b> (f₁, 3f₁, 5f₁ …)`,
+  'st.dip': (dip, pk) => `Deepest notch: <b>${dip} dB</b>; peak <b>+${pk} dB</b>`,
+},
+};
+let LANG = 'zh';
+const t = (k, ...a) => { const v = (I18N[LANG][k] ?? I18N.zh[k]); return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+// ═══════════════════════════ 主題 / Theme ═══════════════════════════
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const C = { ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), ref: css('--ref'), grid: css('--grid') };
+const C = {};
+function readColors() {
+  const map = { ink: '--ink', muted: '--muted', accent: '--accent', ref: '--ref', grid: '--grid' };
+  for (const k in map) C[k] = css(map[k]);
+}
+let booted = false;
+function redrawAll() { if (booted) render(); }   // 切主題／語言後主動重畫
+function setTheme(th) {
+  document.documentElement.dataset.theme = th;
+  try { localStorage.setItem('owl-theme', th); } catch (e) {}
+  $('theme').textContent = th === 'dark' ? t('theme.light') : t('theme.dark');
+  readColors();
+  redrawAll();
+}
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ═══════════════════════════ 語言 / Language ═══════════════════════════
+function applyLang() {
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-TW';
+  document.title = t('doc.title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $('lang').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? t('theme.light') : t('theme.dark');
+  redrawAll();
+}
+function setLang(l) {
+  LANG = l === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem('owl-lang', LANG); } catch (e) {}
+  applyLang();
+}
+(() => {
+  let l = 'zh'; try { l = localStorage.getItem('owl-lang') || l; } catch (e) {}
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'en' || q === 'zh') l = q;
+  LANG = l;
+})();
+$('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
+
+const geo = $('geo');
+const resp = $('resp');
+const gctx = geo.getContext('2d');
+const rctx = resp.getContext('2d');
 
 const SOUND = 343;
 const F_LO = 100, F_HI = 20000;
@@ -142,7 +265,9 @@ function drawGeom(h, d, he) {
     gctx.beginPath(); gctx.moveTo(px, Y(0) + 1); gctx.lineTo(px - 7, Y(0) + 8); gctx.stroke();
   }
   gctx.fillStyle = C.muted;
-  gctx.fillText('桌面', X(x1) - 26, Y(0) + 20);
+  gctx.textAlign = 'right';
+  gctx.fillText(t('cv.desk'), X(x1), Y(0) + 20);
+  gctx.textAlign = 'left';
 
   // mirror source below the desk
   gctx.strokeStyle = C.grid;
@@ -153,7 +278,7 @@ function drawGeom(h, d, he) {
   gctx.fillStyle = C.grid;
   gctx.beginPath(); gctx.arc(X(0), Y(-h), 4, 0, 2 * Math.PI); gctx.fill();
   gctx.fillStyle = C.muted;
-  gctx.fillText('鏡像音源', X(0) + 8, Y(-h) + 4);
+  gctx.fillText(t('cv.mirror'), X(0) + 8, Y(-h) + 4);
 
   // speaker cabinet + tweeter
   gctx.strokeStyle = C.muted;
@@ -186,9 +311,9 @@ function drawGeom(h, d, he) {
   // labels
   const cm = v => (v * 100).toFixed(1) + ' cm';
   gctx.fillStyle = C.accent;
-  gctx.fillText('直接音 L_d = ' + cm(Ld), X(d * 0.35), Y((h + he) / 2) - 8);
+  gctx.fillText(t('cv.direct', cm(Ld)), X(d * 0.35), Y((h + he) / 2) - 8);
   gctx.fillStyle = C.ref;
-  gctx.fillText('反射音 L_r = ' + cm(Lr), X(xb) - 10, Y(0) - 12);
+  gctx.fillText(t('cv.refl', cm(Lr)), X(xb) - 10, Y(0) - 12);
   gctx.fillStyle = C.muted;
   gctx.fillText('h = ' + cm(h), X(-0.10), Y(h / 2));
   gctx.fillText('h_e = ' + cm(he), X(d) + 8, Y(he / 2));
@@ -225,17 +350,19 @@ function drawResp(h, d, he, R, showNotch, showSmooth) {
     rctx.fillText((db > 0 ? '+' : '') + db, 14, y + 4);
   }
   const ticks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-  for (const t of ticks) {
-    const x = fx(t);
+  for (const tk of ticks) {
+    const x = fx(tk);
     rctx.beginPath(); rctx.moveTo(x, mT); rctx.lineTo(x, mT + ph); rctx.stroke();
-    const lab = t >= 1000 ? (t / 1000) + 'k' : String(t);
+    const lab = tk >= 1000 ? (tk / 1000) + 'k' : String(tk);
     rctx.fillText(lab, x - 8, H - 14);
   }
-  rctx.fillText('頻率 (Hz，對數)', w / 2 - 36, H - 2);
+  rctx.textAlign = 'center';
+  rctx.fillText(t('cv.freq'), mL + pw / 2, H - 2);
   rctx.save();
-  rctx.translate(12, H / 2 + 24); rctx.rotate(-Math.PI / 2);
-  rctx.fillText('相對響應 (dB)', 0, 0);
+  rctx.translate(12, mT + ph / 2); rctx.rotate(-Math.PI / 2);
+  rctx.fillText(t('cv.resp'), 0, 0);
   rctx.restore();
+  rctx.textAlign = 'left';
 
   // 0 dB reference
   rctx.strokeStyle = C.grid;
@@ -306,11 +433,10 @@ function stats(h, d, he, R) {
   const dip = 20 * Math.log10(Math.max(Math.abs(1 - a), 1e-6));
   const peak = 20 * Math.log10(1 + a);
   $('stats').innerHTML =
-    `路徑差 Δ：<b>${(delta * 100).toFixed(1)} cm</b>` +
-    `（L_d ${(Ld * 100).toFixed(1)} → L_r ${(Lr * 100).toFixed(1)} cm）<br>` +
-    `第一個凹陷 f₁ = c/2Δ：<b>${f1.toFixed(0)} Hz</b><br>` +
-    `凹陷間距 c/Δ：<b>${(SOUND / delta).toFixed(0)} Hz</b>（f₁、3f₁、5f₁ …）<br>` +
-    `最深凹陷：<b>${dip.toFixed(1)} dB</b>；波峰 <b>+${peak.toFixed(1)} dB</b>`;
+    t('st.delta', (delta * 100).toFixed(1), (Ld * 100).toFixed(1), (Lr * 100).toFixed(1)) + '<br>' +
+    t('st.f1', f1.toFixed(0)) + '<br>' +
+    t('st.spacing', (SOUND / delta).toFixed(0)) + '<br>' +
+    t('st.dip', dip.toFixed(1), peak.toFixed(1));
 }
 
 function render() {
@@ -330,6 +456,9 @@ function render() {
 ['h', 'd', 'he', 'r'].forEach(id => $(id).addEventListener('input', render));
 ['showNotch', 'showSmooth'].forEach(id => $(id).addEventListener('change', render));
 
+setTheme(document.documentElement.dataset.theme || 'light');
+applyLang();
+booted = true;
 render();
 </script>
 </body>

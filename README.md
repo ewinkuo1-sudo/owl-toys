@@ -11,6 +11,8 @@
 | 玩具 | 說明 |
 |---|---|
 | [FV300 3D 互動顯微鏡](https://ewinkuo1-sudo.github.io/owl-toys/fv300-3d-microscope.html) | Three.js 搭的 FV300 / IX71 3D 模型，外觀依實驗室實機照片建：掀開掃描頭看振鏡、DM、傘齒輪帶動的 pinhole 轉盤、PMT；激發／螢光光路發光線＋流動光子、振鏡即時掃描、FluoView 螢幕同步顯示合成影像；可調 pinhole、掃描速度（雜訊／幀時間）與 Z 軸（深度分層樣品、光學切片厚度剖面）；點零件看中英文說明與即時數值 |
+| [I/Q 零差解調遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/iq-homodyne-playground.html) | PMT 載波裡拉曼（τ≈0）與螢光（τ>0）相位不同，兩顆混頻器＋90° 正交參考做 I/Q 解調；訊號鏈逐段動畫、I-Q 平面幾何、合成組織的 Fiji 四步重建，以及 φ₀ 沒校正時相位圖怎麼歪 |
+| [FV300 光路模擬器（2D）](https://ewinkuo1-sudo.github.io/owl-toys/fv300-optics-sim.html) | 3D 版之前的側視圖版本：完整 FV300 / IX71 光路追跡；切雷射、發散角、振鏡、pinhole、分光鏡／barrier filter、物鏡、離焦，即時算光斑、Airy 半徑、切片厚度、pinhole 效率與 PMT 訊號；附濾片透射光譜 |
 | [FLIM Phasor 遊樂場](https://ewinkuo1-sudo.github.io/owl-toys/flim-phasor-playground.html) | 從 TCSPC 直方圖取諧波算 phasor：半圓、弦、IRF 校正、背景、二次諧波、非圓形雜訊點雲；合成 FLIM 影像＋游標圈選反查像素與其衰減 |
 | [反卷積互動實驗台](https://ewinkuo1-sudo.github.io/owl-toys/deconvolution-playground.html) | Richardson-Lucy 迭代滑桿看 semi-convergence：迭代過頭雜訊放大成 ringing |
 | [共軛焦 Pinhole 模擬](https://ewinkuo1-sudo.github.io/owl-toys/pinhole-playground.html) | FV300 五段 CONFOCAL APERTURE 旋鈕換算 AU → 切片厚度 vs 收光量；反射式硬幣實測對照：最小針孔＝等高線儀，掃 z、z-stack 重建高度圖 |

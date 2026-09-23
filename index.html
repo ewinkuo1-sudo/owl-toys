@@ -74,6 +74,11 @@
   <p data-i18n="card.iq.desc"></p>
 </a>
 
+<a class="card" href="fv300-optics-sim.html">
+  <h2><span data-i18n="card.fv300sim.title"></span> <small>2026-09-05</small></h2>
+  <p data-i18n="card.fv300sim.desc"></p>
+</a>
+
 <a class="card" href="cars-beat-playground.html">
   <h2><span data-i18n="card.cars.title"></span> <small data-i18n="card.cars.date"></small></h2>
   <p data-i18n="card.cars.desc"></p>
@@ -102,6 +107,21 @@
 <a class="card" href="pulse-comb-playground.html">
   <h2><span data-i18n="card.comb.title"></span> <small>2026-09-01</small></h2>
   <p data-i18n="card.comb.desc"></p>
+</a>
+
+<a class="card" href="deconvolution-playground.html">
+  <h2><span data-i18n="card.deconv.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.deconv.desc"></p>
+</a>
+
+<a class="card" href="desk-comb-filter.html">
+  <h2><span data-i18n="card.desk.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.desk.desc"></p>
+</a>
+
+<a class="card" href="room-modes-heatmap.html">
+  <h2><span data-i18n="card.room.title"></span> <small>2026-09-02</small></h2>
+  <p data-i18n="card.room.desc"></p>
 </a>
 
 <footer data-i18n="footer"></footer>
@@ -157,6 +177,23 @@ zh: {
   'card.comb.title': '脈衝串 ↔ 頻率梳遊樂場',
   'card.comb.desc': `週期脈衝串就是一支頻率梳。拉重複率、脈衝寬度、疊加諧波數，看尖脈衝怎麼從弦波長出來；
   疊上螢光壽命低通，看 NADH 的 1f/2f 取頻取捨——訊號虧 1.4 倍、相位差 26°→40°。`,
+
+  'card.fv300sim.title': 'FV300 光路模擬器（2D）',
+  'card.fv300sim.desc': `3D 版之前的側視圖版本：完整 FV300 / IX71 光路追跡（XZ 平面），
+  切雷射、拉發散角、轉振鏡、選 pinhole 段位、換偵測分光鏡與 barrier filter、換物鏡、離焦，
+  即時算光斑、Airy 半徑、光學切片厚度、pinhole 效率與兩支 PMT 的訊號；附濾片透射光譜圖。`,
+
+  'card.deconv.title': '反卷積互動實驗台',
+  'card.deconv.desc': `真值 → 高斯 PSF 模糊 → 光子雜訊 → Richardson–Lucy 疊代往回推。
+  拉疊代次數看 <b>半收斂</b>：RMSE 先降後升，過了甜蜜點就把雜訊放大成振鈴。光子預算越低，甜蜜點越早、越淺。`,
+
+  'card.desk.title': '桌面反射梳狀濾波模擬',
+  'card.desk.desc': `桌上喇叭的直達音與桌面反射音在耳朵相消 → f₁ = c/2Δ 及奇數倍的梳狀凹陷。
+  拉高音單體高度、距離、耳高與反射係數，看 REW 量到的 600 Hz 坑怎麼跑；解釋為什麼 EQ 補不回來、動幾何才有用。`,
+
+  'card.room.title': '房間模態 2D 駐波熱圖',
+  'card.room.desc': `剛性牆矩形房間的 (n,m) 駐波熱圖，列出低頻前 10 個模態；拖聽點看同一顆低音在不同座位差幾 dB。
+  69 Hz 峰 ↔ ~2.5 m 邊長的軸向模態；角落激發所有模態、節線上低音消失。`,
 },
 en: {
   'title': '🦉 Owl Toys',
@@ -204,6 +241,23 @@ en: {
   'card.comb.title': 'Pulse Train ↔ Frequency Comb',
   'card.comb.desc': `A periodic pulse train is a frequency comb. Drag the repetition rate, pulse width and number of summed harmonics to see how a sharp pulse grows out of sine waves;
   stack a fluorescence-lifetime low-pass on top to see the 1f/2f trade-off for NADH — signal down 1.4×, phase difference 26° → 40°.`,
+
+  'card.fv300sim.title': 'FV300 Optical Path Simulator (2D)',
+  'card.fv300sim.desc': `The side-view predecessor of the 3D model: a full FV300 / IX71 ray trace in the XZ plane.
+  Switch lasers, change beam divergence, steer the galvos, pick the pinhole step, swap the detection DM and barrier filters, change objectives and defocus,
+  and see spot size, Airy radius, optical section thickness, pinhole efficiency and both PMT signals update live — plus a filter transmission spectrum plot.`,
+
+  'card.deconv.title': 'Deconvolution Playground',
+  'card.deconv.desc': `Truth → Gaussian PSF blur → photon noise → Richardson–Lucy iterating back.
+  Drag the iteration count to see <b>semi-convergence</b>: RMSE falls, then rises again; past the sweet spot the noise is amplified into ringing. A lower photon budget makes the sweet spot earlier and shallower.`,
+
+  'card.desk.title': 'Desk-Reflection Comb Filter',
+  'card.desk.desc': `Direct sound from a desktop speaker cancels against its desk reflection at the ear → comb notches at f₁ = c/2Δ and odd multiples.
+  Move the tweeter height, distance, ear height and reflection coefficient to watch the 600 Hz dip REW measured slide around; why EQ can't fix it and geometry can.`,
+
+  'card.room.title': 'Room Modes: 2D Standing-Wave Heatmap',
+  'card.room.desc': `(n,m) standing-wave heatmap of a rigid-walled rectangular room with the lowest 10 modes listed; drag the listener to see how many dB the same bass note changes between seats.
+  The 69 Hz peak ↔ an axial mode of a ~2.5 m dimension; corners excite every mode, nodal lines kill the bass.`,
 },
 };
 let LANG = 'zh';
