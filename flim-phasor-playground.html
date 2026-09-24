@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FLIM Phasor 遊樂場 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -35,7 +38,7 @@
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   .head { position: relative; width: 100%; max-width: 1260px; text-align: center; }
@@ -597,7 +600,7 @@ const sOf = y => (ph.height - PH.mB - y) / scaleP();
 function drawPhasor(st) {
   const w = ph.width, h = ph.height;
   pctx.clearRect(0, 0, w, h);
-  pctx.font = '11px sans-serif';
+  pctx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   pctx.lineWidth = 1;
 
   pctx.strokeStyle = C.grid; pctx.fillStyle = C.muted;
@@ -695,7 +698,7 @@ function drawDecay(st, selH) {
   const w = dc.width, h = dc.height, mL = 46, mR = 16, mT = 20, mB = 34;
   const pw = w - mL - mR, pht = h - mT - mB, T = st.T, dt = T / NB;
   dctx.clearRect(0, 0, w, h);
-  dctx.font = '11px sans-serif'; dctx.lineWidth = 1;
+  dctx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif'; dctx.lineWidth = 1;
 
   // 圖例先量好行數（英文較長會折行），T 標籤的高度跟著讓
   const lx = mL + pw * 0.22;
@@ -797,7 +800,7 @@ function drawImage(st) {
   ictx.imageSmoothingEnabled = false;
   ictx.drawImage(off, 0, 0, IW, IH, 0, 0, 288, 288);
   // 色條
-  ictx.font = '11px sans-serif';
+  ictx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   if (st.colorTau) {
     for (let x = 0; x < 200; x++) {
       const [r, g, b] = hsv(tauHue(TAU_MAX * x / 200), 0.9, 1);
@@ -945,6 +948,12 @@ ph.addEventListener('wheel', ev => {
 applyLang();
 render();
 raf = requestAnimationFrame(tick);
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

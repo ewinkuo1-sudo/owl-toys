@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>脈衝串 ↔ 頻率梳遊樂場 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -23,7 +26,7 @@
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 14px;
   }
   .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -243,7 +246,7 @@ function drawTime(sig, N) {
 
   tc.strokeStyle = C.grid; tc.lineWidth = 1;
   tc.beginPath(); tc.moveTo(mL, mT + ph - 4); tc.lineTo(w - mR, mT + ph - 4); tc.stroke();
-  tc.fillStyle = C.muted; tc.font = '11px sans-serif';
+  tc.fillStyle = C.muted; tc.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   for (let k = 0; k <= periods; k++) {
     const x = mL + pw * k / periods;
     tc.beginPath(); tc.moveTo(x, mT + ph - 4); tc.lineTo(x, mT + ph + 2); tc.stroke();
@@ -291,7 +294,7 @@ function drawFreq(frep, sig, tau, N) {
 
   fc.strokeStyle = C.grid; fc.lineWidth = 1;
   fc.beginPath(); fc.moveTo(mL, Y(0)); fc.lineTo(w - mR, Y(0)); fc.stroke();
-  fc.fillStyle = C.muted; fc.font = '11px sans-serif';
+  fc.fillStyle = C.muted; fc.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   for (let f = 0; f <= fMax; f += 80) {
     fc.beginPath(); fc.moveTo(X(f), Y(0)); fc.lineTo(X(f), Y(0) + 4); fc.stroke();
     fc.fillText(f, X(f) - 8, h - 14);
@@ -375,6 +378,12 @@ document.querySelectorAll('.presets button').forEach(b =>
 applyLang();
 render();
 booted = true;
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

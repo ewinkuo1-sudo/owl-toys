@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FV300 3D 互動顯微鏡 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -63,7 +66,7 @@
   html { background: var(--bg); }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased;
     display: flex; flex-direction: column; overflow: hidden;
   }
@@ -3589,6 +3592,12 @@ animate();
 // window.__fv：有意保留的公開測試介面（playwright 自動測試 scratchpad/pw/*.js 與 console 除錯用，例如 window.__fv.scan.pos、window.__fv.setZ(4)）。
 // 頁面本身不依賴它；改名或移除前請同步更新測試腳本。
 window.__fv = { state, scan, optics: () => optics, SCAN_SPEEDS, computeOptics, syncUI, applyScanSpeed, setZ, redrawImage, DYE_Z, zw: () => zw, zVis: () => zVis, turret, focusKnobs };
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>房間模態 2D 駐波熱圖 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -19,7 +22,7 @@
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -320,7 +323,7 @@ function drawOverlay(Lx, Ly, g, db) {
   ctx.strokeRect(g.x + 0.5, g.y + 0.5, g.w, g.h);
 
   ctx.fillStyle = C.muted;
-  ctx.font = '11px sans-serif';
+  ctx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'center';
   ctx.fillText('Lx = ' + Lx.toFixed(2) + ' m', g.x + g.w / 2, g.y + g.h + 20);
   ctx.save();
@@ -340,7 +343,7 @@ function drawOverlay(Lx, Ly, g, db) {
   ctx.strokeStyle = 'rgba(230,230,236,0.35)'; ctx.lineWidth = 1; ctx.stroke();
 
   const label = (db <= -39.9 ? '≤ −40' : db.toFixed(1)) + ' dB';
-  ctx.font = '12px sans-serif';
+  ctx.font = '12px "Noto Serif TC", "Source Han Serif TC", serif';
   const tw = ctx.measureText(label).width + 10;
   const bx = clamp(px - tw / 2, 2, cv.width - tw - 2), by = clamp(py - 34, 2, cv.height - 22);
   ctx.fillStyle = 'rgba(20,22,28,0.82)';
@@ -449,6 +452,12 @@ setTheme(document.documentElement.dataset.theme || 'light');
 applyLang();
 booted = true;
 sync();
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

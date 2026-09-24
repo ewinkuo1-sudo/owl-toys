@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CARS 拍頻遊樂場 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -53,7 +56,7 @@
   body {
     margin: 0; padding: 24px 16px 40px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   h1 { font-size: 1.25rem; margin: 0; font-weight: 600; letter-spacing: 0.01em; }
@@ -581,8 +584,8 @@ function setLang(l) {
 })();
 $('lang').onclick = () => setLang(LANG === 'en' ? 'zh' : 'en');
 
-const FONT = '12px "Noto Sans TC", system-ui, sans-serif';
-const FONT_S = '11px "Noto Sans TC", system-ui, sans-serif';
+const FONT = '12px "Noto Serif TC", "Source Han Serif TC", serif';
+const FONT_S = '11px "Noto Serif TC", "Source Han Serif TC", serif';
 const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 
 // —— HiDPI canvas ——
@@ -1233,6 +1236,12 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

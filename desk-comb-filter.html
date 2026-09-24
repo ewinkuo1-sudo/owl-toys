@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面反射梳狀濾波模擬 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -19,7 +22,7 @@
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -252,7 +255,7 @@ function drawGeom(h, d, he) {
   const ox = mL - x0 * s, oy = mT + yTop * s;
   const X = x => ox + x * s, Y = y => oy - y * s;
 
-  gctx.font = '11px sans-serif';
+  gctx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   gctx.lineWidth = 1;
 
   // desk surface
@@ -340,7 +343,7 @@ function drawResp(h, d, he, R, showNotch, showSmooth) {
   const fx = f => mL + pw * (Math.log10(f) - lo) / (hi - lo);
   const fy = db => mT + ph * (dbTop - db) / (dbTop - dbBot);
 
-  rctx.font = '11px sans-serif';
+  rctx.font = '11px "Noto Serif TC", "Source Han Serif TC", serif';
   rctx.lineWidth = 1;
   rctx.strokeStyle = C.grid;
   rctx.fillStyle = C.muted;
@@ -460,6 +463,12 @@ setTheme(document.documentElement.dataset.theme || 'light');
 applyLang();
 booted = true;
 render();
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

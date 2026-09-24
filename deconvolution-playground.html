@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>反卷積互動實驗台 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -19,7 +22,7 @@
   body {
     margin: 0; padding: 24px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
   .head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -378,7 +381,7 @@ function drawField(canvas, field, label, note) {
   }
   octx.putImageData(oimg, 0, 0);
   ctx.drawImage(off, 0, 22, 256, 256);
-  ctx.font = '12px sans-serif';
+  ctx.font = '12px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillStyle = C.ink;
   ctx.fillText(label, 10, 15);
   if (note) {
@@ -404,7 +407,7 @@ function drawCurve(cur, best) {
   const Y = v => mT + ph - ph * (v - lo) / Math.max(1e-9, hi - lo);
 
   ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
-  ctx.fillStyle = C.muted; ctx.font = '10px sans-serif';
+  ctx.fillStyle = C.muted; ctx.font = '10px "Noto Serif TC", "Source Han Serif TC", serif';
   for (let g = 0; g <= 2; g++) {
     const y = mT + ph - ph * g / 2;
     ctx.beginPath(); ctx.moveTo(mL, y); ctx.lineTo(w - mR, y); ctx.stroke();
@@ -486,6 +489,12 @@ applyLang();
 rebuild();
 booted = true;
 reset();
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

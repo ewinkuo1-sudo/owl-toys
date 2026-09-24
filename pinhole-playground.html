@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>共軛焦 Pinhole 模擬 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -56,7 +59,7 @@
   body {
     margin: 0; padding: 28px 20px 48px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     font-size: 14px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
@@ -126,13 +129,13 @@
   .knobwrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0 2px; }
   .knobwrap svg { width: 190px; height: 190px; display: block; }
   .knob-hit { cursor: pointer; }
-  .knob-lab { font: 600 13px system-ui, sans-serif; fill: var(--muted); }
+  .knob-lab { font: 600 13px "Noto Serif TC", "Source Han Serif TC", serif; fill: var(--muted); }
   .knob-lab.on { fill: var(--accent); }
   .knob-ring { fill: var(--knob-ring); stroke: var(--knob-ring-stroke); stroke-width: 1.5; }
   .knob-tick { fill: var(--faint); }
   .knob-face { fill: url(#kgrad); }
   .knob-ptr { stroke: #f4f4f4; stroke-width: 3; stroke-linecap: round; transition: transform .25s cubic-bezier(.3,1.4,.5,1); }
-  .knob-title { font: 600 10px system-ui, sans-serif; fill: var(--faint); letter-spacing: 0.14em; }
+  .knob-title { font: 600 10px "Noto Serif TC", "Source Han Serif TC", serif; fill: var(--faint); letter-spacing: 0.14em; }
   .knob-read { font-size: 0.8rem; color: var(--muted); text-align: center; }
   .knob-read b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
@@ -568,7 +571,7 @@ function fit(canvas, aspect) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   return { ctx, w, h };
 }
-const FONT = '11.5px system-ui, "Noto Sans TC", sans-serif';
+const FONT = '11.5px "Noto Serif TC", "Source Han Serif TC", serif';
 // 把一句話折成不超過 maxW 的多行（有空白照字折，沒空白照字元折）
 function wrapText(ctx, s, maxW) {
   const units = s.includes(' ') ? s.split(' ') : [...s], glue = s.includes(' ') ? ' ' : '';
@@ -727,7 +730,7 @@ function drawAxial(o) {
   for (const sg of [-1, 1]) { const y = Y(sg * o.dz / 2); ctx.beginPath(); ctx.moveTo(sx0, y); ctx.lineTo(px1, y); ctx.stroke(); }
   ctx.setLineDash([]);
   ctx.beginPath(); ctx.moveTo(sx0 + 10, Y(o.dz / 2)); ctx.lineTo(sx0 + 10, Y(-o.dz / 2)); ctx.stroke();
-  ctx.fillStyle = C.ref; ctx.font = '600 12px system-ui, sans-serif';
+  ctx.fillStyle = C.ref; ctx.font = '600 12px "Noto Serif TC", "Source Han Serif TC", serif';
   const inside = o.dz * s > 34;
   ctx.fillText('dz = ' + o.dz.toFixed(2) + ' µm', sx0 + 16, inside ? Y(o.dz / 2) + 16 : Y(o.dz / 2) - 8);
   ctx.font = FONT;
@@ -778,7 +781,7 @@ function drawTrade(o, showSBR) {
     ctx.strokeStyle = rgba(C.inkRgb, 0.28); ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, mT + ph); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = C.panel2; ctx.beginPath(); ctx.arc(x, mT + ph + 27, 8, 0, 7); ctx.fill();
     ctx.strokeStyle = i === currentStop() ? C.ink : C.faint; ctx.stroke();
-    ctx.fillStyle = i === currentStop() ? C.ink : C.muted; ctx.font = '600 10px system-ui, sans-serif';
+    ctx.fillStyle = i === currentStop() ? C.ink : C.muted; ctx.font = '600 10px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.fillText(i + 1, x - 3, mT + ph + 30.5); ctx.font = FONT;
   });
 
@@ -797,7 +800,7 @@ function drawTrade(o, showSBR) {
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(xD, yy, 5, 0, 7); ctx.fill();
     ctx.strokeStyle = C.panel2; ctx.lineWidth = 2; ctx.stroke();
   }
-  ctx.fillStyle = C.ink; ctx.font = '600 12px system-ui, sans-serif';
+  ctx.fillStyle = C.ink; ctx.font = '600 12px "Noto Serif TC", "Source Han Serif TC", serif';
   const lab = 'D = ' + o.D.toFixed(2) + ' AU';
   ctx.fillText(lab, Math.min(xD + 8, w - mR - 80), mT + 14); ctx.font = FONT;
 }
@@ -1073,6 +1076,12 @@ S.D = stopAU(0);          // 開場：實驗當天的設定，檔位 1
 applyLang();              // 靜態文字＋動態按鈕（themeReady 未開，不會重畫）
 buildRelief(); sync(); drawHeightEmpty();
 themeReady = true;
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>

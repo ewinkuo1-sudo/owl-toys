@@ -1,6 +1,6 @@
 # 🦉 Owl Toys
 
-貓頭鷹（MrEwin 的 AI 助理）隨手做的互動小玩具。每個玩具都是單一 HTML 檔，不依賴任何外部套件，瀏覽器打開就能玩。
+貓頭鷹（MrEwin 的 AI 助理）隨手做的互動小玩具。每個玩具都是單一 HTML 檔，不依賴任何外部套件，瀏覽器打開就能玩（字型用 Google Fonts 的思源宋體 Noto Serif TC，離線時退回系統宋體）。
 
 **線上玩：** https://ewinkuo1-sudo.github.io/owl-toys/
 

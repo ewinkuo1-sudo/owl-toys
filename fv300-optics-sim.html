@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FV300 光路模擬器 🦉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -68,7 +71,7 @@
   body {
     margin: 0; padding: 28px 20px 48px;
     background: var(--bg); color: var(--ink);
-    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    font-family: "Noto Serif TC", "Source Han Serif TC", "Songti TC", serif;
     font-size: 14px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
@@ -699,11 +702,11 @@ function drawPath(canvas, result) {
     roundRect(ctx, x - w/2, y - h/2, w, h, 6);
     ctx.fill(); ctx.stroke();
     ctx.fillStyle = C.cvInk;
-    ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
+    ctx.font = 'bold 11px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.fillText(label, x, sublabel ? y - 7 : y);
     if (sublabel) {
       ctx.fillStyle = C.cvMuted;
-      ctx.font = '10px "Noto Sans TC", sans-serif';
+      ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
       ctx.fillText(sublabel, x, y + 9);
     }
   }
@@ -721,7 +724,7 @@ function drawPath(canvas, result) {
     ctx.stroke();
     if (label) {
       ctx.fillStyle = C.cvMuted;
-      ctx.font = '9px "Noto Sans TC", sans-serif';
+      ctx.font = '9px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
       ctx.fillText(label, x, y + h/2 + 12);
     }
   }
@@ -739,7 +742,7 @@ function drawPath(canvas, result) {
     ctx.restore();
     if (label) {
       ctx.fillStyle = '#d2a8ff';
-      ctx.font = '9px "Noto Sans TC", sans-serif';
+      ctx.font = '9px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
       ctx.fillText(label, x + 28, y);
     }
   }
@@ -755,7 +758,7 @@ function drawPath(canvas, result) {
     ctx.moveTo(x + gap, y); ctx.lineTo(x + 20, y);
     ctx.stroke();
     ctx.fillStyle = '#ffb86c';
-    ctx.font = '9px "Noto Sans TC", sans-serif';
+    ctx.font = '9px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.fillText(`Pinhole ${state.pinhole}`, x, y - 14);
   }
 
@@ -805,7 +808,7 @@ function drawPath(canvas, result) {
   const galvoXAngle = 45 + state.galvoX * 0.5;
   drawMirror(axisX, 185, galvoXAngle, '', '#79c0ff');
   ctx.fillStyle = '#79c0ff';
-  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'right';
   ctx.fillText(t('cv.galvoX', state.galvoX.toFixed(1)), axisX - 26, 185);
   ctx.textAlign = 'center';
@@ -822,7 +825,7 @@ function drawPath(canvas, result) {
   const galvoYAngle = 45 + state.galvoY * 0.5;
   drawMirror(axisX + gxDeflect, 245, galvoYAngle, '', '#79c0ff');
   ctx.fillStyle = '#79c0ff';
-  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'right';
   ctx.fillText(t('cv.galvoY', state.galvoY.toFixed(1)), axisX + gxDeflect - 26, 245);
   ctx.textAlign = 'center';
@@ -868,10 +871,10 @@ function drawPath(canvas, result) {
   ctx.closePath();
   ctx.fill(); ctx.stroke();
   ctx.fillStyle = C.cvInk;
-  ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
+  ctx.font = 'bold 10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(result.obj.label, axisX, objY);
   ctx.fillStyle = C.cvMuted;
-  ctx.font = '9px sans-serif';
+  ctx.font = '9px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(`NA ${result.obj.na}`, axisX, objY + 12);
 
   // Focus cone
@@ -896,7 +899,7 @@ function drawPath(canvas, result) {
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = '#7ee787';
-  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(t('cv.sample'), axisX, sampleY + 14);
 
   // Focal spot indicator
@@ -944,7 +947,7 @@ function drawPath(canvas, result) {
   ctx.moveTo(retX - 18, 88); ctx.lineTo(retX - 14, 112);
   ctx.stroke();
   ctx.fillStyle = C.cvFaint;
-  ctx.font = '8px "Noto Sans TC", sans-serif';
+  ctx.font = '8px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(t('cv.glass'), retX - 20, 80);
 
   // Pinhole
@@ -982,7 +985,7 @@ function drawPath(canvas, result) {
   ctx.fillRect(ch1X - 12, 50, 24, 6);
   ctx.globalAlpha = 1;
   ctx.fillStyle = C.cvMuted;
-  ctx.font = '8px sans-serif';
+  ctx.font = '8px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(FILTERS[state.ch1Filter].label === 'none' ? t('filter.none') : state.ch1Filter, ch1X, 44);
 
   // CH1 PMT
@@ -1005,7 +1008,7 @@ function drawPath(canvas, result) {
   ctx.fillRect(ch2X - 18, 95, 6, 12);
   ctx.globalAlpha = 1;
   ctx.fillStyle = C.cvMuted;
-  ctx.font = '8px sans-serif';
+  ctx.font = '8px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(FILTERS[state.ch2Filter].label === 'none' ? t('filter.none') : state.ch2Filter, ch2X - 14, 88);
 
   // CH2 PMT
@@ -1014,7 +1017,7 @@ function drawPath(canvas, result) {
   // ---- Labels & annotations ----
   ctx.globalAlpha = 1;
   ctx.fillStyle = C.cvFaint;
-  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'left';
   ctx.fillText(t('cv.fill', (result.fillFactor * 100).toFixed(0)), 20, H - 40);
   ctx.fillText(t('cv.na', result.effectiveNA.toFixed(3)), 20, H - 24);
@@ -1024,7 +1027,7 @@ function drawPath(canvas, result) {
   // Defocus indicator
   if (state.zOffset !== 0) {
     ctx.fillStyle = '#ff7b72';
-    ctx.font = 'bold 10px "Noto Sans TC", sans-serif';
+    ctx.font = 'bold 10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.fillText(t('cv.defocus', state.zOffset, (result.pinholeEff * 100).toFixed(0)), 400, H - 32);
   }
 }
@@ -1056,7 +1059,7 @@ function drawSpectra(canvas, result) {
     const x = wlToX(wl);
     ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
     ctx.fillStyle = C.cvFaint;
-    ctx.font = '10px sans-serif';
+    ctx.font = '10px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.textAlign = 'center';
     ctx.fillText(wl + ' nm', x, bottom + 16);
   }
@@ -1070,7 +1073,7 @@ function drawSpectra(canvas, result) {
   ctx.beginPath(); ctx.moveTo(lx, top); ctx.lineTo(lx, bottom); ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = LASERS[state.laser].color;
-  ctx.font = 'bold 10px sans-serif';
+  ctx.font = 'bold 10px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.fillText(`${laserWl} nm`, lx, top - 6);
 
   // Emission curve
@@ -1099,14 +1102,14 @@ function drawSpectra(canvas, result) {
     ctx.beginPath(); ctx.moveTo(dmx, top); ctx.lineTo(dmx, bottom); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#d2a8ff';
-    ctx.font = '10px sans-serif';
+    ctx.font = '10px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.fillText(state.detDM, dmx, top - 6);
 
     // CH1 region (left of DM)
     ctx.fillStyle = 'rgba(110,198,255,0.08)';
     ctx.fillRect(left, top, dmx - left, plotH);
     ctx.fillStyle = '#6ec6ff';
-    ctx.font = '9px sans-serif';
+    ctx.font = '9px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.textAlign = 'left';
     ctx.fillText('← CH1', left + 4, top + 14);
 
@@ -1120,7 +1123,7 @@ function drawSpectra(canvas, result) {
     ctx.fillStyle = 'rgba(110,198,255,0.08)';
     ctx.fillRect(left, top, plotW, plotH);
     ctx.fillStyle = '#6ec6ff';
-    ctx.font = '9px sans-serif';
+    ctx.font = '9px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.textAlign = 'left';
     ctx.fillText(t('cv.mirrorAll'), left + 4, top + 14);
   }
@@ -1135,7 +1138,7 @@ function drawSpectra(canvas, result) {
     ctx.fillRect(x1, top, x2 - x1, plotH);
     ctx.strokeRect(x1, top, x2 - x1, plotH);
     ctx.fillStyle = ch1f.color;
-    ctx.font = '9px sans-serif';
+    ctx.font = '9px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.textAlign = 'center';
     ctx.fillText(ch1f.label, (x1 + x2) / 2, bottom - 6);
   }
@@ -1150,14 +1153,14 @@ function drawSpectra(canvas, result) {
     ctx.fillRect(x1, top + 2, x2 - x1, plotH - 4);
     ctx.strokeRect(x1, top + 2, x2 - x1, plotH - 4);
     ctx.fillStyle = ch2f.color;
-    ctx.font = '9px sans-serif';
+    ctx.font = '9px "Noto Serif TC", "Source Han Serif TC", serif';
     ctx.textAlign = 'center';
     ctx.fillText(ch2f.label, (x1 + x2) / 2, bottom - 18);
   }
 
   // Y axis
   ctx.fillStyle = C.cvFaint;
-  ctx.font = '10px "Noto Sans TC", sans-serif';
+  ctx.font = '10px "Noto Sans TC", "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'right';
   ctx.fillText(t('cv.trans'), left - 8, top + 5);
   ctx.fillText('1.0', left - 8, top + 14);
@@ -1165,7 +1168,7 @@ function drawSpectra(canvas, result) {
 
   // Emission peak label
   ctx.fillStyle = C.cvMuted;
-  ctx.font = '10px sans-serif';
+  ctx.font = '10px "Noto Serif TC", "Source Han Serif TC", serif';
   ctx.textAlign = 'center';
   ctx.fillText(t('cv.emPeak', result.emPeak), wlToX(result.emPeak), tToY(1) - 12);
 }
@@ -1202,6 +1205,12 @@ setTheme(document.documentElement.dataset.theme || 'light');
 applyLang();
 booted = true;
 update();
+</script>
+<script>
+// 思源宋體（Noto Serif TC）是網路字型：載完後重畫一次 canvas，讓圖上的字也換成宋體
+document.fonts && document.fonts.ready.then(() => {
+  if (typeof redrawAll === 'function') redrawAll(); else if (typeof render === 'function') render();
+});
 </script>
 </body>
 </html>
