@@ -194,6 +194,14 @@
     position: sticky; top: 16px; align-self: flex-start;
     max-height: calc(100vh - 32px); overflow-y: auto; border: 1px solid var(--as);
   }
+  .tour-routes { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tour-routes button {
+    font-family: inherit; cursor: pointer; font-size: 0.78rem; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--grid); background: none; color: var(--muted); transition: all .15s;
+  }
+  .tour-routes button:hover { color: var(--ink); border-color: var(--muted); }
+  .tour-routes button.on { background: var(--as); border-color: var(--as); color: var(--on-ink); font-weight: 600; }
+  .ch-list .tag { margin-left: auto; font-size: 0.68rem; color: var(--dim); white-space: nowrap; }
   .tour-head { display: flex; align-items: baseline; gap: 10px; font-size: 0.8rem; color: var(--dim); }
   .tour-head b { color: var(--as); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
   .tour-head span { color: var(--ink); font-weight: 600; font-size: 0.95rem; }
@@ -249,6 +257,7 @@
 <section class="tour" id="tour" aria-label="guided tour">
   <div class="tour-start" id="chal"></div>
   <div class="tour-body">
+    <div class="tour-routes" id="tourRoutes"></div>
     <div>
       <div class="tour-head"><b id="tourN"></b><span id="tourTitle"></span></div>
       <p class="tour-say" id="tourSay" aria-live="polite"></p>
@@ -288,7 +297,7 @@
     <div class="ctl" id="deltaCtl">
       <label><span data-i18n="lbl.delta"></span><output id="dOut"></output></label>
       <div class="row2">
-        <input type="range" id="delta" min="0" max="3600" step="5" value="2000">
+        <input type="range" id="delta" min="0" max="3600" step="1" value="2000">
         <button class="chip" id="lock" data-i18n="btn.lock" data-i18n-title="btn.lock.title"></button>
       </div>
     </div>
@@ -462,7 +471,7 @@ zh: {
   'ch.guessLead': '先猜猜看', 'ch.taskLead': '動手', 'ch.doneLead': '✓ 完成',
   'ch.right': g => `你猜「<b>${g}</b>」——猜對了。`, 'ch.wrong': g => `你猜「<b>${g}</b>」——跟實際不一樣，看看為什麼：`,
   'ch.toast': s => `✓ ${s}`,
-  'ch.all': '六題全破！試試別的分子，或把 pump 波長拉到極端看看會發生什麼。',
+  'ch.all': '全部破關！試試別的分子，或把 pump 波長拉到極端看看會發生什麼。',
   'ch.tip': '小技巧：光譜圖上的 pump／Stokes／anti-Stokes 線，還有掃描圖上的 Δ 游標和 Ω 虛線，都可以直接用滑鼠或手指拖。',
   'ch.list': {
     nobeat: { t: '讓拍頻消失',
@@ -485,7 +494,39 @@ zh: {
     srs: { t: '找一個沒有 χ<sub>NR</sub> 背景的方法',
       task: `保持 ${M('χ<sub>NR</sub>')} ≥ 0.3，換一種技術，讓線型回到對稱。`,
       ex: `SRS 只量 ${M('Im χ')}，而 ${M('χ<sub>NR</sub>')} 是實數，進不來。代價是訊號變成雷射上 10⁻⁴ 量級的微小增減，要靠 MHz 調變＋鎖相放大器挖出來。` },
+    boltz: { t: '讓 anti-Stokes 追上 Stokes 的 1%',
+      q: '室溫下，自發拉曼的 anti-Stokes 峰和 Stokes 峰比起來？', o: ['差不多一樣強', '大約一半', '弱非常多'],
+      task: `切到自發拉曼，讓 anti-Stokes／Stokes 的熱佈居比值 ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')} 達到 <b>約 1%</b>。提示：換一個振動頻率低的分子。`,
+      ex: `比值只看 ${M('Ω / k<sub>B</sub>T')}：室溫 ${M('k<sub>B</sub>T/hc')} ≈ 208 cm⁻¹，所以 Ω 要低到 ~960 cm⁻¹ 才有 1%。拉曼溫度計就是反過來用這個比值量溫度。` },
+    fixed: { t: '換 pump，看拉曼位移會不會跟著跑',
+      q: '在自發拉曼裡把 pump 從藍一點換到紅一點，拉曼峰的位移（cm⁻¹）會？', o: ['跟著變大', '跟著變小', '不變'],
+      task: `在自發拉曼模式下，把 pump 波長從 <b>750 nm 以下</b>一路拉到 <b>1050 nm 以上</b>，盯著掃描圖上的峰位。`,
+      ex: `Stokes 峰的<b>波長</b>跟著 pump 走，但<b>位移</b> ${M('Ω')} 只由化學鍵決定——所以拉曼光譜一律用 cm⁻¹ 畫，不同雷射量到的光譜才能直接比。` },
+    srl: { t: '共振時，pump 會怎樣？',
+      q: 'SRS 對準共振時，pump 光會？', o: ['變強', '變弱', '不變'],
+      task: `切到 SRS 並對準共振（|A| > 95%），看光譜圖上 pump 與 Stokes 線的變化。`,
+      ex: `每一次受激拉曼都把一顆 pump 光子換成一顆 Stokes 光子，差的能量 ${M('ħΩ')} 留在分子振動裡：pump 損失（SRL）、Stokes 增益（SRG）。兩者其實是同一個過程的兩面。` },
+    half: { t: '讓 SRS 訊號剛好剩一半',
+      task: `在 SRS 模式下，把 Δ 移到訊號剛好是峰值 <b>50%</b> 的位置（±3%）。`,
+      ex: `半高處 ${M('|Ω − Δ| = Γ')}，所以 ${M('FWHM = 2Γ')}。SRS 的線型就是純 Lorentzian，線寬直接讀得出來；CARS 被 ${M('χ<sub>NR</sub>')} 扭曲後就不能這樣讀。` },
   },
+  'tour.route': { spont: '自發拉曼', cars: 'CARS', srs: 'SRS' },
+  'tour.spont.steps': [
+    ['一束雷射就夠', `自發拉曼只要一束光。第二列只有單一顏色，沒有拍；第三列的分子各抖各的，相位完全隨機——沒有人在推它們。`],
+    ['往四面八方散射', `每個分子獨立散射、彼此不同調，訊號只 ∝ ${M('N')}（不是 ${M('N²')}），而且往 4π 散開，只收得到一小部分。比 CARS／SRS 弱約 10⁵ 倍，所以常要積分好幾秒。`],
+    ['Stokes 峰在紅側', `散射光少了一個振動量子的能量，出現在 pump 紅側、位移 ${M('Ω')} 的地方——剛好跟螢光疊在一起。把 pump 換顏色，Stokes 峰跟著走，但<b>拉曼位移（cm⁻¹）不變</b>。`],
+    ['anti-Stokes 幾乎沒有', `要散射出 anti-Stokes，分子得先待在振動激發態。室溫佈居是 ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')}：2845 cm⁻¹ 只有 10⁻⁶。把 Ω 降到 960 cm⁻¹（磷灰石），比值升到約 1%。`],
+    ['一次拿到整條光譜', `橫軸是拉曼位移，峰寬 ${M('FWHM = 2Γ')} 就是分子本身的線寬。自發拉曼不必掃雷射：一台光譜儀＋CCD 一次收下整條光譜，這是它最大的優點。`],
+    ['對照 CARS', `CARS 用拍頻<b>主動</b>把分子推到同步振動，訊號 ∝ ${M('N²')}、跑到藍側避開螢光。點上方「CARS」看完整過程，或切回滑桿自己玩。`],
+  ],
+  'tour.srs.steps': [
+    ['同樣的拍頻', `SRS 跟 CARS 用同一組 pump＋Stokes，也一樣靠拍頻 ${M('Δ')} 把分子推到共振。差別不在怎麼推，而在<b>看哪裡</b>。`],
+    ['看雷射本身', `分子每被推一下，就把一顆 pump 光子換成一顆 Stokes 光子：pump 變弱（SRL）、Stokes 變強（SRG），差的能量存進分子振動。沒有新顏色——訊號就在雷射上。`],
+    ['10⁻⁴ 的訊號', `圖上的 ${M('ΔI')} 放大了約 10³ 倍；真實只有 ${M('ΔI/I')} ~ 10⁻⁴。做法是把 Stokes 以 MHz 開關，pump 上就帶著同頻的微小調變，再用鎖相放大器挖出來。`],
+    ['對稱的 Lorentzian', `掃 Δ 得到的 SRS 光譜只跟 ${M('Im χ')} 有關：對稱的 Lorentzian，峰就在 ${M('Ω')}，線寬直接讀得出來。`],
+    ['χ<sub>NR</sub> 進不來', `把 ${M('χ<sub>NR</sub>')} 拉到 0.9：SRS 曲線紋風不動，只有虛線的 CARS 對照被扭曲。${M('χ<sub>NR</sub>')} 是實數，SRS 只看虛部。`],
+    ['可以直接定量', `訊號 ∝ ${M('N·I<sub>p</sub>·I<sub>s</sub>')}，跟濃度成線性、沒有背景，SRS 影像可以直接換算成濃度。代價是要鎖相放大，而且多半只能前向收光。`],
+  ],
   // 導覽
   'tour.go': '▶ 播放導覽',
   'tour.pitch': '10 步、約 1 分半，從一束光開始，看拍頻怎麼把分子推起來。← → 換步、空白鍵暫停。',
@@ -613,7 +654,7 @@ en: {
   'ch.guessLead': 'Guess first', 'ch.taskLead': 'Try it', 'ch.doneLead': '✓ Done',
   'ch.right': g => `You guessed “<b>${g}</b>” — right.`, 'ch.wrong': g => `You guessed “<b>${g}</b>” — not quite. Here's why:`,
   'ch.toast': s => `✓ ${s}`,
-  'ch.all': 'All six cleared! Try other molecules, or push the pump wavelength to the extremes and see what happens.',
+  'ch.all': 'All cleared! Try other molecules, or push the pump wavelength to the extremes and see what happens.',
   'ch.tip': 'Tip: the pump / Stokes / anti-Stokes lines on the spectrum, and the Δ cursor and Ω marker on the scan, can all be dragged directly.',
   'ch.list': {
     nobeat: { t: 'Make the beat disappear',
@@ -636,7 +677,39 @@ en: {
     srs: { t: 'Find a method with no χ<sub>NR</sub> background',
       task: `Keep ${M('χ<sub>NR</sub>')} ≥ 0.3 and switch technique until the line is symmetric again.`,
       ex: `SRS measures only ${M('Im χ')}, and ${M('χ<sub>NR</sub>')} is real, so it cannot enter. The price: the signal becomes a 10⁻⁴-level gain/loss on the lasers, dug out with MHz modulation and a lock-in amplifier.` },
+    boltz: { t: 'Get anti-Stokes to 1% of Stokes',
+      q: 'At room temperature, the spontaneous anti-Stokes peak compared with Stokes is…', o: ['About as strong', 'About half', 'Far weaker'],
+      task: `Switch to Spontaneous and raise the thermal ratio ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')} to <b>about 1%</b>. Hint: pick a low-frequency vibration.`,
+      ex: `The ratio depends only on ${M('Ω / k<sub>B</sub>T')}: at room temperature ${M('k<sub>B</sub>T/hc')} ≈ 208 cm⁻¹, so Ω has to be down near 960 cm⁻¹ for 1%. Raman thermometry runs this backwards to measure temperature.` },
+    fixed: { t: 'Change the pump: does the Raman shift move?',
+      q: 'In spontaneous Raman, moving the pump from bluer to redder makes the Raman shift (cm⁻¹)…', o: ['Grow', 'Shrink', 'Stay the same'],
+      task: `In Spontaneous mode, sweep the pump from <b>below 750 nm</b> to <b>above 1050 nm</b> and watch the peak on the scan.`,
+      ex: `The Stokes <b>wavelength</b> follows the pump, but the <b>shift</b> ${M('Ω')} is set by the bond alone — which is why Raman spectra are always plotted in cm⁻¹, so spectra taken with different lasers line up.` },
+    srl: { t: 'At resonance, what happens to the pump?',
+      q: 'When SRS is on resonance, the pump beam…', o: ['Gets stronger', 'Gets weaker', 'Is unchanged'],
+      task: `Switch to SRS and hit resonance (|A| > 95%); watch the pump and Stokes lines on the spectrum.`,
+      ex: `Each stimulated Raman event turns one pump photon into one Stokes photon and leaves ${M('ħΩ')} in the vibration: the pump loses (SRL) and the Stokes gains (SRG) — two faces of the same process.` },
+    half: { t: 'Leave exactly half the SRS signal',
+      task: `In SRS mode, move Δ to where the signal is <b>50%</b> of the peak (±3%).`,
+      ex: `At half height ${M('|Ω − Δ| = Γ')}, so ${M('FWHM = 2Γ')}. The SRS line is a pure Lorentzian, so you can read the linewidth directly; once ${M('χ<sub>NR</sub>')} distorts CARS you can't.` },
   },
+  'tour.route': { spont: 'Spontaneous', cars: 'CARS', srs: 'SRS' },
+  'tour.spont.steps': [
+    ['One laser is enough', `Spontaneous Raman needs a single beam. The second row has one colour and no beat; in the third row every molecule jiggles on its own with a random phase — nobody is pushing them.`],
+    ['Scattered everywhere', `Each molecule scatters independently and incoherently, so the signal scales only as ${M('N')} (not ${M('N²')}) and spreads into 4π; you collect a small fraction. It is ~10⁵× weaker than CARS/SRS, so integration times of seconds are common.`],
+    ['Stokes on the red side', `The scattered light has lost one vibrational quantum, so it appears red of the pump, shifted by ${M('Ω')} — right on top of fluorescence. Change the pump colour and the Stokes peak moves with it, but the <b>Raman shift (cm⁻¹) stays put</b>.`],
+    ['Almost no anti-Stokes', `To scatter anti-Stokes the molecule must already be vibrationally excited. The room-temperature population is ${M('e<sup>−hcΩ/k<sub>B</sub>T</sup>')}: 10⁻⁶ at 2845 cm⁻¹. Lower Ω to 960 cm⁻¹ (apatite) and the ratio rises to about 1%.`],
+    ['The whole spectrum at once', `The x-axis is Raman shift and the width ${M('FWHM = 2Γ')} is the molecule's own linewidth. No laser tuning needed: one spectrometer and a CCD capture the whole spectrum in one shot — its biggest advantage.`],
+    ['Compare with CARS', `CARS uses the beat to <b>drive</b> the molecules into step: the signal scales as ${M('N²')} and moves to the blue, clear of fluorescence. Pick “CARS” above for the full story, or go back to the sliders.`],
+  ],
+  'tour.srs.steps': [
+    ['The same beat', `SRS uses the same pump + Stokes pair as CARS and the same beat ${M('Δ')} to drive the molecules to resonance. The difference is not how they are pushed but <b>where you look</b>.`],
+    ['Look at the lasers', `Each push converts one pump photon into one Stokes photon: the pump gets weaker (SRL), the Stokes stronger (SRG), and the energy difference goes into the vibration. No new colour — the signal rides on the lasers.`],
+    ['A 10⁻⁴ signal', `The ${M('ΔI')} on the plot is exaggerated about 10³×; in reality ${M('ΔI/I')} ~ 10⁻⁴. The trick: switch the Stokes on and off at MHz, so the pump carries a tiny modulation at that frequency, and dig it out with a lock-in amplifier.`],
+    ['A symmetric Lorentzian', `Sweeping Δ gives an SRS spectrum that depends only on ${M('Im χ')}: a symmetric Lorentzian peaked at ${M('Ω')}, with a linewidth you can read directly.`],
+    ['χ<sub>NR</sub> stays out', `Crank ${M('χ<sub>NR</sub>')} to 0.9: the SRS curve does not budge; only the dashed CARS comparison is distorted. ${M('χ<sub>NR</sub>')} is real, and SRS sees only the imaginary part.`],
+    ['Directly quantitative', `The signal scales as ${M('N·I<sub>p</sub>·I<sub>s</sub>')}: linear in concentration with no background, so SRS images convert straight into concentration maps. The price is lock-in detection and, mostly, forward-only collection.`],
+  ],
   'tour.go': '▶ Play the guided tour',
   'tour.pitch': '10 steps, about 90 seconds: start from one beam and watch the beat push the molecules. ← → to step, space to pause.',
   'tour.play': '▶ Play', 'tour.pause': '❚❚ Pause', 'tour.again': 'From the top', 'tour.close': '✕ Explore',
@@ -1223,8 +1296,8 @@ function pushURL() {
 // 再只把第 k 步演出來，所以倒退、跳步都不會留下半套狀態。導覽期間三張圖讀 TOUR.p 而不讀滑桿；
 // 使用者一碰任何控制項，導覽就把當下的參數交還給他。
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOUR_BASE = { m: 'cars', lp: 800, d: 0, om: 2845, g: 12, nr: 0.3, stokes: 0, sum: 0, mol: 0, reveal: 1, focus: 'beat' };
-const TOUR_STEPS = [
+const TOUR_BASE_CARS = { m: 'cars', lp: 800, d: 0, om: 2845, g: 12, nr: 0.3, stokes: 0, sum: 0, mol: 0, reveal: 1, focus: 'beat' };
+const TOUR_STEPS_CARS = [
   { from: {}, seq: [[2600]] },
   { from: { d: 0 }, seq: [[1200, { stokes: 1 }], [1800]] },
   { from: {}, seq: [[700, { sum: 1 }], [3600, { d: 2000 }], [800]] },
@@ -1237,13 +1310,42 @@ const TOUR_STEPS = [
   { from: { m: 'cars', focus: null, stokes: 1, sum: 1, mol: 1, reveal: 1 }, seq: [[1200, { nr: 0.3, d: 2845 }]] },
 ];
 const EASE = { io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2, out: t => 1 - Math.pow(1 - t, 3), lin: t => t };
-const TOUR = { on: false, k: -1, playing: false, token: 0, p: { ...TOUR_BASE } };
+// 另外兩條路線：自發拉曼、SRS
+const ROUTES = {
+  cars: { base: TOUR_BASE_CARS, steps: TOUR_STEPS_CARS, text: 'tour.steps' },
+  spont: {
+    base: { m: 'spont', lp: 800, d: 2845, om: 2845, g: 12, nr: 0.3, stokes: 1, sum: 1, mol: 1, reveal: 1, focus: 'beat' },
+    text: 'tour.spont.steps',
+    steps: [
+      { from: {}, seq: [[2600]] },
+      { from: {}, seq: [[2400]] },
+      { from: { focus: 'spec' }, seq: [[600], [2400, { lp: 900 }], [800], [2000, { lp: 800 }]] },
+      { from: { focus: 'spec' }, seq: [[900], [2800, { om: 960, g: 8 }], [1600], [2000, { om: 2845, g: 12 }]] },
+      { from: { focus: 'scan' }, seq: [[600], [2400, { g: 60 }], [700], [1800, { g: 12 }]] },
+      { from: { focus: null }, seq: [[1200]] },
+    ],
+  },
+  srs: {
+    base: { m: 'srs', lp: 800, d: 2000, om: 2845, g: 12, nr: 0.3, stokes: 1, sum: 1, mol: 1, reveal: 1, focus: 'beat' },
+    text: 'tour.srs.steps',
+    steps: [
+      { from: { d: 2000 }, seq: [[600], [3200, { d: 2845 }, 'out'], [800]] },
+      { from: { focus: 'spec', d: 2845 }, seq: [[900], [1800, { d: 2700 }], [600], [1800, { d: 2845 }, 'out']] },
+      { from: { focus: 'spec' }, seq: [[2600]] },
+      { from: { focus: 'scan', reveal: 0, d: 0 }, seq: [[600], [5200, { d: 3600, reveal: 1 }, 'lin'], [1400, { d: 2845 }]] },
+      { from: { focus: 'scan' }, seq: [[400], [2800, { nr: 0.9 }], [1000]] },
+      { from: { focus: null }, seq: [[1200, { nr: 0.3 }]] },
+    ],
+  },
+};
+const TOUR = { on: false, k: -1, playing: false, token: 0, route: 'cars', p: { ...TOUR_BASE_CARS } };
+const RT = () => ROUTES[TOUR.route];
 
 const tourFinal = k => {                     // 第 k 步結束時的完整狀態
-  const st = { ...TOUR_BASE };
+  const st = { ...RT().base };
   for (let i = 0; i <= k; i++) {
-    Object.assign(st, TOUR_STEPS[i].from);
-    for (const [, tg] of TOUR_STEPS[i].seq) if (tg) Object.assign(st, tg);
+    Object.assign(st, RT().steps[i].from);
+    for (const [, tg] of RT().steps[i].seq) if (tg) Object.assign(st, tg);
   }
   return st;
 };
@@ -1284,24 +1386,30 @@ function tween(ms, tg, ease, token) {
 async function tourGoto(k, animate = true) {
   const token = ++TOUR.token;
   TOUR.k = k;
-  tourApplyInstant(k > 0 ? tourFinal(k - 1) : { ...TOUR_BASE });
-  tourApplyInstant(TOUR_STEPS[k].from);
+  tourApplyInstant(k > 0 ? tourFinal(k - 1) : { ...RT().base });
+  tourApplyInstant(RT().steps[k].from);
   tourRender(true);
   if (!animate) { tourApplyInstant(tourFinal(k)); return; }
-  for (const [ms, tg, ease] of TOUR_STEPS[k].seq) {
+  for (const [ms, tg, ease] of RT().steps[k].seq) {
     await tween(ms, tg, ease, token);
     if (token !== TOUR.token) return;
   }
   if (!TOUR.playing) return;
   // 留時間讀旁白（中文約 13 字／秒）
-  const chars = t('tour.steps')[k][1].replace(/<[^>]+>/g, '').length;
+  const chars = t(RT().text)[k][1].replace(/<[^>]+>/g, '').length;
   await new Promise(r => setTimeout(r, Math.min(9000, 1400 + chars * (LANG === 'en' ? 24 : 62))));
   if (token !== TOUR.token || !TOUR.playing) return;
-  if (k < TOUR_STEPS.length - 1) tourGoto(k + 1);
+  if (k < RT().steps.length - 1) tourGoto(k + 1);
   else { TOUR.playing = false; tourRender(false); }
 }
 function tourRender(newStep) {
-  const steps = t('tour.steps'), k = Math.max(0, TOUR.k), n = steps.length;
+  const steps = t(RT().text), k = Math.max(0, TOUR.k), n = steps.length;
+  const RN = t('tour.route');
+  $('tourRoutes').innerHTML = ['spont', 'cars', 'srs'].map(r => `<button data-r="${r}" class="${r === TOUR.route ? 'on' : ''}">${RN[r]}</button>`).join('');
+  $('tourRoutes').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.r === TOUR.route) return;
+    TOUR.route = b.dataset.r; TOUR.playing = true; tourGoto(0);
+  });
   $('tourN').textContent = `${k + 1} / ${n}`;
   $('tourTitle').innerHTML = steps[k][0];
   const say = $('tourSay');
@@ -1315,8 +1423,8 @@ function tourRender(newStep) {
   $('tourSteps').querySelectorAll('button').forEach(b => b.onclick = () => { TOUR.playing = false; tourGoto(+b.dataset.i); });
 }
 const tourBody = document.querySelector('.tour-body');
-function tourStart(k = 0, play = true) {
-  TOUR.on = true; TOUR.playing = play;
+function tourStart(k = 0, play = true, route = mode) {
+  TOUR.on = true; TOUR.playing = play; TOUR.route = ROUTES[route] ? route : 'cars';
   document.querySelector('aside.controls').prepend(tourBody);   // 講解面板搬到右側欄
   $('tour').classList.add('on'); document.body.classList.add('touring');
   tourGoto(k);
@@ -1326,8 +1434,8 @@ function tourStart(k = 0, play = true) {
 // fromSlider：使用者正在拖的那支滑桿值已經是他要的，別蓋掉
 function tourExit(keep = true, fromSlider = false) {
   TOUR.token++; TOUR.playing = false;
-  if (!keep) tourApplyInstant(tourFinal(TOUR_STEPS.length - 1));
-  if (!fromSlider) { syncSliders(); $('delta').value = Math.round(TOUR.p.d / 5) * 5; }
+  if (!keep) tourApplyInstant(tourFinal(RT().steps.length - 1));
+  if (!fromSlider) { syncSliders(); $('delta').value = Math.round(TOUR.p.d); }
   TOUR.on = false; CH.armed = false;   // 導覽留下的狀態不算使用者自己解出來的
   $('tour').classList.remove('on'); document.body.classList.remove('touring');
   $('tour').appendChild(tourBody);
@@ -1336,11 +1444,11 @@ function tourExit(keep = true, fromSlider = false) {
 }
 $('tourPlay').onclick = () => {
   TOUR.playing = !TOUR.playing;
-  if (TOUR.playing) tourGoto(TOUR.k >= TOUR_STEPS.length - 1 ? 0 : TOUR.k);
+  if (TOUR.playing) tourGoto(TOUR.k >= RT().steps.length - 1 ? 0 : TOUR.k);
   else { TOUR.token++; tourRender(false); }
 };
 $('tourPrev').onclick = () => { TOUR.playing = false; if (TOUR.k > 0) tourGoto(TOUR.k - 1); };
-$('tourNext').onclick = () => { TOUR.playing = false; if (TOUR.k < TOUR_STEPS.length - 1) tourGoto(TOUR.k + 1); };
+$('tourNext').onclick = () => { TOUR.playing = false; if (TOUR.k < RT().steps.length - 1) tourGoto(TOUR.k + 1); };
 $('tourAgain').onclick = () => { TOUR.playing = true; tourGoto(0); };
 $('tourClose').onclick = () => tourExit(false);
 document.addEventListener('keydown', e => {
@@ -1357,12 +1465,16 @@ document.addEventListener('keydown', e => {
 // 每題一個條件函式，主迴圈每幀用目前參數檢查；使用者碰過控制項（armed）之後才算數，
 // 所以網址參數或導覽留下的狀態不會自動過關。有 pred 的題目先猜、再動手、最後揭曉。
 const CH_DEF = [
-  { key: 'nobeat', demo: 1, pred: 1, ok: s => s.mode !== 'spont' && s.D <= 10 },
-  { key: 'lag90',  demo: 4,          ok: s => s.mode !== 'spont' && s.A > 0.95 && Math.abs(s.ph - 90) <= 3 },
-  { key: 'anti',   demo: 4, pred: 2, ok: s => s.mode !== 'spont' && s.ph >= 165 && s.A > 0.08 },
-  { key: 'shift',  demo: 7,          ok: s => s.mode === 'cars' && s.shift >= 5 },
-  { key: 'color',  demo: 5,          ok: s => s.mode === 'cars' && Math.abs(s.om - 2930) <= 5 && s.A > 0.9 && Math.abs(lamAS(s.D) - 700) <= 2 },
-  { key: 'srs',    demo: 8,          ok: s => s.mode === 'srs' && s.nr >= 0.3 },
+  { key: 'nobeat', demo: ['cars', 1], pred: 1, ok: s => s.mode !== 'spont' && s.D <= 10 },
+  { key: 'lag90',  demo: ['cars', 4],          ok: s => s.mode !== 'spont' && s.A > 0.95 && Math.abs(s.ph - 90) <= 3 },
+  { key: 'anti',   demo: ['cars', 4], pred: 2, ok: s => s.mode !== 'spont' && s.ph >= 165 && s.A > 0.08 },
+  { key: 'shift',  demo: ['cars', 7],          ok: s => s.mode === 'cars' && s.shift >= 5 },
+  { key: 'color',  demo: ['cars', 5],          ok: s => s.mode === 'cars' && Math.abs(s.om - 2930) <= 5 && s.A > 0.9 && Math.abs(lamAS(s.D) - 700) <= 2 },
+  { key: 'srs',    demo: ['cars', 8],          ok: s => s.mode === 'srs' && s.nr >= 0.3 },
+  { key: 'boltz', demo: ['spont', 3], pred: 2, ok: s => s.mode === 'spont' && s.boltz >= 0.0099 },
+  { key: 'fixed', demo: ['spont', 2], pred: 2, ok: s => s.mode === 'spont' && s.lpMin <= 750 && s.lpMax >= 1050 },
+  { key: 'srl',   demo: ['srs', 1],   pred: 1, ok: s => s.mode === 'srs' && s.A > 0.95 },
+  { key: 'half',  demo: ['srs', 3],            ok: s => s.mode === 'srs' && Math.abs(s.sig - 0.5) <= 0.03 },
 ];
 const CH_STORE = 'owl-cars-challenges';
 const CH = { armed: false, done: {}, guess: {}, cur: 0, just: null };
@@ -1372,11 +1484,15 @@ const chFirstOpen = () => { const i = CH_DEF.findIndex(c => !CH.done[c.key]); re
 
 function chCheck({ D, om, g, nr }) {
   if (TOUR.on || !CH.armed) return;
+  // 「換 pump」那題要看自發模式下 pump 掃過的範圍；離開自發模式就重算
+  if (mode === 'spont') { CH.lpMin = Math.min(CH.lpMin ?? LP, LP); CH.lpMax = Math.max(CH.lpMax ?? LP, LP); }
+  else CH.lpMin = CH.lpMax = undefined;
   const st = { D, om, g, nr, mode, A: ampl(D, om, g), ph: phase(D, om, g) * 180 / Math.PI,
-               shift: nr > 0.02 ? g * carsExtrema(g, nr).xp : 0 };
+               shift: nr > 0.02 ? g * carsExtrema(g, nr).xp : 0, boltz: Math.exp(-om / KT), sig: imChi(D, om, g),
+               lpMin: CH.lpMin ?? LP, lpMax: CH.lpMax ?? LP };
   for (let i = 0; i < CH_DEF.length; i++) {
     const c = CH_DEF[i];
-    if (CH.done[c.key] || !c.ok(st)) continue;
+    if (CH.done[c.key] || (c.pred !== undefined && CH.guess[c.key] === undefined) || !c.ok(st)) continue;   // 要先猜的題目，猜了才算
     CH.done[c.key] = true; CH.just = c.key; CH.cur = i; chSave(); chRender();
     const tt = $('chToast'); tt.innerHTML = t('ch.toast', t('ch.list')[c.key].t);
     tt.classList.add('show'); clearTimeout(chCheck.tm); chCheck.tm = setTimeout(() => tt.classList.remove('show'), 2200);
@@ -1405,7 +1521,7 @@ function chRender() {
     <div class="ch-bar"><i style="width:${100 * n / m}%"></i></div>
     <div class="ch-grid"><div class="ch-card">${body}</div>
       <ol class="ch-list">${CH_DEF.map((x, i) => `<li><button data-i="${i}" class="${i === CH.cur ? 'on' : ''} ${CH.done[x.key] ? 'done' : ''} ${CH.just === x.key ? 'just' : ''}">` +
-        `<span class="ic">${CH.done[x.key] ? '✓' : i + 1}</span><span class="lbl">${L[x.key].t}</span></button></li>`).join('')}</ol></div>
+        `<span class="ic">${CH.done[x.key] ? '✓' : i + 1}</span><span class="lbl">${L[x.key].t}</span><span class="tag lbl">${t('tour.route')[x.demo[0]]}</span></button></li>`).join('')}</ol></div>
     <p class="ch-tip">${t('ch.tip')}</p>`;
   CH.just = null;
   $('tourGo').onclick = () => tourStart();
@@ -1413,7 +1529,7 @@ function chRender() {
   $('chal').querySelectorAll('.ch-list [data-i]').forEach(b => b.onclick = () => { CH.cur = +b.dataset.i; chSave(); chRender(); });
   $('chal').querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
     const a = b.dataset.act;
-    if (a === 'demo') tourStart(c.demo, false);
+    if (a === 'demo') tourStart(c.demo[1], false, c.demo[0]);
     else if (a === 'next') { CH.cur = chFirstOpen(); chSave(); chRender(); }
     else if (a === 'reset') { CH.done = {}; CH.guess = {}; CH.cur = 0; chSave(); chRender(); }
   });
@@ -1471,7 +1587,8 @@ bindDrag(N.cv, 'scan', pickScan, (dg, x) => {
 applyLang();
 applyState(readURL());
 chRender();
-if (new URLSearchParams(location.search).get('tour') === '1') tourStart();
+{ const q = new URLSearchParams(location.search).get('tour');
+  if (q) tourStart(0, true, ROUTES[q] ? q : mode); }
 
 // —— 主迴圈 ——
 let time = 0, last = performance.now();
@@ -1482,7 +1599,7 @@ function frame(now) {
   if (TOUR.on) syncSliders();
   const Q = TOUR.on ? TOUR.p : null;
   LP = Q ? Math.round(Q.lp) : +$('pump').value;
-  const D = Q ? Q.d : +$('delta').value, om = Q ? Q.om : +$('omega').value, g = Q ? Q.g : +$('gamma').value, nr = Q ? Q.nr : +$('nr').value;
+  const D = Q ? Q.d : +$('delta').value, om = Q ? Math.round(Q.om) : +$('omega').value, g = Q ? Math.round(Q.g) : +$('gamma').value, nr = Q ? Q.nr : +$('nr').value;
   $('pOut').textContent = `${LP} nm (${fmt(WN(LP), 0)} cm⁻¹)`;
   $('dOut').textContent = `${Math.round(D)} cm⁻¹`;
   $('omOut').textContent = `${om} cm⁻¹`;
