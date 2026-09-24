@@ -118,6 +118,56 @@
   table.cmp td.on, table.cmp th.on { background: var(--panel2); }
   .model { font-size: 0.76rem; color: var(--dim); line-height: 1.7; }
   .model .m { color: var(--muted); }
+  /* —— 導覽 / Guided tour —— */
+  .tour { width: 100%; max-width: 940px; background: var(--panel); border-radius: 12px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+  :root[data-theme="light"] .tour { box-shadow: 0 1px 3px rgba(20,24,40,0.06); }
+  .tour-start { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.84rem; color: var(--muted); }
+  .tour-start button, .tour-ctl button {
+    font-family: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--grid);
+    background: none; color: var(--ink); font-size: 0.82rem; padding: 6px 12px; line-height: 1.2;
+    transition: border-color .15s, background-color .15s, color .15s, transform .15s;
+  }
+  .tour-start button.go, .tour-ctl button.play { background: var(--as); border-color: var(--as); color: var(--on-ink); font-weight: 600; }
+  .tour-start button:hover, .tour-ctl button:hover { border-color: var(--muted); }
+  .tour-start button.go:hover, .tour-ctl button.play:hover { transform: translateY(-1px); }
+  .tour-ctl button:disabled { opacity: .35; cursor: default; transform: none; }
+  .tour-body { display: none; grid-template-columns: minmax(0, 1fr) 230px; gap: 10px 24px; }
+  .tour.on .tour-body { display: grid; }
+  .tour.on .tour-start { display: none; }
+  .tour-head { display: flex; align-items: baseline; gap: 10px; font-size: 0.8rem; color: var(--dim); }
+  .tour-head b { color: var(--as); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .tour-head span { color: var(--ink); font-weight: 600; font-size: 0.95rem; }
+  .tour-say { margin: 4px 0 0; font-size: 0.92rem; line-height: 1.8; color: var(--ink); min-height: 5.4em; }
+  .tour-say .m { color: var(--as); }
+  .tour-say.fade { animation: tour-in .45s ease both; }
+  @keyframes tour-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .tour-ctl { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  .tour-ctl .sp { flex: 1; }
+  .tour-bar { height: 3px; background: var(--grid); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .tour-bar i { display: block; height: 100%; width: 0; background: var(--as); transition: width .35s ease; }
+  .tour-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; }
+  .tour-steps button {
+    width: 100%; text-align: left; font-family: inherit; font-size: inherit; cursor: pointer; color: var(--muted);
+    background: none; border: 0; border-left: 2px solid transparent; padding: 4px 8px; border-radius: 0 6px 6px 0; line-height: 1.4;
+  }
+  .tour-steps button:hover { color: var(--ink); background: var(--panel2); }
+  .tour-steps button.on { color: var(--ink); font-weight: 600; border-left-color: var(--as); background: var(--panel2); }
+  .tour-steps button.done { color: var(--dim); }
+  .tour-steps small { display: inline-block; width: 1.4em; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .stack canvas { transition: opacity .5s ease, box-shadow .5s ease; }
+  body.touring .stack canvas { opacity: .32; }
+  body.touring .stack canvas.focus { opacity: 1; box-shadow: 0 0 0 2px var(--as); }
+  @media (max-width: 720px) {
+    .tour-body { grid-template-columns: 1fr; }
+    .tour-steps { flex-direction: row; flex-wrap: wrap; }
+    .tour-steps button { width: auto; border-left: 0; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; }
+    .tour-steps button.on { border-bottom-color: var(--as); }
+    .tour-steps .lbl { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tour-say.fade { animation: none; }
+    .stack canvas { transition: none; }
+  }
   @media (max-width: 640px) {
     body { padding: 12px 10px 32px; }
     .controls { flex: 1 1 100%; max-width: 100%; }
@@ -128,6 +178,28 @@
 <body>
 <h1 data-i18n="title"></h1>
 <p class="sub" data-i18n="sub"></p>
+<section class="tour" id="tour" aria-label="guided tour">
+  <div class="tour-start">
+    <button class="go" id="tourGo" data-i18n="tour.go"></button>
+    <span data-i18n="tour.pitch"></span>
+  </div>
+  <div class="tour-body">
+    <div>
+      <div class="tour-head"><b id="tourN"></b><span id="tourTitle"></span></div>
+      <p class="tour-say" id="tourSay" aria-live="polite"></p>
+      <div class="tour-ctl">
+        <button id="tourPrev" data-i18n-title="tour.prev" aria-label="prev">‹</button>
+        <button class="play" id="tourPlay"></button>
+        <button id="tourNext" data-i18n-title="tour.next" aria-label="next">›</button>
+        <button id="tourAgain" data-i18n="tour.again"></button>
+        <span class="sp"></span>
+        <button id="tourClose" data-i18n="tour.close"></button>
+      </div>
+      <div class="tour-bar"><i id="tourBar"></i></div>
+    </div>
+    <ol class="tour-steps" id="tourSteps"></ol>
+  </div>
+</section>
 <div class="wrap">
   <div class="stack">
     <canvas id="beat"></canvas>
@@ -317,6 +389,23 @@ zh: {
     分子振幅 ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}、相位落後 ${M('φ = atan2(Γ, Ω−Δ)')}。
     未含雷射脈衝頻寬的摺積、電子共振與相位匹配因子；第一張圖的橫軸比例為真（24 個 pump 週期，拍數 = 24·Δ/ω<sub>p</sub>），
     但第二張圖 SRS 的 ΔI 為了看得見已放大約 10³ 倍。波長換算 ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}。`,
+  // 導覽
+  'tour.go': '▶ 播放導覽',
+  'tour.pitch': '10 步、約 1 分半，從一束光開始，看拍頻怎麼把分子推起來。← → 換步、空白鍵暫停。',
+  'tour.play': '▶ 播放', 'tour.pause': '❚❚ 暫停', 'tour.again': '從頭播', 'tour.close': '✕ 自己玩',
+  'tour.prev': '上一步', 'tour.next': '下一步',
+  'tour.steps': [
+    ['一束光', `先只打一束 800 nm 的 pump。圖上是 24 個光學週期，比例是真的。單色光的強度平平的，沒有節奏，也就沒有任何東西去「推」分子。`],
+    ['第二束：Stokes', `再疊一束 Stokes（橘色虛線）。先讓它跟 pump 同色：${M('Δ = 0')}，兩道波完全重疊，相加只是更亮，依然沒有節奏。`],
+    ['拉開顏色 → 拍頻', `把 Stokes 往紅側拉。兩者的頻率差 ${M('Δ = ω<sub>p</sub> − ω<sub>s</sub>')} 在相加的波上長出一明一暗的「拍」（灰色包絡）。拍的強度以頻率 Δ 起伏——這就是推分子的那隻手。`],
+    ['推鞦韆', `化學鍵像一座固有頻率 ${M('Ω')} 的鞦韆（脂質 CH₂：2845 cm⁻¹）。推的節奏差很多時，分子幾乎不動。現在把 Δ 慢慢靠近 Ω……`],
+    ['共振：落後 90°', `${M('Δ = Ω')} 的瞬間，整片分子同步盪起來，而且振動比推力的峰（灰色虛線）<b>落後 90°</b>——所有受驅振子共振時的指紋。稍微推過頭，分子轉成反相、振幅立刻掉下來。`],
+    ['新顏色：anti-Stokes', `同步振動的分子再把 pump 散射一次，產生 ${M('ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub>')} 的新光（紫色）：比 pump 還藍，天生避開紅側的螢光，一片帶通濾鏡就分得開。`],
+    ['掃出一條光譜', `固定 pump，把 Δ 從 0 掃到 3600 cm⁻¹，記下每一點的 anti-Stokes 強度，就是 CARS 光譜。先假設沒有背景（${M('χ<sub>NR</sub> = 0')}）：Ω 上一根乾淨的峰。`],
+    ['χ<sub>NR</sub> 的代價', `真實樣品（水、玻璃、任何介質）都有不靠共振的四波混頻 ${M('χ<sub>NR</sub>')}。它跟共振訊號<b>干涉</b>：峰往低波數偏、高波數側挖出一個比基線還低的凹陷。這是 CARS 的固有痛點。`],
+    ['SRS：拿掉背景', `SRS 量的是雷射本身的微小增減（pump 變弱、Stokes 變強），只跟 ${M('Im χ')} 有關，${M('χ<sub>NR</sub>')} 進不來：同樣的參數，線型回到對稱的 Lorentzian（灰色虛線是 CARS 對照）。`],
+    ['換你玩', `導覽結束，右邊的滑桿都能拖了。試試把 Γ 拉寬、換成「水 O–H」，或切到「自發拉曼」看只有一束雷射時是什麼樣子。`],
+  ],
 },
 en: {
   'title': 'CARS Beat-Frequency Playground 🦉',
@@ -421,6 +510,22 @@ en: {
     molecular amplitude ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}, phase lag ${M('φ = atan2(Γ, Ω−Δ)')}.
     Not included: convolution with the laser bandwidth, electronic resonances, phase-matching factors. The first panel is drawn to true scale (24 pump cycles, number of beats = 24·Δ/ω<sub>p</sub>);
     the SRS ΔI in the second panel is exaggerated ~10³× so it can be seen. Conversion ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}.`,
+  'tour.go': '▶ Play the guided tour',
+  'tour.pitch': '10 steps, about 90 seconds: start from one beam and watch the beat push the molecules. ← → to step, space to pause.',
+  'tour.play': '▶ Play', 'tour.pause': '❚❚ Pause', 'tour.again': 'From the top', 'tour.close': '✕ Explore',
+  'tour.prev': 'Previous step', 'tour.next': 'Next step',
+  'tour.steps': [
+    ['One beam', `Start with a single 800 nm pump. The plot spans 24 optical cycles, drawn to true scale. A single colour has a flat intensity: no rhythm, so nothing “pushes” the molecules.`],
+    ['A second beam: Stokes', `Add a Stokes beam (orange dashes). First give it the same colour as the pump, ${M('Δ = 0')}: the two waves overlap exactly and their sum is just brighter, still with no rhythm.`],
+    ['Pull the colours apart → a beat', `Tune the Stokes to the red. The difference ${M('Δ = ω<sub>p</sub> − ω<sub>s</sub>')} grows a bright–dark <b>beat</b> on the summed wave (grey envelope). The beat intensity rises and falls at Δ — that is the hand that pushes the molecules.`],
+    ['Pushing the swing', `A chemical bond is a swing with its own frequency ${M('Ω')} (lipid CH₂: 2845 cm⁻¹). When the push is far off tempo, the molecules barely move. Now bring Δ slowly towards Ω…`],
+    ['Resonance: a 90° lag', `The moment ${M('Δ = Ω')}, every molecule swings together, and the vibration <b>lags the push peaks (grey dashes) by 90°</b> — the fingerprint of any driven oscillator at resonance. Overshoot a little and the molecules flip to antiphase and the amplitude drops.`],
+    ['A new colour: anti-Stokes', `The coherently vibrating molecules scatter the pump once more, making new light at ${M('ω<sub>as</sub> = 2ω<sub>p</sub> − ω<sub>s</sub>')} (purple): bluer than the pump, clear of the red-side fluorescence, and separable with one bandpass filter.`],
+    ['Sweep out a spectrum', `Hold the pump and sweep Δ from 0 to 3600 cm⁻¹, recording the anti-Stokes intensity at each point: that is a CARS spectrum. First assume no background (${M('χ<sub>NR</sub> = 0')}): one clean peak at Ω.`],
+    ['The price of χ<sub>NR</sub>', `Real samples (water, glass, any medium) have non-resonant four-wave mixing ${M('χ<sub>NR</sub>')}. It <b>interferes</b> with the resonant signal: the peak shifts to lower wavenumber and a dip below the baseline opens on the high side. This is CARS's built-in headache.`],
+    ['SRS: no background', `SRS measures tiny gains and losses on the lasers themselves (pump weaker, Stokes stronger). It depends only on ${M('Im χ')}, so ${M('χ<sub>NR</sub>')} cannot enter: with the same parameters the line is a symmetric Lorentzian again (grey dashes: CARS for comparison).`],
+    ['Your turn', `That's the tour — every slider on the right is yours now. Try widening Γ, picking “Water O–H”, or switching to Spontaneous to see what one laser alone gives you.`],
+  ],
 },
 };
 let LANG = 'zh';
@@ -461,6 +566,7 @@ function applyLang() {
     `<tr><td>${r[0]}</td><td data-m="spont">${r[1]}</td><td data-m="cars">${r[2]}</td><td data-m="srs">${r[3]}</td></tr>`).join('');
   $('hints').innerHTML = t('hints').map(p => `<p>${p}</p>`).join('');
   if (typeof relabel === 'function') relabel();
+  if (typeof TOUR !== 'undefined' && TOUR.on) tourRender(false);
 }
 function setLang(l) {
   LANG = l === 'en' ? 'en' : 'zh';
@@ -598,11 +704,17 @@ function drawBeat(D, om, g, tm) {
   const y1 = 46, a1 = 20;
   hline(ctx, mL, mL + pw, y1, C.grid);
   path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * np * (u - v * tm))]; }, C.accent, 1.5);
-  if (mode !== 'spont')
+  // 導覽時三列可以逐層點亮（alpha 0 → 1）
+  const VS = TOUR.on ? TOUR.p.stokes : 1, VSUM = TOUR.on ? TOUR.p.sum : 1, VMOL = TOUR.on ? TOUR.p.mol : 1;
+  ctx.globalAlpha = VS;
+  if (mode !== 'spont' && VS > 0)
     path(ctx, pw, i => { const u = i / pw; return [mL + i, y1 - a1 * Math.cos(2 * Math.PI * ns * (u - v * tm))]; }, C.ref, 1.5, [4, 4]);
+  ctx.globalAlpha = 1;
   txt(ctx, `pump ${LP} nm`, mL + 2, 15, C.accent);
+  ctx.globalAlpha = VS;
   if (mode === 'spont') txt(ctx, t('b.oneLaser'), mL + 100, 15, C.muted);
   else txt(ctx, `Stokes ${lamS(D).toFixed(0)} nm`, mL + 100, 15, C.ref);
+  ctx.globalAlpha = 1;
   const wide = W >= 520;
   const rlab = (wide ? t('b.axis', fmt(24 * LP / 1000, 1)) : '') + (mode === 'spont' ? '' : t('b.ratio', fmt(100 * D / wp, 1), wide));
   txt(ctx, rlab, mL + pw, 15, C.dim, 'right', FONT_S);
@@ -610,6 +722,7 @@ function drawBeat(D, om, g, tm) {
   // 第二列：相加 + 包絡
   const y2 = 122, a2 = 15;
   hline(ctx, mL, mL + pw, y2, C.grid);
+  ctx.globalAlpha = VSUM;
   if (mode === 'spont') {
     path(ctx, pw, i => { const u = i / pw; return [mL + i, y2 - a2 * 1.3 * Math.cos(2 * Math.PI * np * (u - v * tm))]; }, C.ink, 1.4);
     txt(ctx, t('b.single'), mL + 2, y2 - 32, C.muted);
@@ -625,10 +738,12 @@ function drawBeat(D, om, g, tm) {
     txt(ctx, t('b.sum', nb < 0.5 ? null : fmt(nb, 1)), mL + 2, y2 - 32, C.ink);
     if (D < 30) txt(ctx, t('b.same'), mL + pw * 0.62, y2 - 32, C.ref, 'center');
   }
+  ctx.globalAlpha = 1;
 
   // 第三列：分子振動
   const y3 = 198;
   hline(ctx, mL, mL + pw, y3, C.grid);
+  ctx.globalAlpha = VMOL;
   if (mode === 'spont') {
     path(ctx, pw, i => {
       const u = i / pw;
@@ -657,6 +772,7 @@ function drawBeat(D, om, g, tm) {
       txt(ctx, rightLab[0], mL + pw, fits ? y3 - 26 : y3 + 34, rightLab[1], 'right', FONT_S);
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 // —— 2. 光譜 ——
@@ -772,6 +888,10 @@ function drawScan(D, om, g, nr, cur) {
   ctx.restore();
 
   const { res, pure, lor, max, n } = cur;
+  // 導覽時曲線跟著 Δ 游標「畫出來」
+  const REV = TOUR.on ? TOUR.p.reveal : 1;
+  ctx.save();
+  if (REV < 1) { ctx.beginPath(); ctx.rect(0, 0, mL + pw * REV, H); ctx.clip(); }
   const trace = (arr, mx, color, lw, dash) =>
     path(ctx, n, i => [X(DMAX * i / n), Y(arr[i] / mx)], color, lw, dash);
 
@@ -808,6 +928,8 @@ function drawScan(D, om, g, nr, cur) {
     if (om < DMAX * 0.7) txt(ctx, `${wide ? '' : '← '}FWHM = 2Γ = ${2 * g} cm⁻¹`, X(om + g) + 8, yh + 4, C.muted, 'left', FONT_S);
     else txt(ctx, `FWHM = 2Γ = ${2 * g} cm⁻¹${wide ? '' : ' →'}`, X(om - g) - 8, yh + 4, C.muted, 'right', FONT_S);
   }
+
+  ctx.restore();
 
   // Ω 標記
   vline(ctx, X(om), mT, base, C.as, [2, 3]);
@@ -907,12 +1029,12 @@ function markMode() {
 }
 MODES.forEach(m => {
   const b = document.createElement('button');
-  b.onclick = () => { mode = m.key; markMode(); pushURL(); };
+  b.onclick = () => { if (TOUR.on) tourExit(true); mode = m.key; markMode(); pushURL(); };
   $('modes').appendChild(b);
 });
 PRESETS.forEach(p => {
   const b = document.createElement('button');
-  b.onclick = () => { $('omega').value = p.om; $('gamma').value = p.g; markPreset(); pushURL(); };
+  b.onclick = () => { if (TOUR.on) tourExit(true); $('omega').value = p.om; $('gamma').value = p.g; markPreset(); pushURL(); };
   $('presets').appendChild(b);
 });
 // 依語言重寫按鈕文字（applyLang 會呼叫）
@@ -925,9 +1047,9 @@ function relabel() {
   });
   markMode();
 }
-$('lock').onclick = () => { $('delta').value = $('omega').value; pushURL(); };
-$('reset').onclick = () => { applyState(DEF); pushURL(); };
-sliders.forEach(id => $(id).addEventListener('input', () => { markPreset(); pushURL(); }));
+$('lock').onclick = () => { if (TOUR.on) tourExit(true); $('delta').value = $('omega').value; pushURL(); };
+$('reset').onclick = () => { if (TOUR.on) tourExit(false); applyState(DEF); pushURL(); };
+sliders.forEach(id => $(id).addEventListener('input', () => { if (TOUR.on) tourExit(true, true); markPreset(); pushURL(); }));
 
 function applyState(s) {
   mode = MODES.some(m => m.key === s.m) ? s.m : DEF.m;
@@ -950,19 +1072,153 @@ function pushURL() {
     history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
   }, 200);
 }
+
+// ═══════════════════════════ 導覽 / Guided tour ═══════════════════════════
+// 每一步 = from（瞬間設定）＋ seq（依序補間 [ms, 目標, 緩動]）。goto(k)：先瞬間套用第 0..k-1 步的最終狀態，
+// 再只把第 k 步演出來，所以倒退、跳步都不會留下半套狀態。導覽期間三張圖讀 TOUR.p 而不讀滑桿；
+// 使用者一碰任何控制項，導覽就把當下的參數交還給他。
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUR_BASE = { m: 'cars', lp: 800, d: 0, om: 2845, g: 12, nr: 0.3, stokes: 0, sum: 0, mol: 0, reveal: 1, focus: 'beat' };
+const TOUR_STEPS = [
+  { from: {}, seq: [[2600]] },
+  { from: { d: 0 }, seq: [[1200, { stokes: 1 }], [1800]] },
+  { from: {}, seq: [[700, { sum: 1 }], [3600, { d: 2000 }], [800]] },
+  { from: {}, seq: [[700, { mol: 1 }], [2400, { d: 2790 }], [2800, { d: 2845 }, 'out']] },
+  { from: { d: 2845 }, seq: [[1800], [1600, { d: 2890 }], [700], [1600, { d: 2845 }]] },
+  { from: { focus: 'spec', d: 2700 }, seq: [[600], [2200, { d: 2845 }, 'out'], [600]] },
+  { from: { focus: 'scan', nr: 0, reveal: 0, d: 0 }, seq: [[600], [5200, { d: 3600, reveal: 1 }, 'lin'], [1400, { d: 2845 }]] },
+  { from: { focus: 'scan' }, seq: [[400], [2800, { nr: 0.6 }]] },
+  { from: { m: 'srs', focus: 'scan' }, seq: [[1200]] },
+  { from: { m: 'cars', focus: null, stokes: 1, sum: 1, mol: 1, reveal: 1 }, seq: [[1200, { nr: 0.3, d: 2845 }]] },
+];
+const EASE = { io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2, out: t => 1 - Math.pow(1 - t, 3), lin: t => t };
+const TOUR = { on: false, k: -1, playing: false, token: 0, p: { ...TOUR_BASE } };
+
+const tourFinal = k => {                     // 第 k 步結束時的完整狀態
+  const st = { ...TOUR_BASE };
+  for (let i = 0; i <= k; i++) {
+    Object.assign(st, TOUR_STEPS[i].from);
+    for (const [, tg] of TOUR_STEPS[i].seq) if (tg) Object.assign(st, tg);
+  }
+  return st;
+};
+function tourApplyInstant(st) {
+  const prevFocus = TOUR.p.focus;
+  Object.assign(TOUR.p, st);
+  if (st.m && st.m !== mode) { mode = st.m; markMode(); }
+  document.querySelectorAll('.stack canvas').forEach(c => c.classList.toggle('focus', !!TOUR.p.focus && c.id === TOUR.p.focus));
+  // 焦點換到畫面外的圖時，把它捲進來
+  const fc = TOUR.p.focus && $(TOUR.p.focus);
+  if (fc && TOUR.on && TOUR.p.focus !== prevFocus) {
+    const r = fc.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > innerHeight) fc.scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'center' });
+  }
+}
+function syncSliders() {
+  const q = TOUR.p;
+  $('pump').value = q.lp; $('delta').value = q.d; $('omega').value = q.om; $('gamma').value = q.g; $('nr').value = q.nr;
+}
+function tween(ms, tg, ease, token) {
+  return new Promise(res => {
+    if (REDUCE) { if (tg) Object.assign(TOUR.p, tg); return res(); }
+    if (!tg) return setTimeout(res, ms);
+    const f = EASE[ease] || EASE.io, a = {};
+    for (const k in tg) a[k] = TOUR.p[k];
+    const t0 = performance.now();
+    const step = now => {
+      if (token !== TOUR.token) return res();
+      const u = Math.min(1, (now - t0) / ms), e = f(u);
+      for (const k in tg) TOUR.p[k] = a[k] + (tg[k] - a[k]) * e;
+      u < 1 ? requestAnimationFrame(step) : res();
+    };
+    requestAnimationFrame(step);
+  });
+}
+async function tourGoto(k, animate = true) {
+  const token = ++TOUR.token;
+  TOUR.k = k;
+  tourApplyInstant(k > 0 ? tourFinal(k - 1) : { ...TOUR_BASE });
+  tourApplyInstant(TOUR_STEPS[k].from);
+  tourRender(true);
+  if (!animate) { tourApplyInstant(tourFinal(k)); return; }
+  for (const [ms, tg, ease] of TOUR_STEPS[k].seq) {
+    await tween(ms, tg, ease, token);
+    if (token !== TOUR.token) return;
+  }
+  if (!TOUR.playing) return;
+  // 留時間讀旁白（中文約 13 字／秒）
+  const chars = t('tour.steps')[k][1].replace(/<[^>]+>/g, '').length;
+  await new Promise(r => setTimeout(r, Math.min(9000, 1400 + chars * (LANG === 'en' ? 24 : 62))));
+  if (token !== TOUR.token || !TOUR.playing) return;
+  if (k < TOUR_STEPS.length - 1) tourGoto(k + 1);
+  else { TOUR.playing = false; tourRender(false); }
+}
+function tourRender(newStep) {
+  const steps = t('tour.steps'), k = Math.max(0, TOUR.k), n = steps.length;
+  $('tourN').textContent = `${k + 1} / ${n}`;
+  $('tourTitle').innerHTML = steps[k][0];
+  const say = $('tourSay');
+  say.innerHTML = steps[k][1];
+  if (newStep) { say.classList.remove('fade'); void say.offsetWidth; say.classList.add('fade'); }
+  $('tourBar').style.width = `${100 * (k + 1) / n}%`;
+  $('tourPlay').textContent = TOUR.playing ? t('tour.pause') : t('tour.play');
+  $('tourPrev').disabled = k === 0; $('tourNext').disabled = k === n - 1;
+  $('tourSteps').innerHTML = steps.map((s, i) =>
+    `<li><button data-i="${i}" class="${i === k ? 'on' : i < k ? 'done' : ''}"><small>${i + 1}</small><span class="lbl">${s[0]}</span></button></li>`).join('');
+  $('tourSteps').querySelectorAll('button').forEach(b => b.onclick = () => { TOUR.playing = false; tourGoto(+b.dataset.i); });
+}
+function tourStart() {
+  TOUR.on = true; TOUR.playing = true;
+  $('tour').classList.add('on'); document.body.classList.add('touring');
+  tourGoto(0);
+  $('tour').scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'start' });
+}
+// keep = true：把導覽當下的參數交給滑桿（使用者點了控制項）；false：跳到導覽結尾的狀態
+// fromSlider：使用者正在拖的那支滑桿值已經是他要的，別蓋掉
+function tourExit(keep = true, fromSlider = false) {
+  TOUR.token++; TOUR.playing = false;
+  if (!keep) tourApplyInstant(tourFinal(TOUR_STEPS.length - 1));
+  if (!fromSlider) { syncSliders(); $('delta').value = Math.round(TOUR.p.d / 5) * 5; }
+  TOUR.on = false;
+  $('tour').classList.remove('on'); document.body.classList.remove('touring');
+  document.querySelectorAll('.stack canvas').forEach(c => c.classList.remove('focus'));
+  markMode(); markPreset(); pushURL();
+}
+$('tourGo').onclick = tourStart;
+$('tourPlay').onclick = () => {
+  TOUR.playing = !TOUR.playing;
+  if (TOUR.playing) tourGoto(TOUR.k >= TOUR_STEPS.length - 1 ? 0 : TOUR.k);
+  else { TOUR.token++; tourRender(false); }
+};
+$('tourPrev').onclick = () => { TOUR.playing = false; if (TOUR.k > 0) tourGoto(TOUR.k - 1); };
+$('tourNext').onclick = () => { TOUR.playing = false; if (TOUR.k < TOUR_STEPS.length - 1) tourGoto(TOUR.k + 1); };
+$('tourAgain').onclick = () => { TOUR.playing = true; tourGoto(0); };
+$('tourClose').onclick = () => tourExit(false);
+document.addEventListener('keydown', e => {
+  const el = e.target instanceof Element ? e.target : document.body;
+  if (!TOUR.on || el.closest('input, select, textarea')) return;
+  if (e.key === ' ' && el.closest('button')) return;   // 按鈕上的空白鍵交給按鈕本身
+  if (e.key === 'ArrowRight') { e.preventDefault(); $('tourNext').click(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); $('tourPrev').click(); }
+  else if (e.key === ' ') { e.preventDefault(); $('tourPlay').click(); }
+  else if (e.key === 'Escape') tourExit(false);
+});
 applyLang();
 applyState(readURL());
+if (new URLSearchParams(location.search).get('tour') === '1') tourStart();
 
 // —— 主迴圈 ——
 let time = 0, last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
-  if ($('anim').checked) time += dt * 6;
+  if ($('anim').checked || TOUR.on) time += dt * 6;
 
-  LP = +$('pump').value;
-  const D = +$('delta').value, om = +$('omega').value, g = +$('gamma').value, nr = +$('nr').value;
+  if (TOUR.on) syncSliders();
+  const Q = TOUR.on ? TOUR.p : null;
+  LP = Q ? Math.round(Q.lp) : +$('pump').value;
+  const D = Q ? Q.d : +$('delta').value, om = Q ? Q.om : +$('omega').value, g = Q ? Q.g : +$('gamma').value, nr = Q ? Q.nr : +$('nr').value;
   $('pOut').textContent = `${LP} nm (${fmt(WN(LP), 0)} cm⁻¹)`;
-  $('dOut').textContent = `${D} cm⁻¹`;
+  $('dOut').textContent = `${Math.round(D)} cm⁻¹`;
   $('omOut').textContent = `${om} cm⁻¹`;
   $('gOut').textContent = `${g} cm⁻¹`;
   $('nrOut').textContent = nr.toFixed(2);
