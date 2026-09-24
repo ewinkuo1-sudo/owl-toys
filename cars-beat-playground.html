@@ -134,6 +134,57 @@
   .tour-start button:hover, .tour-ctl button:hover { border-color: var(--muted); }
   .tour-start button.go:hover, .tour-ctl button.play:hover { transform: translateY(-1px); }
   .tour-ctl button:disabled { opacity: .35; cursor: default; transform: none; }
+  /* —— 挑戰 / Challenges —— */
+  .ch-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ch-head h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+  .ch-head .prog { font-size: 0.8rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .ch-head .sp { flex: 1; }
+  .ch-head button, .ch-card button {
+    font-family: inherit; cursor: pointer; border-radius: 999px; border: 1px solid var(--grid);
+    background: none; color: var(--ink); font-size: 0.8rem; padding: 5px 11px; line-height: 1.2;
+    transition: border-color .15s, background-color .15s, transform .15s;
+  }
+  .ch-head button:hover, .ch-card button:hover { border-color: var(--muted); }
+  .ch-bar { height: 3px; background: var(--grid); border-radius: 2px; overflow: hidden; }
+  .ch-bar i { display: block; height: 100%; background: var(--srs); transition: width .5s ease; }
+  .ch-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 14px 22px; }
+  .ch-card { min-width: 0; }
+  .ch-card h3 { margin: 0 0 6px; font-size: 1.02rem; color: var(--ink); }
+  .ch-card p { margin: 0 0 8px; font-size: 0.9rem; line-height: 1.75; color: var(--ink); }
+  .ch-card .lead { color: var(--dim); font-size: 0.78rem; letter-spacing: .06em; margin: 0 0 2px; }
+  .ch-card .opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .ch-card .opts button { border-radius: 8px; padding: 7px 12px; font-size: 0.86rem; }
+  .ch-card .opts button:hover { border-color: var(--as); transform: translateY(-1px); }
+  .ch-card .guess { font-size: 0.82rem; color: var(--muted); }
+  .ch-card .guess b { color: var(--as); }
+  .ch-card .explain { border-left: 3px solid var(--srs); padding: 6px 0 6px 12px; background: var(--panel2); border-radius: 0 8px 8px 0; animation: tour-in .45s ease both; }
+  .ch-card .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .ch-card .row .next { background: var(--srs); border-color: var(--srs); color: var(--on-ink); font-weight: 600; }
+  .ch-card .task { color: var(--ink); }
+  .ch-card .task b { color: var(--as); }
+  .ch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; }
+  .ch-list button {
+    width: 100%; text-align: left; font-family: inherit; font-size: inherit; cursor: pointer; color: var(--muted);
+    background: none; border: 0; padding: 5px 8px; border-radius: 6px; line-height: 1.4; display: flex; gap: 8px; align-items: baseline;
+  }
+  .ch-list button:hover { background: var(--panel2); color: var(--ink); }
+  .ch-list button.on { background: var(--panel2); color: var(--ink); font-weight: 600; }
+  .ch-list .ic { flex: none; width: 1.1em; text-align: center; color: var(--dim); }
+  .ch-list .done .ic { color: var(--srs); }
+  .ch-list .done { color: var(--dim); }
+  .ch-list .just .ic { animation: ch-pop .6s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes ch-pop { from { transform: scale(0.2); } to { transform: none; } }
+  .ch-tip { margin: 0; font-size: 0.78rem; color: var(--dim); }
+  .ch-toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; z-index: 30; pointer-events: none;
+    background: var(--srs); color: var(--on-ink); font-weight: 600; font-size: 0.9rem; padding: 9px 16px; border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2); transition: opacity .3s ease, transform .3s ease;
+  }
+  .ch-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  canvas.dragging { cursor: ew-resize; }
+  #spec, #scan { touch-action: pan-y; }
+  @media (max-width: 720px) { .ch-grid { grid-template-columns: 1fr; } .ch-list { flex-direction: row; flex-wrap: wrap; } .ch-list button { width: auto; } .ch-list .lbl { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .ch-list .just .ic, .ch-card .explain { animation: none; } .ch-toast { transition: none; } }
   /* 導覽期間：講解面板搬進右側欄並固定在視窗內，圖在左邊跑，隨時看得到第幾步 */
   .tour-body { display: none; grid-template-columns: minmax(0, 1fr); gap: 14px; }
   body.touring .tour-body { display: grid; }
@@ -196,10 +247,7 @@
 <h1 data-i18n="title"></h1>
 <p class="sub" data-i18n="sub"></p>
 <section class="tour" id="tour" aria-label="guided tour">
-  <div class="tour-start">
-    <button class="go" id="tourGo" data-i18n="tour.go"></button>
-    <span data-i18n="tour.pitch"></span>
-  </div>
+  <div class="tour-start" id="chal"></div>
   <div class="tour-body">
     <div>
       <div class="tour-head"><b id="tourN"></b><span id="tourTitle"></span></div>
@@ -265,6 +313,7 @@
   </aside>
 </div>
 
+<div class="ch-toast" id="chToast" role="status"></div>
 <section class="notes">
   <div class="card">
     <h3 data-i18n="cmp.title"></h3>
@@ -406,6 +455,37 @@ zh: {
     分子振幅 ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}、相位落後 ${M('φ = atan2(Γ, Ω−Δ)')}。
     未含雷射脈衝頻寬的摺積、電子共振與相位匹配因子；第一張圖的橫軸比例為真（24 個 pump 週期，拍數 = 24·Δ/ω<sub>p</sub>），
     但第二張圖 SRS 的 ΔI 為了看得見已放大約 10³ 倍。波長換算 ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}。`,
+  // 挑戰
+  'ch.title': '🎯 挑戰',
+  'ch.prog': (n, m) => `${n} / ${m} 完成`,
+  'ch.tour': '▶ 看完整導覽', 'ch.reset': '重來', 'ch.demo': '看示範', 'ch.next': '下一題 →',
+  'ch.guessLead': '先猜猜看', 'ch.taskLead': '動手', 'ch.doneLead': '✓ 完成',
+  'ch.right': g => `你猜「<b>${g}</b>」——猜對了。`, 'ch.wrong': g => `你猜「<b>${g}</b>」——跟實際不一樣，看看為什麼：`,
+  'ch.toast': s => `✓ ${s}`,
+  'ch.all': '六題全破！試試別的分子，或把 pump 波長拉到極端看看會發生什麼。',
+  'ch.tip': '小技巧：光譜圖上的 pump／Stokes／anti-Stokes 線，還有掃描圖上的 Δ 游標和 Ω 虛線，都可以直接用滑鼠或手指拖。',
+  'ch.list': {
+    nobeat: { t: '讓拍頻消失',
+      q: '如果兩束雷射同色（Δ = 0），分子會怎樣？', o: ['盪到最大', '幾乎不動', '反相振動'],
+      task: `把 ${M('Δ')} 拉到 0——或在光譜圖上把 Stokes 線直接拖到 pump 上。`,
+      ex: `同色就沒有拍：兩束光的推力合起來是定值，沒有節奏，鞦韆不會被準時推。掃描曲線上剩下的那條基線是 ${M('χ<sub>NR</sub>')} 的非共振背景，不是分子在振動。` },
+    lag90: { t: '讓分子落後剛好 90°',
+      task: `讓 |A| 超過 <b>95%</b>、落後角 ${M('φ')} 在 <b>90° ± 3°</b> 以內。提示：在掃描圖上把 Δ 游標拖到 Ω 的虛線上。`,
+      ex: `共振時位移落後推力 90°，等於<b>速度</b>跟推力同相——每一下都推在順勢的方向，能量輸入最多，所以振幅最大。這是所有受驅振子共振時的共同指紋。` },
+    anti: { t: '讓分子跟推力反著走',
+      q: '如果拍頻比分子振動快一點（Δ > Ω），分子會？', o: ['跟推力同步', '落後 90°', '幾乎反相'],
+      task: `把落後角推到 <b>165° 以上</b>，同時振幅還看得見（|A| > 8%）。推過頭一點點就好。`,
+      ex: `推得太快，分子的慣性跟不上，位移幾乎與推力反相；Δ 遠低於 Ω 時則相反，分子乖乖同相跟著推。這個相位翻轉正是 CARS 線型不對稱的根源。` },
+    shift: { t: '把峰擠離 Ω 至少 5 cm⁻¹',
+      task: `在 CARS 模式下，讓掃描曲線的峰往低波數偏移 <b>≥ 5 cm⁻¹</b>。${M('χ<sub>NR</sub>')} 和 ${M('Γ')} 都可以動。`,
+      ex: `峰偏移 = ${M('Γ·x₊')}：${M('χ<sub>NR</sub>')} 越大、線寬越寬，偏得越多。實際量 CARS 光譜時直接讀峰位會讀錯，要用相位還原（MEM、Kramers–Kronig）才拿得回真正的 Ω。` },
+    color: { t: '讓蛋白質的 anti-Stokes 落在 700 nm',
+      task: `選「蛋白質 CH₃」、對準共振（|A| > 90%），再調 pump 波長，讓 anti-Stokes 落在 <b>700 ± 2 nm</b>。`,
+      ex: `${M('ω<sub>as</sub> = ω<sub>p</sub> + Ω')}，所以 ${M('λ<sub>as</sub> = 10⁷ / (10⁷/λ<sub>p</sub> + Ω)')}。要 700 nm、Ω = 2930 cm⁻¹，pump 得在 ≈ 880 nm。換分子就得重配雷射，這也是多色 CARS 需要可調雷射（OPO）的原因。` },
+    srs: { t: '找一個沒有 χ<sub>NR</sub> 背景的方法',
+      task: `保持 ${M('χ<sub>NR</sub>')} ≥ 0.3，換一種技術，讓線型回到對稱。`,
+      ex: `SRS 只量 ${M('Im χ')}，而 ${M('χ<sub>NR</sub>')} 是實數，進不來。代價是訊號變成雷射上 10⁻⁴ 量級的微小增減，要靠 MHz 調變＋鎖相放大器挖出來。` },
+  },
   // 導覽
   'tour.go': '▶ 播放導覽',
   'tour.pitch': '10 步、約 1 分半，從一束光開始，看拍頻怎麼把分子推起來。← → 換步、空白鍵暫停。',
@@ -527,6 +607,36 @@ en: {
     molecular amplitude ${M('|A(Δ)| = Γ / √((Ω−Δ)² + Γ²)')}, phase lag ${M('φ = atan2(Γ, Ω−Δ)')}.
     Not included: convolution with the laser bandwidth, electronic resonances, phase-matching factors. The first panel is drawn to true scale (24 pump cycles, number of beats = 24·Δ/ω<sub>p</sub>);
     the SRS ΔI in the second panel is exaggerated ~10³× so it can be seen. Conversion ${M('ω [cm⁻¹] = 10⁷ / λ [nm]')}.`,
+  'ch.title': '🎯 Challenges',
+  'ch.prog': (n, m) => `${n} / ${m} done`,
+  'ch.tour': '▶ Watch the full tour', 'ch.reset': 'Reset', 'ch.demo': 'Show me', 'ch.next': 'Next →',
+  'ch.guessLead': 'Guess first', 'ch.taskLead': 'Try it', 'ch.doneLead': '✓ Done',
+  'ch.right': g => `You guessed “<b>${g}</b>” — right.`, 'ch.wrong': g => `You guessed “<b>${g}</b>” — not quite. Here's why:`,
+  'ch.toast': s => `✓ ${s}`,
+  'ch.all': 'All six cleared! Try other molecules, or push the pump wavelength to the extremes and see what happens.',
+  'ch.tip': 'Tip: the pump / Stokes / anti-Stokes lines on the spectrum, and the Δ cursor and Ω marker on the scan, can all be dragged directly.',
+  'ch.list': {
+    nobeat: { t: 'Make the beat disappear',
+      q: 'If both lasers have the same colour (Δ = 0), what do the molecules do?', o: ['Swing the most', 'Barely move', 'Vibrate in antiphase'],
+      task: `Bring ${M('Δ')} to 0 — or drag the Stokes line onto the pump in the spectrum.`,
+      ex: `Same colour, no beat: the combined push is constant, with no rhythm, so the swing is never pushed on time. The baseline left on the scan is the non-resonant ${M('χ<sub>NR</sub>')} background, not molecular vibration.` },
+    lag90: { t: 'Make the molecules lag by exactly 90°',
+      task: `Get |A| above <b>95%</b> with the lag ${M('φ')} within <b>90° ± 3°</b>. Hint: drag the Δ cursor on the scan onto the Ω marker.`,
+      ex: `At resonance the displacement lags the push by 90°, which means the <b>velocity</b> is in phase with it: every push lands in the direction of motion, energy input is maximal, and so is the amplitude. Every driven oscillator shares this fingerprint.` },
+    anti: { t: 'Make the molecules fight the push',
+      q: 'If the beat is a little faster than the vibration (Δ > Ω), the molecules…', o: ['Follow the push', 'Lag by 90°', 'Nearly antiphase'],
+      task: `Push the lag above <b>165°</b> while the amplitude is still visible (|A| > 8%). Overshoot just a little.`,
+      ex: `Driven too fast, the molecules' inertia can't keep up and the displacement ends up almost opposite the push; far below Ω they follow in phase. This phase flip is exactly why the CARS line shape is asymmetric.` },
+    shift: { t: 'Push the peak ≥ 5 cm⁻¹ away from Ω',
+      task: `In CARS mode, make the scan peak shift to lower wavenumber by <b>≥ 5 cm⁻¹</b>. Both ${M('χ<sub>NR</sub>')} and ${M('Γ')} are fair game.`,
+      ex: `Peak shift = ${M('Γ·x₊')}: bigger ${M('χ<sub>NR</sub>')} and broader lines shift more. Reading peak positions straight off a measured CARS spectrum is wrong; phase retrieval (MEM, Kramers–Kronig) recovers the true Ω.` },
+    color: { t: 'Put protein anti-Stokes at 700 nm',
+      task: `Pick “Protein CH₃”, hit resonance (|A| > 90%), then tune the pump so anti-Stokes lands at <b>700 ± 2 nm</b>.`,
+      ex: `${M('ω<sub>as</sub> = ω<sub>p</sub> + Ω')}, so ${M('λ<sub>as</sub> = 10⁷ / (10⁷/λ<sub>p</sub> + Ω)')}. For 700 nm with Ω = 2930 cm⁻¹ the pump must sit near 880 nm. A new molecule means re-tuning the lasers, which is why multicolour CARS needs tunable sources (OPOs).` },
+    srs: { t: 'Find a method with no χ<sub>NR</sub> background',
+      task: `Keep ${M('χ<sub>NR</sub>')} ≥ 0.3 and switch technique until the line is symmetric again.`,
+      ex: `SRS measures only ${M('Im χ')}, and ${M('χ<sub>NR</sub>')} is real, so it cannot enter. The price: the signal becomes a 10⁻⁴-level gain/loss on the lasers, dug out with MHz modulation and a lock-in amplifier.` },
+  },
   'tour.go': '▶ Play the guided tour',
   'tour.pitch': '10 steps, about 90 seconds: start from one beam and watch the beat push the molecules. ← → to step, space to pause.',
   'tour.play': '▶ Play', 'tour.pause': '❚❚ Pause', 'tour.again': 'From the top', 'tour.close': '✕ Explore',
@@ -584,6 +694,7 @@ function applyLang() {
   $('hints').innerHTML = t('hints').map(p => `<p>${p}</p>`).join('');
   if (typeof relabel === 'function') relabel();
   if (typeof TOUR !== 'undefined' && TOUR.on) tourRender(false);
+  if (typeof chRender === 'function' && typeof CH !== 'undefined') chRender();
 }
 function setLang(l) {
   LANG = l === 'en' ? 'en' : 'zh';
@@ -704,6 +815,8 @@ function scanCurve(om, g, nr, n = 720) {
   }
   return { res, pure, lor, max, n };
 }
+
+let SPEC_G = null, SCAN_G = null, HOVER = null, DRAG = null;   // 圖上拖曳：繪圖時記下座標換算
 
 // —— 1. 拍頻（橫軸比例真實）——
 function drawBeat(D, om, g, tm) {
@@ -829,6 +942,7 @@ function drawSpec(D, om, g) {
     if (label) ctxt(ctx, label, X(l), Y(frac) + dy, color, mL, mL + pw);
   };
   const ls = lamS(D), las = lamAS(D);
+  SPEC_G = { mL, pw, LMIN, LMAX, base, X, ls, las };
 
   if (mode !== 'spont') {
     // 共振時 Stokes 應該在的位置（Δ = Ω）
@@ -880,6 +994,17 @@ function drawSpec(D, om, g) {
     ctxt(ctx, t('s.boltz', sci(boltz)), X(lra), Y(0.05) - 6, rgba(C.asRgb, 0.75), mL, X(LP) - 4);
     txt(ctx, t('s.spontHead'), mL + 2, 16, C.muted, 'left', FONT_S);
   }
+  // 可拖曳的把手（導覽時不畫）
+  if (!TOUR.on) {
+    const grips = [['pump', LP, C.accent]];
+    if (mode !== 'spont') grips.push(['stokes', ls, C.ref]);
+    if (mode === 'cars') grips.push(['as', las, C.as]);
+    for (const [k, l, col] of grips) grip(ctx, X(l), base, col, HOVER === 'spec:' + k || DRAG?.key === k);
+  }
+}
+function grip(ctx, x, y, color, hot) {
+  ctx.beginPath(); ctx.arc(x, y, hot ? 7 : 5, 0, 2 * Math.PI);
+  ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = C.panel; ctx.stroke();
 }
 
 // —— 3. 失諧掃描 ——
@@ -890,6 +1015,7 @@ function drawScan(D, om, g, nr, cur) {
   const pw = W - mL - mR, ph = H - mT - mB, base = mT + ph;
   const X = d => mL + pw * d / DMAX;
   const Y = v => base - ph * 0.9 * v;
+  SCAN_G = { mL, pw, X };
 
   for (let d = 0; d <= DMAX; d += 500) {
     vline(ctx, X(d), mT, base, C.grid);
@@ -951,6 +1077,7 @@ function drawScan(D, om, g, nr, cur) {
   // Ω 標記
   vline(ctx, X(om), mT, base, C.as, [2, 3]);
   txt(ctx, `Ω = ${om}`, X(om), mT - 8, C.as, 'center', FONT_S);
+  if (!TOUR.on) grip(ctx, X(om), mT + 4, C.as, HOVER === 'scan:om' || DRAG?.key === 'om');
 
   // 目前 Δ
   if (mode !== 'spont') {
@@ -1066,7 +1193,8 @@ function relabel() {
 }
 $('lock').onclick = () => { if (TOUR.on) tourExit(true); $('delta').value = $('omega').value; pushURL(); };
 $('reset').onclick = () => { if (TOUR.on) tourExit(false); applyState(DEF); pushURL(); };
-sliders.forEach(id => $(id).addEventListener('input', () => { if (TOUR.on) tourExit(true, true); markPreset(); pushURL(); }));
+sliders.forEach(id => $(id).addEventListener('input', () => { if (TOUR.on) tourExit(true, true); CH.armed = true; markPreset(); pushURL(); }));
+['modes', 'presets', 'lock', 'reset'].forEach(id => $(id).addEventListener('click', () => { CH.armed = true; }));
 
 function applyState(s) {
   mode = MODES.some(m => m.key === s.m) ? s.m : DEF.m;
@@ -1187,11 +1315,11 @@ function tourRender(newStep) {
   $('tourSteps').querySelectorAll('button').forEach(b => b.onclick = () => { TOUR.playing = false; tourGoto(+b.dataset.i); });
 }
 const tourBody = document.querySelector('.tour-body');
-function tourStart() {
-  TOUR.on = true; TOUR.playing = true;
+function tourStart(k = 0, play = true) {
+  TOUR.on = true; TOUR.playing = play;
   document.querySelector('aside.controls').prepend(tourBody);   // 講解面板搬到右側欄
   $('tour').classList.add('on'); document.body.classList.add('touring');
-  tourGoto(0);
+  tourGoto(k);
   document.querySelector('.wrap').scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'start' });
 }
 // keep = true：把導覽當下的參數交給滑桿（使用者點了控制項）；false：跳到導覽結尾的狀態
@@ -1200,13 +1328,12 @@ function tourExit(keep = true, fromSlider = false) {
   TOUR.token++; TOUR.playing = false;
   if (!keep) tourApplyInstant(tourFinal(TOUR_STEPS.length - 1));
   if (!fromSlider) { syncSliders(); $('delta').value = Math.round(TOUR.p.d / 5) * 5; }
-  TOUR.on = false;
+  TOUR.on = false; CH.armed = false;   // 導覽留下的狀態不算使用者自己解出來的
   $('tour').classList.remove('on'); document.body.classList.remove('touring');
   $('tour').appendChild(tourBody);
   document.querySelectorAll('.stack canvas').forEach(c => c.classList.remove('focus'));
   markMode(); markPreset(); pushURL();
 }
-$('tourGo').onclick = tourStart;
 $('tourPlay').onclick = () => {
   TOUR.playing = !TOUR.playing;
   if (TOUR.playing) tourGoto(TOUR.k >= TOUR_STEPS.length - 1 ? 0 : TOUR.k);
@@ -1225,8 +1352,125 @@ document.addEventListener('keydown', e => {
   else if (e.key === ' ') { e.preventDefault(); $('tourPlay').click(); }
   else if (e.key === 'Escape') tourExit(false);
 });
+
+// ═══════════════════════════ 挑戰 / Challenges ═══════════════════════════
+// 每題一個條件函式，主迴圈每幀用目前參數檢查；使用者碰過控制項（armed）之後才算數，
+// 所以網址參數或導覽留下的狀態不會自動過關。有 pred 的題目先猜、再動手、最後揭曉。
+const CH_DEF = [
+  { key: 'nobeat', demo: 1, pred: 1, ok: s => s.mode !== 'spont' && s.D <= 10 },
+  { key: 'lag90',  demo: 4,          ok: s => s.mode !== 'spont' && s.A > 0.95 && Math.abs(s.ph - 90) <= 3 },
+  { key: 'anti',   demo: 4, pred: 2, ok: s => s.mode !== 'spont' && s.ph >= 165 && s.A > 0.08 },
+  { key: 'shift',  demo: 7,          ok: s => s.mode === 'cars' && s.shift >= 5 },
+  { key: 'color',  demo: 5,          ok: s => s.mode === 'cars' && Math.abs(s.om - 2930) <= 5 && s.A > 0.9 && Math.abs(lamAS(s.D) - 700) <= 2 },
+  { key: 'srs',    demo: 8,          ok: s => s.mode === 'srs' && s.nr >= 0.3 },
+];
+const CH_STORE = 'owl-cars-challenges';
+const CH = { armed: false, done: {}, guess: {}, cur: 0, just: null };
+try { Object.assign(CH, JSON.parse(localStorage.getItem(CH_STORE) || '{}'), { armed: false, just: null }); } catch (e) {}
+const chSave = () => { try { localStorage.setItem(CH_STORE, JSON.stringify({ done: CH.done, guess: CH.guess, cur: CH.cur })); } catch (e) {} };
+const chFirstOpen = () => { const i = CH_DEF.findIndex(c => !CH.done[c.key]); return i < 0 ? CH_DEF.length - 1 : i; };
+
+function chCheck({ D, om, g, nr }) {
+  if (TOUR.on || !CH.armed) return;
+  const st = { D, om, g, nr, mode, A: ampl(D, om, g), ph: phase(D, om, g) * 180 / Math.PI,
+               shift: nr > 0.02 ? g * carsExtrema(g, nr).xp : 0 };
+  for (let i = 0; i < CH_DEF.length; i++) {
+    const c = CH_DEF[i];
+    if (CH.done[c.key] || !c.ok(st)) continue;
+    CH.done[c.key] = true; CH.just = c.key; CH.cur = i; chSave(); chRender();
+    const tt = $('chToast'); tt.innerHTML = t('ch.toast', t('ch.list')[c.key].t);
+    tt.classList.add('show'); clearTimeout(chCheck.tm); chCheck.tm = setTimeout(() => tt.classList.remove('show'), 2200);
+  }
+}
+function chRender() {
+  const L = t('ch.list'), n = CH_DEF.filter(c => CH.done[c.key]).length, m = CH_DEF.length;
+  const c = CH_DEF[CH.cur], d = L[c.key], done = !!CH.done[c.key], g = CH.guess[c.key];
+  const needGuess = c.pred !== undefined && g === undefined && !done;
+  let body = `<h3>${d.t}</h3>`;
+  if (needGuess) {
+    body += `<p class="lead">${t('ch.guessLead')}</p><p>${d.q}</p><div class="opts">` +
+      d.o.map((o, i) => `<button data-g="${i}">${o}</button>`).join('') + `</div>`;
+  } else {
+    body += `<p class="lead">${done ? t('ch.doneLead') : t('ch.taskLead')}</p><p class="task">${d.task}</p>`;
+    if (g !== undefined && done) body += `<p class="guess">${g === c.pred ? t('ch.right', d.o[g]) : t('ch.wrong', d.o[g])}</p>`;
+    if (done) body += `<p class="explain">${d.ex}</p>`;
+  }
+  const allDone = n === m;
+  body += `<div class="row"><button data-act="demo">${t('ch.demo')}</button>` +
+    (done && !allDone ? `<button class="next" data-act="next">${t('ch.next')}</button>` : '') + `</div>`;
+  if (allDone && done) body += `<p class="guess" style="margin-top:8px">${t('ch.all')}</p>`;
+  $('chal').innerHTML = `
+    <div class="ch-head"><h2>${t('ch.title')}</h2><span class="prog">${t('ch.prog', n, m)}</span><span class="sp"></span>
+      <button id="tourGo">${t('ch.tour')}</button><button data-act="reset">${t('ch.reset')}</button></div>
+    <div class="ch-bar"><i style="width:${100 * n / m}%"></i></div>
+    <div class="ch-grid"><div class="ch-card">${body}</div>
+      <ol class="ch-list">${CH_DEF.map((x, i) => `<li><button data-i="${i}" class="${i === CH.cur ? 'on' : ''} ${CH.done[x.key] ? 'done' : ''} ${CH.just === x.key ? 'just' : ''}">` +
+        `<span class="ic">${CH.done[x.key] ? '✓' : i + 1}</span><span class="lbl">${L[x.key].t}</span></button></li>`).join('')}</ol></div>
+    <p class="ch-tip">${t('ch.tip')}</p>`;
+  CH.just = null;
+  $('tourGo').onclick = () => tourStart();
+  $('chal').querySelectorAll('[data-g]').forEach(b => b.onclick = () => { CH.guess[c.key] = +b.dataset.g; chSave(); chRender(); });
+  $('chal').querySelectorAll('.ch-list [data-i]').forEach(b => b.onclick = () => { CH.cur = +b.dataset.i; chSave(); chRender(); });
+  $('chal').querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const a = b.dataset.act;
+    if (a === 'demo') tourStart(c.demo, false);
+    else if (a === 'next') { CH.cur = chFirstOpen(); chSave(); chRender(); }
+    else if (a === 'reset') { CH.done = {}; CH.guess = {}; CH.cur = 0; chSave(); chRender(); }
+  });
+}
+
+// ═══════════════════════════ 圖上直接拖曳 / Direct manipulation ═══════════════════════════
+// 光譜圖：拖 pump 線 → λp；拖 Stokes／anti-Stokes 線 → Δ。掃描圖：拖 Ω 把手 → Ω，其他地方 → Δ。
+// 按下時把座標換算凍結起來（拖 pump 會改變光譜軸範圍，不凍結會抖）。
+const setSlider = (id, v) => { const el = $(id); el.value = v; el.dispatchEvent(new Event('input')); };
+const localX = (cv, e) => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) * (parseFloat(cv.style.width) || r.width) / r.width; };
+function pickSpec(x) {
+  if (!SPEC_G) return null;
+  const G = SPEC_G, c = [['pump', G.X(+$('pump').value)]];
+  if (mode !== 'spont') c.push(['stokes', G.X(G.ls)]);
+  if (mode === 'cars') c.push(['as', G.X(G.las)]);
+  let best = null, bd = 14;
+  for (const [k, px] of c) { const d = Math.abs(px - x); if (d < bd) { bd = d; best = k; } }
+  return best;
+}
+function pickScan(x) {
+  if (!SCAN_G) return null;
+  if (Math.abs(SCAN_G.X(+$('omega').value) - x) < 10) return 'om';
+  return mode === 'spont' ? null : 'delta';
+}
+function bindDrag(cv, name, pick, apply) {
+  cv.addEventListener('pointermove', e => {
+    const x = localX(cv, e);
+    if (DRAG && DRAG.cv === cv) { apply(DRAG, x); return; }
+    const k = TOUR.on ? null : pick(x);
+    HOVER = k ? `${name}:${k}` : null;
+    cv.style.cursor = k ? 'ew-resize' : '';
+  });
+  cv.addEventListener('pointerleave', () => { if (!DRAG) { HOVER = null; cv.style.cursor = ''; } });
+  cv.addEventListener('pointerdown', e => {
+    const x = localX(cv, e), k = pick(x);
+    if (!k) return;
+    if (TOUR.on) tourExit(true);
+    DRAG = { cv, key: k, G: name === 'spec' ? { ...SPEC_G } : { ...SCAN_G }, lp: +$('pump').value };
+    cv.setPointerCapture(e.pointerId); cv.classList.add('dragging');
+    apply(DRAG, x); e.preventDefault();
+  });
+  const end = () => { if (DRAG && DRAG.cv === cv) { DRAG = null; cv.classList.remove('dragging'); } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+}
+bindDrag(S.cv, 'spec', pickSpec, (dg, x) => {
+  const G = dg.G, l = G.LMIN + (x - G.mL) / G.pw * (G.LMAX - G.LMIN);
+  if (dg.key === 'pump') setSlider('pump', l);
+  else if (dg.key === 'stokes') setSlider('delta', WN(dg.lp) - WN(l));
+  else setSlider('delta', WN(l) - WN(dg.lp));
+});
+bindDrag(N.cv, 'scan', pickScan, (dg, x) => {
+  const d = (x - dg.G.mL) / dg.G.pw * DMAX;
+  setSlider(dg.key === 'om' ? 'omega' : 'delta', d);
+});
 applyLang();
 applyState(readURL());
+chRender();
 if (new URLSearchParams(location.search).get('tour') === '1') tourStart();
 
 // —— 主迴圈 ——
@@ -1249,6 +1493,7 @@ function frame(now) {
   const target = updateStats(D, om, g, nr, cur);
   asDisp += (target - asDisp) * Math.min(1, dt * 8);
 
+  chCheck({ D, om, g, nr, lp: LP });
   drawBeat(D, om, g, time);
   drawSpec(D, om, g);
   drawScan(D, om, g, nr, cur);
