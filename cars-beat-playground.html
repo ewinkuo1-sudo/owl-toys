@@ -134,13 +134,19 @@
   .tour-start button:hover, .tour-ctl button:hover { border-color: var(--muted); }
   .tour-start button.go:hover, .tour-ctl button.play:hover { transform: translateY(-1px); }
   .tour-ctl button:disabled { opacity: .35; cursor: default; transform: none; }
-  .tour-body { display: none; grid-template-columns: minmax(0, 1fr) 230px; gap: 10px 24px; }
-  .tour.on .tour-body { display: grid; }
-  .tour.on .tour-start { display: none; }
+  /* 導覽期間：講解面板搬進右側欄並固定在視窗內，圖在左邊跑，隨時看得到第幾步 */
+  .tour-body { display: none; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  body.touring .tour-body { display: grid; }
+  body.touring #tour { display: none; }
+  body.touring aside.controls > :not(.tour-body) { display: none; }
+  body.touring aside.controls {
+    position: sticky; top: 16px; align-self: flex-start;
+    max-height: calc(100vh - 32px); overflow-y: auto; border: 1px solid var(--as);
+  }
   .tour-head { display: flex; align-items: baseline; gap: 10px; font-size: 0.8rem; color: var(--dim); }
   .tour-head b { color: var(--as); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
   .tour-head span { color: var(--ink); font-weight: 600; font-size: 0.95rem; }
-  .tour-say { margin: 4px 0 0; font-size: 0.92rem; line-height: 1.8; color: var(--ink); min-height: 5.4em; }
+  .tour-say { margin: 6px 0 0; font-size: 0.92rem; line-height: 1.8; color: var(--ink); min-height: 9em; }
   .tour-say .m { color: var(--as); }
   .tour-say.fade { animation: tour-in .45s ease both; }
   @keyframes tour-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -160,10 +166,18 @@
   .stack canvas { transition: opacity .5s ease, box-shadow .5s ease; }
   body.touring .stack canvas { opacity: .32; }
   body.touring .stack canvas.focus { opacity: 1; box-shadow: 0 0 0 2px var(--as); }
-  @media (max-width: 720px) {
-    .tour-body { grid-template-columns: 1fr; }
+  /* 手機：右側欄在圖下方，改成貼在畫面底部的講解面板 */
+  @media (max-width: 640px) {
+    body.touring { padding-bottom: 50vh; }
+    body.touring aside.controls { position: static; padding: 0; border: 0; background: none; box-shadow: none; max-height: none; overflow: visible; }
+    body.touring .tour-body {
+      position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 20; gap: 8px;
+      background: var(--panel); border: 1px solid var(--as); border-radius: 12px; padding: 12px 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28); max-height: 46vh; overflow-y: auto;
+    }
+    .tour-say { min-height: 0; font-size: 0.88rem; line-height: 1.7; }
     .tour-steps { flex-direction: row; flex-wrap: wrap; }
-    .tour-steps button { width: auto; border-left: 0; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; }
+    .tour-steps button { width: auto; border-left: 0; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; padding: 3px 7px; }
     .tour-steps button.on { border-bottom-color: var(--as); }
     .tour-steps .lbl { display: none; }
   }
@@ -1114,7 +1128,9 @@ function tourApplyInstant(st) {
   const fc = TOUR.p.focus && $(TOUR.p.focus);
   if (fc && TOUR.on && TOUR.p.focus !== prevFocus) {
     const r = fc.getBoundingClientRect();
-    if (r.top < 0 || r.bottom > innerHeight) fc.scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'center' });
+    const phone = matchMedia('(max-width: 640px)').matches;
+    const room = phone ? innerHeight * 0.5 : innerHeight;             // 手機底部被講解面板佔掉一半
+    if (r.top < 0 || r.bottom > room) fc.scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: phone ? 'start' : 'center' });
   }
 }
 function syncSliders() {
@@ -1170,11 +1186,13 @@ function tourRender(newStep) {
     `<li><button data-i="${i}" class="${i === k ? 'on' : i < k ? 'done' : ''}"><small>${i + 1}</small><span class="lbl">${s[0]}</span></button></li>`).join('');
   $('tourSteps').querySelectorAll('button').forEach(b => b.onclick = () => { TOUR.playing = false; tourGoto(+b.dataset.i); });
 }
+const tourBody = document.querySelector('.tour-body');
 function tourStart() {
   TOUR.on = true; TOUR.playing = true;
+  document.querySelector('aside.controls').prepend(tourBody);   // 講解面板搬到右側欄
   $('tour').classList.add('on'); document.body.classList.add('touring');
   tourGoto(0);
-  $('tour').scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'start' });
+  document.querySelector('.wrap').scrollIntoView({ behavior: REDUCE ? 'auto' : 'smooth', block: 'start' });
 }
 // keep = true：把導覽當下的參數交給滑桿（使用者點了控制項）；false：跳到導覽結尾的狀態
 // fromSlider：使用者正在拖的那支滑桿值已經是他要的，別蓋掉
@@ -1184,6 +1202,7 @@ function tourExit(keep = true, fromSlider = false) {
   if (!fromSlider) { syncSliders(); $('delta').value = Math.round(TOUR.p.d / 5) * 5; }
   TOUR.on = false;
   $('tour').classList.remove('on'); document.body.classList.remove('touring');
+  $('tour').appendChild(tourBody);
   document.querySelectorAll('.stack canvas').forEach(c => c.classList.remove('focus'));
   markMode(); markPreset(); pushURL();
 }
